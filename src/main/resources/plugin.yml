@@ -1,0 +1,7 @@
+name: Craftmen
+version: '1.0'
+main: com.tommustbe12.craftmen.Craftmen
+api-version: '1.20'
+authors: [ TomMustBe12 ]
+description: Craftmen server plugin!
+website: https://tommustbe12.com/
