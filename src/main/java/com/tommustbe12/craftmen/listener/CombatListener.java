@@ -49,9 +49,12 @@ public class CombatListener implements Listener {
         dead.setHealth(dead.getMaxHealth()); // reset health
 
         Match match = Craftmen.get().getMatchManager().getMatch(dead);
-        if (match == null) return;
+        if (match == null) {
+            System.out.println("No match found for " + dead.getName() + ", this should NOT happen.");
+            return;
+        }
 
         Player winner = match.getP1() == dead ? match.getP2() : match.getP1();
-        match.end(winner);
+        Craftmen.get().getMatchManager().endMatch(match, winner);
     }
 }

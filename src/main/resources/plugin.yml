@@ -10,3 +10,6 @@ commands:
   checkstatus:
     description: Debug only! Checks your player state
     usage: /checkstatus
+  hub:
+    description: Go to the server hub
+    usage: /hub

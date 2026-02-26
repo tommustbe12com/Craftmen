@@ -10,7 +10,7 @@ import org.bukkit.enchantments.Enchantment;
 public class BoxingGame extends Game {
 
     public BoxingGame() {
-        super("Boxing");
+        super("Boxing", Material.POTATO);
     }
 
     @Override

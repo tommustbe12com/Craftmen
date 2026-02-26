@@ -23,6 +23,8 @@ public class Match {
     }
 
     public void start() {
+        ended = false; // FIX to fix the stupid thingy not letting me do more than 1 match
+
         p1.setGameMode(GameMode.SURVIVAL); // just in case lol and for admins test
         p2.setGameMode(GameMode.SURVIVAL);
 
@@ -37,9 +39,12 @@ public class Match {
         game.startCountdown(this);
     }
 
-    // Call this AFTER match ends
+    // after match end
     public void end(Player winner) {
-        if (ended) return;
+        if (ended) {
+            System.out.println("Match was already ended.");
+            return;
+        }
         ended = true;
 
         game.onEnd(this);

@@ -15,8 +15,8 @@ public class MatchManager {
     }
 
     public void endMatch(Match match, org.bukkit.entity.Player winner) {
-        matches.remove(match);
         match.end(winner);
+        matches.remove(match);
     }
 
     public Match getMatch(Player player) {

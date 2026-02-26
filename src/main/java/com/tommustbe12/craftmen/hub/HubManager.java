@@ -63,7 +63,7 @@ public class HubManager implements Listener {
         Inventory gui = Bukkit.createInventory(null, size, "Select a Game");
 
         for (Game game : Craftmen.get().getGameManager().getGames()) {
-            ItemStack item = new ItemStack(Material.PAPER);
+            ItemStack item = game.getIcon();
             ItemMeta meta = item.getItemMeta();
             meta.setDisplayName("§a" + game.getName());
             item.setItemMeta(meta);

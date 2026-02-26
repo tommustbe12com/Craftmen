@@ -14,7 +14,7 @@ public class PlayerListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         profileManager.getProfile(e.getPlayer());
-        e.getPlayer().sendMessage("§aWelcome to Craftmen Practice Plugin!");
+        e.getPlayer().sendMessage("§aWelcome to Craftmen!");
     }
 
     @EventHandler

@@ -2,8 +2,9 @@ package com.tommustbe12.craftmen;
 
 import com.tommustbe12.craftmen.arena.ArenaManager;
 import com.tommustbe12.craftmen.command.CheckStatusCommand;
+import com.tommustbe12.craftmen.command.HubCommand;
 import com.tommustbe12.craftmen.game.GameManager;
-import com.tommustbe12.craftmen.game.impl.BoxingGame;
+import com.tommustbe12.craftmen.game.impl.*;
 import com.tommustbe12.craftmen.hub.HubManager;
 import com.tommustbe12.craftmen.listener.CombatListener;
 import com.tommustbe12.craftmen.listener.MovementLockListener;
@@ -44,6 +45,10 @@ public final class Craftmen extends JavaPlugin {
 
         // Register example game
         gameManager.registerGame(new BoxingGame());
+        gameManager.registerGame(new ComboGame());
+        gameManager.registerGame(new GappleGame());
+        gameManager.registerGame(new SwordGame());
+        gameManager.registerGame(new AxeGame());
 
         arenaManager.loadArenas();
 
@@ -54,6 +59,7 @@ public final class Craftmen extends JavaPlugin {
 
         getCommand("setuparena").setExecutor(new SetupArenaCommand());
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
+        getCommand("hub").setExecutor(new HubCommand());
     }
 
     @Override
