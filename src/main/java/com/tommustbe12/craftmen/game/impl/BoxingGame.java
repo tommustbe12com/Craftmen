@@ -2,26 +2,33 @@ package com.tommustbe12.craftmen.game.impl;
 
 import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.match.Match;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.enchantments.Enchantment;
 
 public class BoxingGame extends Game {
 
-    public BoxingGame() { super("Boxing"); }
+    public BoxingGame() {
+        super("Boxing");
+    }
 
     @Override
     public void applyLoadout(Player player) {
         player.getInventory().clear();
-        player.getInventory().setArmorContents(null);
+        ItemStack sword = new ItemStack(Material.STONE_SWORD);
+        sword.addEnchantment(Enchantment.KNOCKBACK, 1);
+        player.getInventory().addItem(sword);
     }
 
     @Override
-    public void onStart(Match match) { }
+    public void onStart(Match match) {
+        // n/a
+    }
 
     @Override
-    public void onEnd(Match match) { }
-
-    @Override
-    public void onDeath(Player player, Player killer, Match match) {
-        match.end(killer);
+    public void onEnd(Match match) {
+        match.getP1().sendMessage("§6Match ended!");
+        match.getP2().sendMessage("§6Match ended!");
     }
 }

@@ -3,6 +3,6 @@ package com.tommustbe12.craftmen.profile;
 public enum PlayerState {
     LOBBY,
     QUEUED,
-    IN_MATCH,
-    SPECTATING
+    COUNTDOWN, // player frozen, PvP disabled
+    IN_MATCH // player can move and PvP works
 }

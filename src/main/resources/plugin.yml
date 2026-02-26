@@ -6,3 +6,7 @@ commands:
   setuparena:
     description: Create a new arena
     usage: /setuparena <name>
+    default: op
+  checkstatus:
+    description: Debug only! Checks your player state
+    usage: /checkstatus
