@@ -50,15 +50,14 @@ public class DuelCommand implements CommandExecutor {
 
         // open game selector for sender
         Craftmen.get().getHubManager().openGameSelector(p, (game) -> {
-
             // send duel request after selecting a game
             QueueManager queue = Craftmen.get().getQueueManager();
             queue.addDuelRequest(p, target, game);
 
             p.sendMessage("§aDuel request sent to §e" + target.getName());
 
-            TextComponent msg = new TextComponent("§e" + p.getName() + " has challenged you to a duel! ");
-            TextComponent clickHere = new TextComponent("[CLICK TO ACCEPT]");
+            TextComponent msg = new TextComponent("§e" + p.getName() + " has challenged you to a game of " + game.getName() + "!");
+            TextComponent clickHere = new TextComponent("§f[§aCLICK TO ACCEPT§f]");
             clickHere.setBold(true);
             clickHere.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/accept " + p.getName()));
             msg.addExtra(clickHere);
