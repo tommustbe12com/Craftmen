@@ -69,6 +69,7 @@ public final class Craftmen extends JavaPlugin {
         getCommand("hub").setExecutor(new HubCommand());
         getCommand("duel").setExecutor(new DuelCommand());
         getCommand("accept").setExecutor(new AcceptCommand());
+        getCommand("leavequeue").setExecutor(new LeaveQueueCommand());
 
         saveDefaultConfig();
         loadProfiles();

@@ -55,6 +55,7 @@ public class DuelCommand implements CommandExecutor {
             queue.addDuelRequest(p, target, game);
 
             p.sendMessage("§aDuel request sent to §e" + target.getName());
+            p.playSound(target.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_YES, 1.0f, 1.0f);
 
             TextComponent msg = new TextComponent("§e" + p.getName() + " has challenged you to a game of " + game.getName() + "!");
             TextComponent clickHere = new TextComponent("§f[§aCLICK TO ACCEPT§f]");
@@ -63,6 +64,7 @@ public class DuelCommand implements CommandExecutor {
             msg.addExtra(clickHere);
 
             target.spigot().sendMessage(msg);
+            target.playSound(target.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.2f);
         });
 
         return true;

@@ -19,3 +19,7 @@ commands:
   accept:
     description: Accept a duel request
     usage: /accept <name>
+  leavequeue:
+    aliases: lq
+    description: Leave the queue
+    usage: /leavequeue
