@@ -1,6 +1,8 @@
 package com.tommustbe12.craftmen.listener;
 
 import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.match.Match;
+import com.tommustbe12.craftmen.match.MatchManager;
 import com.tommustbe12.craftmen.profile.Profile;
 import com.tommustbe12.craftmen.profile.ProfileManager;
 import org.bukkit.Bukkit;
@@ -39,9 +41,34 @@ public class PlayerListener implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
-        Craftmen.get().getQueueManager().removePlayer(e.getPlayer());
 
         Player player = e.getPlayer();
+
+        MatchManager matchManager = Craftmen.get().getMatchManager();
+        Match match = matchManager.getMatch(player);
+
+        // are they in a match. if so, end it
+        if (match != null) {
+            Player opponent;
+
+            if (match.getP1().equals(player)) {
+                opponent = match.getP2();
+            } else {
+                opponent = match.getP1();
+            }
+
+            // End match, opponent is winner
+            matchManager.endMatch(match, opponent);
+
+            if (opponent != null && opponent.isOnline()) {
+                opponent.sendMessage("§aYour opponent left the match. You win!");
+            }
+        }
+
+        // remove from q if they are in it
+        Craftmen.get().getQueueManager().removePlayer(player);
+
+        // save cleanup
         Craftmen.get().saveProfile(Craftmen.get().getProfileManager().getProfile(player));
         Craftmen.get().getScoreboardManager().remove(player);
         Craftmen.get().getProfileManager().removeProfile(player);
