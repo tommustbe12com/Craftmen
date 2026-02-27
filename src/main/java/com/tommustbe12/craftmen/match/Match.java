@@ -4,6 +4,7 @@ import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.arena.Arena;
 import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.profile.PlayerState;
+import com.tommustbe12.craftmen.profile.Profile;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 
@@ -59,9 +60,66 @@ public class Match {
         // winner in survival.
         winner.setGameMode(org.bukkit.GameMode.SURVIVAL);
 
-        // notify winner/loser
-        winner.sendMessage("§aYou won!");
-        loser.sendMessage("§cYou lost!");
+        // START COOL ENDING
+        // winner
+        winner.sendTitle(
+                net.md_5.bungee.api.ChatColor.GOLD + "" + net.md_5.bungee.api.ChatColor.BOLD + "VICTORY!",
+                net.md_5.bungee.api.ChatColor.YELLOW + "Defeated " + loser.getName(),
+                10, 70, 20
+        );
+        winner.playSound(winner.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.2f, 1.0f);
+
+        // animate
+        new org.bukkit.scheduler.BukkitRunnable() {
+            int step = 0;
+            final int total = 20; // duration frames
+            @Override
+            public void run() {
+                if (step++ > total) cancel();
+                String ripple = net.md_5.bungee.api.ChatColor.GOLD + "" + net.md_5.bungee.api.ChatColor.BOLD +
+                        "V" + net.md_5.bungee.api.ChatColor.YELLOW + "I" + net.md_5.bungee.api.ChatColor.GOLD + "C" +
+                        net.md_5.bungee.api.ChatColor.YELLOW + "T" + net.md_5.bungee.api.ChatColor.GOLD + "O" +
+                        net.md_5.bungee.api.ChatColor.YELLOW + "R" + net.md_5.bungee.api.ChatColor.GOLD + "Y!";
+                winner.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
+                        net.md_5.bungee.api.chat.TextComponent.fromLegacyText(ripple));
+            }
+        }.runTaskTimer(Craftmen.get(), 0, 2);
+
+        // loser
+        loser.sendTitle(
+                net.md_5.bungee.api.ChatColor.RED + "" + net.md_5.bungee.api.ChatColor.BOLD + "GAME OVER",
+                net.md_5.bungee.api.ChatColor.DARK_RED + "Defeated by " + winner.getName(),
+                10, 70, 20
+        );
+        loser.playSound(loser.getLocation(), org.bukkit.Sound.ENTITY_WITHER_DEATH, 1.0f, 0.8f);
+
+        // Animated action bar ripple for loser
+        new org.bukkit.scheduler.BukkitRunnable() {
+            int step = 0;
+            final int total = 20;
+            @Override
+            public void run() {
+                if (step++ > total) cancel();
+                String ripple = net.md_5.bungee.api.ChatColor.DARK_RED + "G" +
+                        net.md_5.bungee.api.ChatColor.RED + "A" +
+                        net.md_5.bungee.api.ChatColor.DARK_RED + "M" +
+                        net.md_5.bungee.api.ChatColor.RED + "E " +
+                        net.md_5.bungee.api.ChatColor.DARK_RED + "O" +
+                        net.md_5.bungee.api.ChatColor.RED + "V" +
+                        net.md_5.bungee.api.ChatColor.DARK_RED + "E" +
+                        net.md_5.bungee.api.ChatColor.RED + "R";
+                loser.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
+                        net.md_5.bungee.api.chat.TextComponent.fromLegacyText(ripple));
+            }
+        }.runTaskTimer(Craftmen.get(), 0, 2);
+        // END COOL ENDING
+
+        Profile winnerProfile = Craftmen.get().getProfileManager().getProfile(winner);
+        winnerProfile.addWin();
+
+        Profile loserProfile = Craftmen.get().getProfileManager().getProfile(loser);
+        loserProfile.addLoss();
+        loserProfile.addDeath();
 
         // After 5 seconds, send both to hub
         Craftmen.get().getServer().getScheduler().runTaskLater(Craftmen.get(), () -> {

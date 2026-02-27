@@ -1,5 +1,6 @@
 package com.tommustbe12.craftmen.profile;
 
+import com.tommustbe12.craftmen.Craftmen;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -16,6 +17,16 @@ public class ProfileManager {
     }
 
     public void removeProfile(Player player) {
+
+        Profile profile = profiles.get(player.getUniqueId());
+        if (profile == null) return;
+
+        Craftmen.get().saveProfile(profile);
+
         profiles.remove(player.getUniqueId());
+    }
+
+    public Map<UUID, Profile> getProfiles() {
+        return profiles;
     }
 }
