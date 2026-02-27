@@ -13,3 +13,9 @@ commands:
   hub:
     description: Go to the server hub
     usage: /hub
+  duel:
+    description: Duel a player in Craftmen
+    usage: /duel <name>
+  accept:
+    description: Accept a duel request
+    usage: /accept <name>

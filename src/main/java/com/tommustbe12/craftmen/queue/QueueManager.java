@@ -18,6 +18,19 @@ import java.util.Map;
 public class QueueManager {
 
     private final Map<String, Queue> queues = new HashMap<>();
+    private final Map<Player, DuelRequest> duelRequests = new HashMap<>();
+
+    public void addDuelRequest(Player sender, Player target, Game game) {
+        duelRequests.put(target, new DuelRequest(sender, target, game));
+    }
+
+    public DuelRequest getDuelRequest(Player target) {
+        return duelRequests.get(target);
+    }
+
+    public void removeDuelRequest(Player target) {
+        duelRequests.remove(target);
+    }
 
     public void addPlayer(Player player, Game game) {
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
@@ -42,7 +55,25 @@ public class QueueManager {
 
     public void removePlayer(Player player) {
         queues.values().forEach(q -> q.removePlayer(player));
+        duelRequests.remove(player);
+        duelRequests.values().removeIf(v -> v == player);
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         profile.setState(PlayerState.LOBBY);
+    }
+
+    public static class DuelRequest {
+        private final Player requester;
+        private final Player challenged;
+        private final Game game;
+
+        public DuelRequest(Player requester, Player challenged, Game game) {
+            this.requester = requester;
+            this.challenged = challenged;
+            this.game = game;
+        }
+
+        public Player getRequester() { return requester; }
+        public Player getChallenged() { return challenged; }
+        public Game getGame() { return game; }
     }
 }

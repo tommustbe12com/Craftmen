@@ -1,13 +1,11 @@
 package com.tommustbe12.craftmen;
 
 import com.tommustbe12.craftmen.arena.ArenaManager;
-import com.tommustbe12.craftmen.command.CheckStatusCommand;
-import com.tommustbe12.craftmen.command.HubCommand;
+import com.tommustbe12.craftmen.command.*;
 import com.tommustbe12.craftmen.game.GameManager;
 import com.tommustbe12.craftmen.game.impl.*;
 import com.tommustbe12.craftmen.hub.HubManager;
 import com.tommustbe12.craftmen.listener.*;
-import com.tommustbe12.craftmen.command.SetupArenaCommand;
 import com.tommustbe12.craftmen.match.MatchManager;
 import com.tommustbe12.craftmen.profile.Profile;
 import com.tommustbe12.craftmen.profile.ProfileManager;
@@ -32,6 +30,7 @@ public final class Craftmen extends JavaPlugin {
     private QueueManager queueManager;
     private MatchManager matchManager;
     private ScoreboardManager scoreboardManager;
+    private HubManager hubManager;
 
     @Override
     public void onEnable() {
@@ -47,6 +46,7 @@ public final class Craftmen extends JavaPlugin {
         matchManager = new MatchManager();
         queueManager = new QueueManager();
         scoreboardManager = new ScoreboardManager();
+        hubManager = new HubManager();
 
         // Register example game
         gameManager.registerGame(new BoxingGame());
@@ -67,6 +67,8 @@ public final class Craftmen extends JavaPlugin {
         getCommand("setuparena").setExecutor(new SetupArenaCommand());
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
+        getCommand("duel").setExecutor(new DuelCommand());
+        getCommand("accept").setExecutor(new AcceptCommand());
 
         saveDefaultConfig();
         loadProfiles();
@@ -95,6 +97,7 @@ public final class Craftmen extends JavaPlugin {
     public QueueManager getQueueManager() { return queueManager; }
     public MatchManager getMatchManager() { return matchManager; }
     public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
+    public HubManager getHubManager() { return hubManager; }
 
     public void loadProfiles() {
 

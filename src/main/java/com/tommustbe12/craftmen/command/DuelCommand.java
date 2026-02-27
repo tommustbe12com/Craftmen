@@ -1,10 +1,9 @@
 package com.tommustbe12.craftmen.command;
 
 import com.tommustbe12.craftmen.Craftmen;
-import com.tommustbe12.craftmen.profile.Profile;
 import com.tommustbe12.craftmen.profile.PlayerState;
+import com.tommustbe12.craftmen.profile.Profile;
 import com.tommustbe12.craftmen.queue.QueueManager;
-import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.Bukkit;
@@ -17,7 +16,6 @@ public class DuelCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-
         if (!(sender instanceof Player p)) {
             sender.sendMessage("Only players can duel!");
             return true;
@@ -33,9 +31,8 @@ public class DuelCommand implements CommandExecutor {
             p.sendMessage("§cPlayer not found or offline!");
             return true;
         }
-
         if (target == p) {
-            p.sendMessage("§cYou can’t duel yourself!");
+            p.sendMessage("§cYou cannot duel yourself!");
             return true;
         }
 
@@ -43,29 +40,31 @@ public class DuelCommand implements CommandExecutor {
         Profile tProfile = Craftmen.get().getProfileManager().getProfile(target);
 
         if (pProfile.getState() != PlayerState.LOBBY) {
-            p.sendMessage("§cYou are already in a match or queue!");
+            p.sendMessage("§cYou are in a queue or in a match!");
             return true;
         }
         if (tProfile.getState() != PlayerState.LOBBY) {
-            p.sendMessage("§cThat player is busy!");
+            p.sendMessage("§cThat player is in queue or in a match!");
             return true;
         }
 
-        // Add to duel queue
-        QueueManager queue = Craftmen.get().getQueueManager();
-        queue.addDuelRequest(p, target);
+        // open game selector for sender
+        Craftmen.get().getHubManager().openGameSelector(p, (game) -> {
 
-        p.sendMessage("§aDuel request sent to §e" + target.getName());
+            // send duel request after selecting a game
+            QueueManager queue = Craftmen.get().getQueueManager();
+            queue.addDuelRequest(p, target, game);
 
-        // Send clickable message to target
-        TextComponent msg = new TextComponent("§e" + p.getName() + " has challenged you to a duel! ");
-        TextComponent clickHere = new TextComponent("[Click here to accept]");
-        clickHere.setColor(ChatColor.GREEN);
-        clickHere.setBold(true);
-        clickHere.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/accept " + p.getName()));
-        msg.addExtra(clickHere);
+            p.sendMessage("§aDuel request sent to §e" + target.getName());
 
-        target.spigot().sendMessage(msg);
+            TextComponent msg = new TextComponent("§e" + p.getName() + " has challenged you to a duel! ");
+            TextComponent clickHere = new TextComponent("[CLICK TO ACCEPT]");
+            clickHere.setBold(true);
+            clickHere.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/accept " + p.getName()));
+            msg.addExtra(clickHere);
+
+            target.spigot().sendMessage(msg);
+        });
 
         return true;
     }

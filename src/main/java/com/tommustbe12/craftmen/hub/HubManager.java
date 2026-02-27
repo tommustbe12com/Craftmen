@@ -16,9 +16,16 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.function.Consumer;
+
 public class HubManager implements Listener {
 
     private final QueueManager queueManager = Craftmen.get().getQueueManager();
+
+    private final Map<UUID, Consumer<Game>> selectedGameCallbacks = new HashMap<>();
 
     // Give the player the iron sword that opens the GUI
     public void giveHubItems(Player player) {
@@ -51,14 +58,18 @@ public class HubManager implements Listener {
         if (!item.getItemMeta().getDisplayName().equals("§6Game Selector")) return;
 
         e.setCancelled(true);
-        openGameSelector(e.getPlayer());
+
+        openGameSelector(e.getPlayer(), game -> {
+            // add to queue
+            Craftmen.get().getQueueManager().addPlayer(e.getPlayer(), game);
+        });
     }
 
     // Opens the GUI listing all registered games
-    private void openGameSelector(Player player) {
+    public void openGameSelector(Player player, java.util.function.Consumer<Game> onSelect) {
         int size = 9;
         int gameCount = Craftmen.get().getGameManager().getGames().size();
-        while (size < gameCount) size += 9; // round up to nearest row
+        while (size < gameCount) size += 9;
 
         Inventory gui = Bukkit.createInventory(null, size, "Select a Game");
 
@@ -71,6 +82,9 @@ public class HubManager implements Listener {
         }
 
         player.openInventory(gui);
+
+        // Store the callback somewhere temporarily so onGUIClick can use it
+        selectedGameCallbacks.put(player.getUniqueId(), onSelect);
     }
 
     // Handle clicks in the GUI
@@ -80,12 +94,15 @@ public class HubManager implements Listener {
             e.setCancelled(true);
             if (e.getCurrentItem() == null || !e.getCurrentItem().hasItemMeta()) return;
 
+            Player clicker = (Player) e.getWhoClicked();
+            java.util.function.Consumer<Game> callback = selectedGameCallbacks.remove(clicker.getUniqueId());
+            if (callback == null) return; // not a duel selection
+
             String gameName = e.getCurrentItem().getItemMeta().getDisplayName().replace("§a", "");
             Game game = Craftmen.get().getGameManager().getGame(gameName);
-            if (game != null) {
-                queueManager.addPlayer((Player) e.getWhoClicked(), game);
-                e.getWhoClicked().closeInventory();
-            }
+            if (game != null) callback.accept(game);
+
+            clicker.closeInventory();
         }
     }
 }
