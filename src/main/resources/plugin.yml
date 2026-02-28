@@ -6,7 +6,7 @@ commands:
   setuparena:
     description: Create a new arena
     usage: /setuparena <name>
-    default: op
+    permission: craftmen.admin
   checkstatus:
     description: Debug only! Checks your player state
     usage: /checkstatus
@@ -23,3 +23,11 @@ commands:
     aliases: lq
     description: Leave the queue
     usage: /leavequeue
+  stat:
+    aliases: s
+    description: Change the stats of a player
+    usage: /stat <player> <wins|losses|deaths> <add|sub|reset> [amount]
+    permission: craftmen.admin
+permissions:
+  craftmen.admin:
+    default: op

@@ -21,7 +21,7 @@ public class Profile {
     public PlayerState getState() { return state; }
     public void setState(PlayerState state) { this.state = state; }
 
-    // ===== STATS =====
+    // stats (updated with addStat and setStat func for stat command)
 
     public int getWins() { return wins; }
     public void addWin() { this.wins++; }
@@ -35,4 +35,20 @@ public class Profile {
     public void setWins(int wins) { this.wins = wins; }
     public void setLosses(int losses) { this.losses = losses; }
     public void setDeaths(int deaths) { this.deaths = deaths; }
+
+    public void addStat(String stat, int amount) {
+        switch (stat.toLowerCase()) {
+            case "wins" -> this.wins += amount;
+            case "losses" -> this.losses += amount;
+            case "deaths" -> this.deaths += amount;
+        }
+    }
+
+    public void setStat(String stat, int value) {
+        switch (stat.toLowerCase()) {
+            case "wins" -> this.wins = value;
+            case "losses" -> this.losses = value;
+            case "deaths" -> this.deaths = value;
+        }
+    }
 }

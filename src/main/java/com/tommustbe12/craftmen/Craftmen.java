@@ -13,6 +13,7 @@ import com.tommustbe12.craftmen.queue.QueueManager;
 import com.tommustbe12.craftmen.scoreboard.ScoreboardManager;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -63,6 +64,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new MovementLockListener(), this);
         getServer().getPluginManager().registerEvents(new RegenListener(), this);
         getServer().getPluginManager().registerEvents(new HungerListener(), this);
+        getServer().getPluginManager().registerEvents(new BlockListener(), this);
 
         getCommand("setuparena").setExecutor(new SetupArenaCommand());
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
@@ -70,6 +72,9 @@ public final class Craftmen extends JavaPlugin {
         getCommand("duel").setExecutor(new DuelCommand());
         getCommand("accept").setExecutor(new AcceptCommand());
         getCommand("leavequeue").setExecutor(new LeaveQueueCommand());
+        getCommand("stat").setExecutor(new StatCommand());
+
+        getCommand("stat").setTabCompleter(new StatCommand());
 
         saveDefaultConfig();
         loadProfiles();

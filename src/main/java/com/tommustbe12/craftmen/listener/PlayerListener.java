@@ -6,6 +6,7 @@ import com.tommustbe12.craftmen.match.MatchManager;
 import com.tommustbe12.craftmen.profile.Profile;
 import com.tommustbe12.craftmen.profile.ProfileManager;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -37,6 +38,9 @@ public class PlayerListener implements Listener {
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
             Craftmen.get().getScoreboardManager().create(player);
         }, 2L); // delay ig for scoreboard cuz buns simpleranks conflicts and stuff
+
+        player.setGameMode(GameMode.SURVIVAL);
+        player.teleport(Craftmen.get().getHubLocation());
     }
 
     @EventHandler

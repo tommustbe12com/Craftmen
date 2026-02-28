@@ -49,20 +49,36 @@ public class HubManager implements Listener {
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> giveHubItems(e.getPlayer()), 1L);
     }
 
-    // Right click iron sword to open GUI
+    // right click item detector interact
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
-        if (!(e.getAction() == Action.RIGHT_CLICK_AIR || e.getAction() == Action.RIGHT_CLICK_BLOCK)) return;
+        if (!(e.getAction() == Action.RIGHT_CLICK_AIR ||
+                e.getAction() == Action.RIGHT_CLICK_BLOCK)) return;
+
         ItemStack item = e.getItem();
         if (item == null || !item.hasItemMeta()) return;
-        if (!item.getItemMeta().getDisplayName().equals("§6Game Selector")) return;
 
-        e.setCancelled(true);
+        String name = item.getItemMeta().getDisplayName();
+        Player player = e.getPlayer();
 
-        openGameSelector(e.getPlayer(), game -> {
-            // add to queue
-            Craftmen.get().getQueueManager().addPlayer(e.getPlayer(), game);
-        });
+        // game select
+        if (name.equals("§6Game Selector")) {
+            e.setCancelled(true);
+
+            openGameSelector(player, game -> {
+                Craftmen.get().getQueueManager().addPlayer(player, game);
+                giveLeaveQueueItem(player);
+            });
+            return;
+        }
+
+        // left queue
+        if (name.equals("§cLeave Queue")) {
+            e.setCancelled(true);
+
+            Craftmen.get().getQueueManager().removePlayer(player);
+            giveHubItems(player);
+        }
     }
 
     // Opens the GUI listing all registered games
@@ -104,5 +120,19 @@ public class HubManager implements Listener {
 
             clicker.closeInventory();
         }
+    }
+
+    private void giveLeaveQueueItem(Player player) {
+        player.getInventory().clear();
+
+        ItemStack leave = new ItemStack(Material.RED_DYE);
+        ItemMeta meta = leave.getItemMeta();
+        meta.setDisplayName("§cLeave Queue");
+        leave.setItemMeta(meta);
+
+        // Slot 4 = middle of hotbar (0-8)
+        player.getInventory().setItem(4, leave);
+
+        player.updateInventory();
     }
 }
