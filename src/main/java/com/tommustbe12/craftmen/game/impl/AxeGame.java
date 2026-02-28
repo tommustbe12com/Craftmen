@@ -24,18 +24,17 @@ public class AxeGame extends Game {
         player.getInventory().clear();
 
         ItemStack axe = new ItemStack(Material.DIAMOND_AXE);
-        axe.addEnchantment(ench("sharpness"), 5);
 
         ItemStack sword = new ItemStack(Material.DIAMOND_SWORD);
-        sword.addEnchantment(ench("sharpness"), 5);
+        sword.addEnchantment(ench("sharpness"), 1);
 
         ItemStack bow = new ItemStack(Material.BOW);
-        bow.addEnchantment(ench("power"), 3);
+        bow.addEnchantment(ench("power"), 1);
 
         player.getInventory().addItem(axe);
         player.getInventory().addItem(sword);
         player.getInventory().addItem(bow);
-        player.getInventory().addItem(new ItemStack(Material.ARROW, 12));
+        player.getInventory().addItem(new ItemStack(Material.ARROW, 8));
 
         player.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
 

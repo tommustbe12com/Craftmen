@@ -13,7 +13,14 @@ public class BlockListener implements Listener {
     @EventHandler
     public void onBlockBreak(BlockBreakEvent e) {
         Player player = e.getPlayer();
-        PlayerState state = Craftmen.get().getProfileManager().getProfile(player).getState();
+
+        // op bypass
+        if (player.isOp()) return;
+
+        PlayerState state = Craftmen.get()
+                .getProfileManager()
+                .getProfile(player)
+                .getState();
 
         if (state != PlayerState.IN_MATCH) {
             e.setCancelled(true);
@@ -24,7 +31,14 @@ public class BlockListener implements Listener {
     @EventHandler
     public void onBlockPlace(BlockPlaceEvent e) {
         Player player = e.getPlayer();
-        PlayerState state = Craftmen.get().getProfileManager().getProfile(player).getState();
+
+        // op bypass
+        if (player.isOp()) return;
+
+        PlayerState state = Craftmen.get()
+                .getProfileManager()
+                .getProfile(player)
+                .getState();
 
         if (state != PlayerState.IN_MATCH) {
             e.setCancelled(true);

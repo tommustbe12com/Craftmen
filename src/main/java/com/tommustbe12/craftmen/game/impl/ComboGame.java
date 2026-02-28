@@ -24,7 +24,7 @@ public class ComboGame extends Game {
         player.getInventory().clear();
 
         ItemStack sword = new ItemStack(Material.DIAMOND_SWORD);
-        sword.addEnchantment(ench("sharpness"), 5);
+        sword.addEnchantment(ench("sharpness"), 2);
         sword.addEnchantment(ench("knockback"), 2);
 
         player.getInventory().addItem(sword);

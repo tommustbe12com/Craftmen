@@ -7,6 +7,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.enchantments.Enchantment;
 
 public class SwordGame extends Game {
@@ -19,20 +20,27 @@ public class SwordGame extends Game {
         return Registry.ENCHANTMENT.get(NamespacedKey.minecraft(key));
     }
 
+    private ItemStack createArmor(Material material, int protLevel) {
+        ItemStack item = new ItemStack(material);
+        ItemMeta meta = item.getItemMeta();
+        meta.addEnchant(ench("protection"), protLevel, true);
+        item.setItemMeta(meta);
+        return item;
+    }
+
     @Override
     public void applyLoadout(Player player) {
         player.getInventory().clear();
 
+        // Sword
         ItemStack sword = new ItemStack(Material.DIAMOND_SWORD);
-        sword.addEnchantment(ench("sharpness"), 5);
-        sword.addEnchantment(ench("unbreaking"), 3);
-
         player.getInventory().addItem(sword);
 
-        player.getInventory().setHelmet(new ItemStack(Material.DIAMOND_HELMET));
-        player.getInventory().setChestplate(new ItemStack(Material.DIAMOND_CHESTPLATE));
-        player.getInventory().setLeggings(new ItemStack(Material.DIAMOND_LEGGINGS));
-        player.getInventory().setBoots(new ItemStack(Material.DIAMOND_BOOTS));
+        // Armor
+        player.getInventory().setHelmet(createArmor(Material.DIAMOND_HELMET, 3));
+        player.getInventory().setChestplate(createArmor(Material.DIAMOND_CHESTPLATE, 3));
+        player.getInventory().setLeggings(createArmor(Material.DIAMOND_LEGGINGS, 4));
+        player.getInventory().setBoots(createArmor(Material.DIAMOND_BOOTS, 4));
     }
 
     @Override public void onStart(Match match) {}

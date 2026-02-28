@@ -124,6 +124,10 @@ public class Match {
         // After 5 seconds, send both to hub
         Craftmen.get().getServer().getScheduler().runTaskLater(Craftmen.get(), () -> {
 
+            // full health for next rounds to come
+            p1.setHealth(20.0);
+            p2.setHealth(20.0);
+
             // Teleport both to hub
             p1.teleport(Craftmen.get().getHubLocation());
             p2.teleport(Craftmen.get().getHubLocation());

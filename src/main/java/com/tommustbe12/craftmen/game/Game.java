@@ -35,6 +35,10 @@ public abstract class Game {
         Player p1 = match.getP1();
         Player p2 = match.getP2();
 
+        // give loadouts
+        applyLoadout(p1);
+        applyLoadout(p2);
+
         // this is buns but whatever
         for (int i = 3; i >= 1; i--) {
             final int count = i;
@@ -61,10 +65,6 @@ public abstract class Game {
             // pvp, movement
             Craftmen.get().getProfileManager().getProfile(p1).setState(PlayerState.IN_MATCH);
             Craftmen.get().getProfileManager().getProfile(p2).setState(PlayerState.IN_MATCH);
-
-            // give loadouts
-            applyLoadout(p1);
-            applyLoadout(p2);
 
             // fight title
             p1.sendTitle("§a§lFIGHT!", "", 5, 40, 5);

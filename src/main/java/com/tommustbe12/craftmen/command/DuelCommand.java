@@ -57,7 +57,7 @@ public class DuelCommand implements CommandExecutor {
             p.sendMessage("§aDuel request sent to §e" + target.getName());
             p.playSound(target.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_YES, 1.0f, 1.0f);
 
-            TextComponent msg = new TextComponent("§e" + p.getName() + " has challenged you to a game of " + game.getName() + "!");
+            TextComponent msg = new TextComponent("§e" + p.getName() + " has challenged you to a game of " + game.getName() + "! ");
             TextComponent clickHere = new TextComponent("§f[§aCLICK TO ACCEPT§f]");
             clickHere.setBold(true);
             clickHere.setClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/accept " + p.getName()));

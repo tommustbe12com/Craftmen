@@ -16,9 +16,6 @@ public class BoxingGame extends Game {
     @Override
     public void applyLoadout(Player player) {
         player.getInventory().clear();
-        ItemStack sword = new ItemStack(Material.STONE_SWORD);
-        sword.addEnchantment(Enchantment.KNOCKBACK, 1);
-        player.getInventory().addItem(sword);
     }
 
     @Override
