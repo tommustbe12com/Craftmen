@@ -28,6 +28,10 @@ commands:
     description: Change the stats of a player
     usage: /stat <player> <wins|losses|deaths> <add|sub|reset> [amount]
     permission: craftmen.admin
+  forfeit:
+    aliases: f
+    description: Forfeit the match you are in
+    usage: /forfeit
 permissions:
   craftmen.admin:
     default: op

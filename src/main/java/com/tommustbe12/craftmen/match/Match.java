@@ -66,7 +66,7 @@ public class Match {
         Location finalPasteLoc = pasteLoc;
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
 
-            java.util.List<Location> spawns = findIronSpawns(finalPasteLoc, world);
+            java.util.List<Location> spawns = findIronSpawns(world);
 
             if (spawns.size() != 2) {
                 Bukkit.getLogger().severe("Arena must contain exactly 2 IRON_BLOCK spawn markers! found: " + spawns.size());
@@ -174,21 +174,31 @@ public class Match {
         player.getInventory().setItem(0, sword);
     }
 
-    private java.util.List<Location> findIronSpawns(Location center, World world) {
+    private java.util.List<Location> findIronSpawns(World world) {
 
         java.util.List<Location> spawns = new java.util.ArrayList<>();
 
-        int radius = 100; // large safe radius
+        if (pasteMinLocation == null || pasteMaxLocation == null) {
+            return spawns;
+        }
 
-        for (int x = -radius; x <= radius; x++) {
-            for (int y = -radius; y <= radius; y++) {
-                for (int z = -radius; z <= radius; z++) {
+        int minX = Math.min(pasteMinLocation.getBlockX(), pasteMaxLocation.getBlockX());
+        int maxX = Math.max(pasteMinLocation.getBlockX(), pasteMaxLocation.getBlockX());
 
-                    Location check = center.clone().add(x, y, z);
+        int minY = Math.min(pasteMinLocation.getBlockY(), pasteMaxLocation.getBlockY());
+        int maxY = Math.max(pasteMinLocation.getBlockY(), pasteMaxLocation.getBlockY());
 
-                    if (world.getBlockAt(check).getType() == Material.IRON_BLOCK) {
-                        spawns.add(check.clone().add(0.5, 1, 0.5));
+        int minZ = Math.min(pasteMinLocation.getBlockZ(), pasteMaxLocation.getBlockZ());
+        int maxZ = Math.max(pasteMinLocation.getBlockZ(), pasteMaxLocation.getBlockZ());
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+
+                    if (world.getBlockAt(x, y, z).getType() == Material.IRON_BLOCK) {
+                        spawns.add(new Location(world, x + 0.5, y + 1, z + 0.5));
                     }
+
                 }
             }
         }
