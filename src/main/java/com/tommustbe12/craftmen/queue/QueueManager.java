@@ -13,7 +13,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 public class QueueManager {
 
@@ -48,7 +50,22 @@ public class QueueManager {
         if (!queue.hasEnoughPlayers()) return;
 
         Player[] players = queue.pollPlayers();
-        Arena arena = Craftmen.get().getArenaManager().getArenas().get(0); // pick first arena
+
+        // game name, arena category
+        String category = queue.getGame().getName();
+        List<Arena> arenas = Craftmen.get().getArenaManager().getArenas(category);
+
+        if (arenas.isEmpty()) {
+            // notify
+            for (Player p : players) {
+                p.sendMessage("§cNo arena available for this game!");
+            }
+            return;
+        }
+
+        // pick random
+        Arena arena = arenas.get(new Random().nextInt(arenas.size()));
+
         Match match = new Match(players[0], players[1], queue.getGame(), arena);
         Craftmen.get().getMatchManager().startMatch(match);
     }

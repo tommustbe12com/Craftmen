@@ -18,10 +18,11 @@ public class RegenListener implements Listener {
             "Boxing",
             "Axe",
             "Combo",
-            "Gapple"
+            "Gapple",
+            "Sumo"
     );
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH)
     public void onRegen(EntityRegainHealthEvent event) {
         if (!(event.getEntity() instanceof Player player)) return;
 

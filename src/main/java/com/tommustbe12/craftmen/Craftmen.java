@@ -55,8 +55,7 @@ public final class Craftmen extends JavaPlugin {
         gameManager.registerGame(new GappleGame());
         gameManager.registerGame(new SwordGame());
         gameManager.registerGame(new AxeGame());
-
-        arenaManager.loadArenas();
+        gameManager.registerGame(new SumoGame());
 
         getServer().getPluginManager().registerEvents(new PlayerListener(), this);
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
@@ -66,7 +65,6 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HungerListener(), this);
         getServer().getPluginManager().registerEvents(new BlockListener(), this);
 
-        getCommand("setuparena").setExecutor(new SetupArenaCommand());
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
         getCommand("duel").setExecutor(new DuelCommand());
