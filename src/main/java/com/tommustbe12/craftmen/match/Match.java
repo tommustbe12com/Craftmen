@@ -81,12 +81,13 @@ public class Match {
                 return;
             }
 
-            // initial
+            // initial teleport to spawn locs
             p1.teleport(spawns.get(0));
+            p2.teleport(spawns.get(1));
 
-            //spawn looking at player
-            p2.teleport(spawns.get(1).setDirection(p1.getLocation().subtract(p2.getLocation()).toVector()));
-            p1.teleport(p1.getLocation().setDirection(p2.getLocation().subtract(p1.getLocation()).toVector()));
+            // direction
+            p2.teleport(p2.getLocation().setDirection(p1.getLocation().toVector().subtract(p2.getLocation().toVector())));
+            p1.teleport(p1.getLocation().setDirection(p2.getLocation().toVector().subtract(p1.getLocation().toVector())));
 
             // freeze players
             Craftmen.get().getProfileManager().getProfile(p1).setState(PlayerState.COUNTDOWN);
