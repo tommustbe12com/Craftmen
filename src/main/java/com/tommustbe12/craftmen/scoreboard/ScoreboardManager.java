@@ -18,8 +18,17 @@ public class ScoreboardManager {
         org.bukkit.scoreboard.ScoreboardManager manager = Bukkit.getScoreboardManager();
         Scoreboard board = manager.getNewScoreboard();
 
+        // ===== SIDEBAR OBJECTIVE =====
         Objective obj = board.registerNewObjective("craftmen", "dummy", "§b§lCRAFTMEN");
         obj.setDisplaySlot(DisplaySlot.SIDEBAR);
+
+        // ===== BELOW NAME HEALTH OBJECTIVE =====
+        Objective health = board.registerNewObjective(
+                "health",
+                Criteria.HEALTH,
+                "§c❤"
+        );
+        health.setDisplaySlot(DisplaySlot.BELOW_NAME);
 
         boards.put(player.getUniqueId(), board);
         player.setScoreboard(board);

@@ -66,8 +66,8 @@ public class HubManager implements Listener {
             e.setCancelled(true);
 
             openGameSelector(player, game -> {
-                Craftmen.get().getQueueManager().addPlayer(player, game);
                 giveLeaveQueueItem(player);
+                Craftmen.get().getQueueManager().addPlayer(player, game);
             });
             return;
         }

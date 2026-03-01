@@ -7,6 +7,7 @@ import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 public class MatchManager {
 
@@ -18,14 +19,18 @@ public class MatchManager {
     }
 
     public void startDuel(Player p1, Player p2, Game game) {
-        // 1st
-        Arena arena = Craftmen.get().getArenaManager().getArenas().get(0);
+        // game name for category
+        String category = game.getName();
+        List<Arena> arenas = Craftmen.get().getArenaManager().getArenas(category);
 
-        if (arena == null) {
-            p1.sendMessage("§cNo arena available!");
-            p2.sendMessage("§cNo arena available!");
+        if (arenas.isEmpty()) {
+            p1.sendMessage("§cNo arena available for this game!");
+            p2.sendMessage("§cNo arena available for this game!");
             return;
         }
+
+        // Pick a random arena in the category
+        Arena arena = arenas.get(new Random().nextInt(arenas.size()));
 
         Match match = new Match(p1, p2, game, arena);
         startMatch(match);
