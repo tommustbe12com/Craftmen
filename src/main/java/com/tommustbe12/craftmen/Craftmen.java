@@ -56,6 +56,10 @@ public final class Craftmen extends JavaPlugin {
         gameManager.registerGame(new SwordGame());
         gameManager.registerGame(new AxeGame());
         gameManager.registerGame(new SumoGame());
+        gameManager.registerGame(new InvisGame());
+        gameManager.registerGame(new NetheriteSwordGame());
+        gameManager.registerGame(new PotionFightGame());
+        gameManager.registerGame(new RandomKitGame());
 
         getServer().getPluginManager().registerEvents(new PlayerListener(), this);
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
@@ -71,6 +75,7 @@ public final class Craftmen extends JavaPlugin {
         getCommand("accept").setExecutor(new AcceptCommand());
         getCommand("leavequeue").setExecutor(new LeaveQueueCommand());
         getCommand("stat").setExecutor(new StatCommand());
+        getCommand("forfeit").setExecutor(new ForfeitCommand());
 
         getCommand("stat").setTabCompleter(new StatCommand());
 
