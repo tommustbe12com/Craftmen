@@ -19,7 +19,11 @@ public class RegenListener implements Listener {
             "Axe",
             "Combo",
             "Gapple",
-            "Sumo"
+            "Sumo",
+            "Invis",
+            "Potion Fight",
+            "Random Kit",
+            "Netherite Sword"
     );
 
     @EventHandler(priority = EventPriority.HIGH)
