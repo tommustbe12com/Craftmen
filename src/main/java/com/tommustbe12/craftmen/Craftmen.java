@@ -11,17 +11,21 @@ import com.tommustbe12.craftmen.profile.Profile;
 import com.tommustbe12.craftmen.profile.ProfileManager;
 import com.tommustbe12.craftmen.queue.QueueManager;
 import com.tommustbe12.craftmen.scoreboard.ScoreboardManager;
+import com.tommustbe12.craftmen.web.ExposeData;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Map;
 import java.util.UUID;
 
 public final class Craftmen extends JavaPlugin {
 
     private static Craftmen instance;
+
+    private ExposeData webServer;
 
     private Location hubLocation;
 
@@ -76,6 +80,7 @@ public final class Craftmen extends JavaPlugin {
         getCommand("leavequeue").setExecutor(new LeaveQueueCommand());
         getCommand("stat").setExecutor(new StatCommand());
         getCommand("forfeit").setExecutor(new ForfeitCommand());
+        getCommand("queue").setExecutor(new QueueCommand());
 
         getCommand("stat").setTabCompleter(new StatCommand());
 
@@ -87,11 +92,15 @@ public final class Craftmen extends JavaPlugin {
                 scoreboardManager.update(player);
             }
         }, 20L, 20L);
+
+        webServer = new ExposeData(this, 7512);
+        webServer.startServer();
     }
 
     @Override
     public void onDisable() {
         saveProfiles();
+        if (webServer != null) webServer.stop();
     }
 
     public Location getHubLocation() {
@@ -108,38 +117,51 @@ public final class Craftmen extends JavaPlugin {
     public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
     public HubManager getHubManager() { return hubManager; }
 
-    public void loadProfiles() {
-
-        if (!getConfig().contains("stats")) return;
-
-        for (String uuidString : getConfig().getConfigurationSection("stats").getKeys(false)) {
-
-            UUID uuid = UUID.fromString(uuidString);
-
-            Player player = Bukkit.getPlayer(uuid);
-            if (player == null) continue;
-
-            Profile profile = getProfileManager().getProfile(player);
-
-            profile.setWins(getConfig().getInt("stats." + uuidString + ".wins"));
-            profile.setLosses(getConfig().getInt("stats." + uuidString + ".losses"));
-            profile.setDeaths(getConfig().getInt("stats." + uuidString + ".deaths"));
-        }
-    }
-
     public void saveProfiles() {
-
         for (Profile profile : getProfileManager().getProfiles().values()) {
-
             String uuid = profile.getPlayer().getUniqueId().toString();
             String path = "stats." + uuid;
 
             getConfig().set(path + ".wins", profile.getWins());
             getConfig().set(path + ".losses", profile.getLosses());
-            getConfig().set(path + ".deaths", profile.getDeaths());
-        }
 
+            // save per-game wins/losses
+            for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
+                getConfig().set(path + ".gameWins." + entry.getKey(), entry.getValue());
+            }
+            for (Map.Entry<String, Integer> entry : profile.getGameLosses().entrySet()) {
+                getConfig().set(path + ".gameLosses." + entry.getKey(), entry.getValue());
+            }
+        }
         saveConfig();
+    }
+
+    public void loadProfiles() {
+        if (!getConfig().contains("stats")) return;
+
+        for (String uuidString : getConfig().getConfigurationSection("stats").getKeys(false)) {
+            UUID uuid = UUID.fromString(uuidString);
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null) continue;
+
+            Profile profile = getProfileManager().getProfile(player);
+            String path = "stats." + uuidString;
+
+            profile.setWins(getConfig().getInt(path + ".wins"));
+            profile.setLosses(getConfig().getInt(path + ".losses"));
+
+            // load per-game wins/losses
+            if (getConfig().contains(path + ".gameWins")) {
+                for (String game : getConfig().getConfigurationSection(path + ".gameWins").getKeys(false)) {
+                    profile.setGameWins(game, getConfig().getInt(path + ".gameWins." + game));
+                }
+            }
+            if (getConfig().contains(path + ".gameLosses")) {
+                for (String game : getConfig().getConfigurationSection(path + ".gameLosses").getKeys(false)) {
+                    profile.setGameLosses(game, getConfig().getInt(path + ".gameLosses." + game));
+                }
+            }
+        }
     }
 
     public void saveProfile(Profile profile) {
@@ -149,7 +171,6 @@ public final class Craftmen extends JavaPlugin {
 
         getConfig().set(path + ".wins", profile.getWins());
         getConfig().set(path + ".losses", profile.getLosses());
-        getConfig().set(path + ".deaths", profile.getDeaths());
 
         saveConfig();
     }

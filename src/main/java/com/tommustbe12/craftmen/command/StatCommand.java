@@ -1,6 +1,7 @@
 package com.tommustbe12.craftmen.command;
 
 import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.profile.Profile;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -15,8 +16,12 @@ import java.util.List;
 
 public class StatCommand implements CommandExecutor, TabCompleter {
 
-    private final List<String> stats = List.of("wins", "losses", "deaths");
+    private final List<String> stats = List.of("wins", "losses");
     private final List<String> actions = List.of("add", "sub", "reset");
+
+    // Usage:
+    // /stat <player> <wins|losses> <add|sub|reset> [amount]             — overall
+    // /stat <player> <wins|losses> <add|sub|reset> [amount] <gameName>  — per-game
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -26,7 +31,7 @@ public class StatCommand implements CommandExecutor, TabCompleter {
         }
 
         if (args.length < 3) {
-            sender.sendMessage("§eUsage: /stat <player> <wins|losses|deaths> <add|sub|reset> [amount]");
+            sender.sendMessage("§eUsage: /stat <player> <wins|losses> <add|sub|reset> [amount] [gameName]");
             return true;
         }
 
@@ -39,41 +44,89 @@ public class StatCommand implements CommandExecutor, TabCompleter {
         Profile profile = Craftmen.get().getProfileManager().getProfile(target);
         String stat = args[1].toLowerCase();
         String action = args[2].toLowerCase();
-        int amount = 1;
 
-        if ((action.equals("add") || action.equals("sub")) && args.length >= 4) {
+        if (!stats.contains(stat)) {
+            sender.sendMessage("§cInvalid stat! Use wins or losses.");
+            return true;
+        }
+
+        int amount = 1;
+        String gameName = null;
+
+        if (args.length >= 4) {
             try {
                 amount = Integer.parseInt(args[3]);
-            } catch (NumberFormatException ex) {
-                sender.sendMessage("§cAmount must be a number!");
-                return true;
+                if (args.length >= 5) {
+                    gameName = args[4];
+                }
+            } catch (NumberFormatException e) {
+                gameName = args[3];
             }
         }
 
-        switch (stat) {
-            case "wins", "losses", "deaths" -> handleStat(profile, stat, action, amount, sender);
-            default -> sender.sendMessage("§cInvalid stat! Use wins, losses, or deaths.");
+        // convert underscore to space for internal game name lookup
+        if (gameName != null) {
+            gameName = gameName.replace("_", " ");
         }
 
+        handleStat(profile, stat, action, amount, gameName, sender);
         return true;
     }
 
-    private void handleStat(Profile profile, String stat, String action, int amount, CommandSender sender) {
+    private void handleStat(Profile profile, String stat, String action, int amount, String gameName, CommandSender sender) {
+        String targetDesc = gameName != null
+                ? "§f" + stat + " §a(game: §f" + gameName + "§a) for §f" + profile.getPlayer().getName()
+                : "§f" + stat + " §afor §f" + profile.getPlayer().getName();
+
         switch (action) {
             case "add" -> {
+                if (gameName != null) {
+                    // add to game-specific AND overall
+                    if (stat.equals("wins")) {
+                        profile.setGameWins(gameName, profile.getGameWins(gameName) + amount);
+                    } else {
+                        profile.setGameLosses(gameName, profile.getGameLosses(gameName) + amount);
+                    }
+                }
                 profile.addStat(stat, amount);
-                sender.sendMessage("§aAdded §f" + amount + " §ato " + stat + " for " + profile.getPlayer().getName());
+                sender.sendMessage("§aAdded §f" + amount + " §ato " + targetDesc);
             }
             case "sub" -> {
+                if (gameName != null) {
+                    if (stat.equals("wins")) {
+                        profile.setGameWins(gameName, Math.max(0, profile.getGameWins(gameName) - amount));
+                    } else {
+                        profile.setGameLosses(gameName, Math.max(0, profile.getGameLosses(gameName) - amount));
+                    }
+                }
                 profile.addStat(stat, -amount);
-                sender.sendMessage("§aSubtracted §f" + amount + " §afrom " + stat + " for " + profile.getPlayer().getName());
+                sender.sendMessage("§aSubtracted §f" + amount + " §afrom " + targetDesc);
             }
             case "reset" -> {
-                profile.setStat(stat, 0);
-                sender.sendMessage("§aReset §f" + stat + " §afor " + profile.getPlayer().getName());
+                if (gameName != null) {
+                    // reset only that game
+                    if (stat.equals("wins")) {
+                        profile.setGameWins(gameName, 0);
+                    } else {
+                        profile.setGameLosses(gameName, 0);
+                    }
+                    sender.sendMessage("§aReset " + targetDesc);
+                } else {
+                    // reset overall + all game entries for that stat
+                    profile.setStat(stat, 0);
+                    if (stat.equals("wins")) {
+                        profile.getGameWins().clear();
+                    } else {
+                        profile.getGameLosses().clear();
+                    }
+                    sender.sendMessage("§aReset all " + targetDesc);
+                }
             }
             default -> sender.sendMessage("§cInvalid action! Use add, sub, or reset.");
         }
+
+        // auto-save
+        Craftmen.get().saveProfile(profile);
     }
 
     @Override
@@ -82,24 +135,34 @@ public class StatCommand implements CommandExecutor, TabCompleter {
 
         List<String> completions = new ArrayList<>();
         switch (args.length) {
-            case 1 -> { // Player names
+            case 1 -> { // player names
                 for (Player p : Bukkit.getOnlinePlayers()) {
                     if (p.getName().toLowerCase().startsWith(args[0].toLowerCase())) {
                         completions.add(p.getName());
                     }
                 }
             }
-            case 2 -> { // Stat names
+            case 2 -> { // stat names
                 for (String s : stats) {
                     if (s.startsWith(args[1].toLowerCase())) completions.add(s);
                 }
             }
-            case 3 -> { // Actions
+            case 3 -> { // actions
                 for (String a : actions) {
                     if (a.startsWith(args[2].toLowerCase())) completions.add(a);
                 }
             }
-            default -> completions = Collections.emptyList();
+            case 4 -> { // amount hint
+                completions.add("1");
+            }
+            case 5 -> {
+                for (Game game : Craftmen.get().getGameManager().getGames()) {
+                    String displayName = game.getName().replace(" ", "_");
+                    if (displayName.toLowerCase().startsWith(args[4].toLowerCase())) {
+                        completions.add(displayName);
+                    }
+                }
+            }
         }
 
         return completions;

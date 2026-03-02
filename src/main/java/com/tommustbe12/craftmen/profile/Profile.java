@@ -1,6 +1,8 @@
 package com.tommustbe12.craftmen.profile;
 
 import org.bukkit.entity.Player;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Profile {
 
@@ -9,7 +11,9 @@ public class Profile {
 
     private int wins;
     private int losses;
-    private int deaths;
+
+    private final Map<String, Integer> gameWins = new HashMap<>();
+    private final Map<String, Integer> gameLosses = new HashMap<>();
 
     public Profile(Player player) {
         this.player = player;
@@ -21,26 +25,33 @@ public class Profile {
     public PlayerState getState() { return state; }
     public void setState(PlayerState state) { this.state = state; }
 
-    // stats (updated with addStat and setStat func for stat command)
-
     public int getWins() { return wins; }
-    public void addWin() { this.wins++; }
+    public void addWin(String gameName) {
+        this.wins++;
+        gameWins.merge(gameName, 1, Integer::sum);
+    }
 
     public int getLosses() { return losses; }
-    public void addLoss() { this.losses++; }
+    public void addLoss(String gameName) {
+        this.losses++;
+        gameLosses.merge(gameName, 1, Integer::sum);
+    }
 
-    public int getDeaths() { return deaths; }
-    public void addDeath() { this.deaths++; }
+    public Map<String, Integer> getGameWins() { return gameWins; }
+    public Map<String, Integer> getGameLosses() { return gameLosses; }
+
+    public int getGameWins(String gameName) { return gameWins.getOrDefault(gameName, 0); }
+    public int getGameLosses(String gameName) { return gameLosses.getOrDefault(gameName, 0); }
 
     public void setWins(int wins) { this.wins = wins; }
     public void setLosses(int losses) { this.losses = losses; }
-    public void setDeaths(int deaths) { this.deaths = deaths; }
+    public void setGameWins(String gameName, int value) { gameWins.put(gameName, value); }
+    public void setGameLosses(String gameName, int value) { gameLosses.put(gameName, value); }
 
     public void addStat(String stat, int amount) {
         switch (stat.toLowerCase()) {
             case "wins" -> this.wins += amount;
             case "losses" -> this.losses += amount;
-            case "deaths" -> this.deaths += amount;
         }
     }
 
@@ -48,7 +59,6 @@ public class Profile {
         switch (stat.toLowerCase()) {
             case "wins" -> this.wins = value;
             case "losses" -> this.losses = value;
-            case "deaths" -> this.deaths = value;
         }
     }
 }

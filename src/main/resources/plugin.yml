@@ -32,6 +32,10 @@ commands:
     aliases: f
     description: Forfeit the match you are in
     usage: /forfeit
+  queue:
+    aliases: q
+    description: Open the queue menu
+    usage: /queue
 permissions:
   craftmen.admin:
     default: op

@@ -122,7 +122,7 @@ public class HubManager implements Listener {
         }
     }
 
-    private void giveLeaveQueueItem(Player player) {
+    public void giveLeaveQueueItem(Player player) {
         player.getInventory().clear();
 
         ItemStack leave = new ItemStack(Material.RED_DYE);

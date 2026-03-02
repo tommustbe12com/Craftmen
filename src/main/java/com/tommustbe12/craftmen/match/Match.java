@@ -121,10 +121,9 @@ public class Match {
 
         // update profiles
         Profile winnerProfile = Craftmen.get().getProfileManager().getProfile(winner);
-        winnerProfile.addWin();
+        winnerProfile.addWin(game.getName()); // pass game name
         Profile loserProfile = Craftmen.get().getProfileManager().getProfile(loser);
-        loserProfile.addLoss();
-        loserProfile.addDeath();
+        loserProfile.addLoss(game.getName());
 
         // after 5 seconds, reset players and remove arena
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
