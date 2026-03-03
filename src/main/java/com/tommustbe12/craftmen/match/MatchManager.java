@@ -2,6 +2,7 @@ package com.tommustbe12.craftmen.match;
 
 import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.arena.Arena;
+import com.tommustbe12.craftmen.command.SpectateCommand;
 import com.tommustbe12.craftmen.game.Game;
 import org.bukkit.entity.Player;
 
@@ -15,6 +16,7 @@ public class MatchManager {
 
     public void startMatch(Match match) {
         matches.add(match);
+        SpectateCommand.stopAllSpectatorsOfMatch(match);
         match.start();
     }
 

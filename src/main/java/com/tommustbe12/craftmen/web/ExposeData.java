@@ -32,6 +32,70 @@ public class ExposeData extends NanoHTTPD {
         }
     }
 
+    // converts URL key (Netherite_Sword) to game name (Netherite Sword)
+    private String urlKeyToGameName(String key) {
+        return key.replace("_", " ");
+    }
+
+    // builds a fresh JSONObject for a player's stats from live profile + config fallback
+    private JSONObject buildPlayerStats(OfflinePlayer offlinePlayer) {
+        JSONObject json = new JSONObject();
+        json.put("name", offlinePlayer.getName());
+        json.put("uuid", offlinePlayer.getUniqueId().toString());
+        json.put("online", offlinePlayer.isOnline());
+        json.put("firstPlayed", offlinePlayer.getFirstPlayed());
+        json.put("lastPlayed", offlinePlayer.getLastPlayed());
+
+        Player onlinePlayer = offlinePlayer.getPlayer();
+        if (onlinePlayer != null) {
+            json.put("health", onlinePlayer.getHealth());
+            json.put("level", onlinePlayer.getLevel());
+            json.put("world", onlinePlayer.getWorld().getName());
+
+            // always re-fetch profile live
+            Profile profile = Craftmen.get().getProfileManager().getProfile(onlinePlayer);
+            if (profile != null) {
+                json.put("wins", profile.getWins());
+                json.put("losses", profile.getLosses());
+                json.put("gameWins", buildGameStatsJson(profile.getGameWins()));
+                json.put("gameLosses", buildGameStatsJson(profile.getGameLosses()));
+            }
+        } else {
+            // offline — read from config (always re-read, not cached)
+            String uuidStr = offlinePlayer.getUniqueId().toString();
+            String path = "stats." + uuidStr;
+            Craftmen.get().reloadConfig(); // fresh read
+            if (Craftmen.get().getConfig().contains(path)) {
+                json.put("wins", Craftmen.get().getConfig().getInt(path + ".wins"));
+                json.put("losses", Craftmen.get().getConfig().getInt(path + ".losses"));
+                json.put("gameWins", buildGameStatsFromConfig(path + ".gameWins"));
+                json.put("gameLosses", buildGameStatsFromConfig(path + ".gameLosses"));
+            }
+        }
+
+        return json;
+    }
+
+    // builds a JSONObject from a Map<String, Integer>, converting game names to URL-safe keys
+    private JSONObject buildGameStatsJson(java.util.Map<String, Integer> map) {
+        JSONObject obj = new JSONObject();
+        for (java.util.Map.Entry<String, Integer> entry : map.entrySet()) {
+            obj.put(entry.getKey().replace(" ", "_"), entry.getValue());
+        }
+        return obj;
+    }
+
+    // reads game stats from config, converting keys to URL-safe
+    private JSONObject buildGameStatsFromConfig(String path) {
+        JSONObject obj = new JSONObject();
+        if (Craftmen.get().getConfig().contains(path)) {
+            for (String game : Craftmen.get().getConfig().getConfigurationSection(path).getKeys(false)) {
+                obj.put(game.replace(" ", "_"), Craftmen.get().getConfig().getInt(path + "." + game));
+            }
+        }
+        return obj;
+    }
+
     @Override
     public Response serve(IHTTPSession session) {
 
@@ -55,50 +119,38 @@ public class ExposeData extends NanoHTTPD {
                         "{\"error\":\"Player not found\"}");
             }
 
+            return newFixedLengthResponse(Response.Status.OK, "application/json",
+                    buildPlayerStats(offlinePlayer).toJSONString());
+        }
+
+        // GET /player/<name>/game/<Game_Name>
+        if (uri.matches("/player/[^/]+/game/[^/]+")) {
+            String[] parts = uri.split("/");
+            String playerName = parts[2];
+            String gameName = urlKeyToGameName(parts[4]);
+
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerName);
+            if (!offlinePlayer.hasPlayedBefore() && !offlinePlayer.isOnline()) {
+                return newFixedLengthResponse(Response.Status.NOT_FOUND,
+                        "application/json", "{\"error\":\"Player not found\"}");
+            }
+
             JSONObject json = new JSONObject();
             json.put("name", offlinePlayer.getName());
-            json.put("uuid", offlinePlayer.getUniqueId().toString());
-            json.put("online", offlinePlayer.isOnline());
-            json.put("firstPlayed", offlinePlayer.getFirstPlayed());
-            json.put("lastPlayed", offlinePlayer.getLastPlayed());
+            json.put("game", gameName);
 
             Player onlinePlayer = offlinePlayer.getPlayer();
             if (onlinePlayer != null) {
-                json.put("health", onlinePlayer.getHealth());
-                json.put("level", onlinePlayer.getLevel());
-                json.put("world", onlinePlayer.getWorld().getName());
-
                 Profile profile = Craftmen.get().getProfileManager().getProfile(onlinePlayer);
                 if (profile != null) {
-                    json.put("wins", profile.getWins());
-                    json.put("losses", profile.getLosses());
-                    json.put("gameWins", new JSONObject(profile.getGameWins()));
-                    json.put("gameLosses", new JSONObject(profile.getGameLosses()));
+                    json.put("wins", profile.getGameWins(gameName));
+                    json.put("losses", profile.getGameLosses(gameName));
                 }
             } else {
-                String uuidStr = offlinePlayer.getUniqueId().toString();
-                String path = "stats." + uuidStr;
-                if (Craftmen.get().getConfig().contains(path)) {
-                    json.put("wins", Craftmen.get().getConfig().getInt(path + ".wins"));
-                    json.put("losses", Craftmen.get().getConfig().getInt(path + ".losses"));
-
-                    JSONObject gameWins = new JSONObject();
-                    JSONObject gameLosses = new JSONObject();
-
-                    if (Craftmen.get().getConfig().contains(path + ".gameWins")) {
-                        for (String game : Craftmen.get().getConfig().getConfigurationSection(path + ".gameWins").getKeys(false)) {
-                            gameWins.put(game, Craftmen.get().getConfig().getInt(path + ".gameWins." + game));
-                        }
-                    }
-                    if (Craftmen.get().getConfig().contains(path + ".gameLosses")) {
-                        for (String game : Craftmen.get().getConfig().getConfigurationSection(path + ".gameLosses").getKeys(false)) {
-                            gameLosses.put(game, Craftmen.get().getConfig().getInt(path + ".gameLosses." + game));
-                        }
-                    }
-
-                    json.put("gameWins", gameWins);
-                    json.put("gameLosses", gameLosses);
-                }
+                Craftmen.get().reloadConfig();
+                String path = "stats." + offlinePlayer.getUniqueId();
+                json.put("wins", Craftmen.get().getConfig().getInt(path + ".gameWins." + gameName, 0));
+                json.put("losses", Craftmen.get().getConfig().getInt(path + ".gameLosses." + gameName, 0));
             }
 
             return newFixedLengthResponse(Response.Status.OK, "application/json", json.toJSONString());
@@ -111,19 +163,7 @@ public class ExposeData extends NanoHTTPD {
 
             JSONArray players = new JSONArray();
             for (Player p : Bukkit.getOnlinePlayers()) {
-                JSONObject pJson = new JSONObject();
-                pJson.put("name", p.getName());
-                pJson.put("uuid", p.getUniqueId().toString());
-                pJson.put("world", p.getWorld().getName());
-
-                Profile profile = Craftmen.get().getProfileManager().getProfile(p);
-                if (profile != null) {
-                    pJson.put("wins", profile.getWins());
-                    pJson.put("losses", profile.getLosses());
-                    pJson.put("gameWins", new JSONObject(profile.getGameWins()));
-                    pJson.put("gameLosses", new JSONObject(profile.getGameLosses()));
-                }
-                players.add(pJson);
+                players.add(buildPlayerStats(p));
             }
             json.put("players", players);
 
@@ -132,6 +172,39 @@ public class ExposeData extends NanoHTTPD {
 
         // GET /leaderboard
         if (uri.equalsIgnoreCase("/leaderboard")) {
+            Craftmen.get().reloadConfig(); // fresh read for offline players
+            JSONArray arr = new JSONArray();
+
+            if (Craftmen.get().getConfig().contains("stats")) {
+                Craftmen.get().getConfig().getConfigurationSection("stats").getKeys(false)
+                        .stream()
+                        .map(uuidStr -> {
+                            OfflinePlayer op = Bukkit.getOfflinePlayer(UUID.fromString(uuidStr));
+
+                            // if online, use live profile
+                            Player online = op.getPlayer();
+                            if (online != null) {
+                                return buildPlayerStats(online);
+                            }
+
+                            // offline fallback
+                            return buildPlayerStats(op);
+                        })
+                        .sorted((a, b) -> {
+                            int winsA = ((Number) a.get("wins")).intValue();
+                            int winsB = ((Number) b.get("wins")).intValue();
+                            return Integer.compare(winsB, winsA);
+                        })
+                        .forEach(arr::add);
+            }
+
+            return newFixedLengthResponse(Response.Status.OK, "application/json", arr.toJSONString());
+        }
+
+        // GET /leaderboard/game/<Game_Name>
+        if (uri.startsWith("/leaderboard/game/")) {
+            String gameName = urlKeyToGameName(uri.replace("/leaderboard/game/", ""));
+            Craftmen.get().reloadConfig();
             JSONArray arr = new JSONArray();
 
             if (Craftmen.get().getConfig().contains("stats")) {
@@ -139,29 +212,21 @@ public class ExposeData extends NanoHTTPD {
                         .stream()
                         .map(uuidStr -> {
                             JSONObject entry = new JSONObject();
-                            String path = "stats." + uuidStr;
                             OfflinePlayer op = Bukkit.getOfflinePlayer(UUID.fromString(uuidStr));
                             entry.put("name", op.getName());
                             entry.put("uuid", uuidStr);
-                            entry.put("wins", Craftmen.get().getConfig().getInt(path + ".wins"));
-                            entry.put("losses", Craftmen.get().getConfig().getInt(path + ".losses"));
+                            entry.put("game", gameName);
 
-                            JSONObject gameWins = new JSONObject();
-                            JSONObject gameLosses = new JSONObject();
-
-                            if (Craftmen.get().getConfig().contains(path + ".gameWins")) {
-                                for (String game : Craftmen.get().getConfig().getConfigurationSection(path + ".gameWins").getKeys(false)) {
-                                    gameWins.put(game, Craftmen.get().getConfig().getInt(path + ".gameWins." + game));
-                                }
+                            Player online = op.getPlayer();
+                            if (online != null) {
+                                Profile profile = Craftmen.get().getProfileManager().getProfile(online);
+                                entry.put("wins", profile != null ? profile.getGameWins(gameName) : 0);
+                                entry.put("losses", profile != null ? profile.getGameLosses(gameName) : 0);
+                            } else {
+                                String path = "stats." + uuidStr;
+                                entry.put("wins", Craftmen.get().getConfig().getInt(path + ".gameWins." + gameName, 0));
+                                entry.put("losses", Craftmen.get().getConfig().getInt(path + ".gameLosses." + gameName, 0));
                             }
-                            if (Craftmen.get().getConfig().contains(path + ".gameLosses")) {
-                                for (String game : Craftmen.get().getConfig().getConfigurationSection(path + ".gameLosses").getKeys(false)) {
-                                    gameLosses.put(game, Craftmen.get().getConfig().getInt(path + ".gameLosses." + game));
-                                }
-                            }
-
-                            entry.put("gameWins", gameWins);
-                            entry.put("gameLosses", gameLosses);
                             return entry;
                         })
                         .sorted((a, b) -> {

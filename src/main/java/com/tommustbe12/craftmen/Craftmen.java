@@ -64,6 +64,7 @@ public final class Craftmen extends JavaPlugin {
         gameManager.registerGame(new NetheriteSwordGame());
         gameManager.registerGame(new PotionFightGame());
         gameManager.registerGame(new RandomKitGame());
+        gameManager.registerGame(new UHCGame());
 
         getServer().getPluginManager().registerEvents(new PlayerListener(), this);
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
@@ -81,6 +82,7 @@ public final class Craftmen extends JavaPlugin {
         getCommand("stat").setExecutor(new StatCommand());
         getCommand("forfeit").setExecutor(new ForfeitCommand());
         getCommand("queue").setExecutor(new QueueCommand());
+        getCommand("spectate").setExecutor(new SpectateCommand());
 
         getCommand("stat").setTabCompleter(new StatCommand());
 
@@ -165,12 +167,18 @@ public final class Craftmen extends JavaPlugin {
     }
 
     public void saveProfile(Profile profile) {
-
         String uuid = profile.getPlayer().getUniqueId().toString();
         String path = "stats." + uuid;
 
         getConfig().set(path + ".wins", profile.getWins());
         getConfig().set(path + ".losses", profile.getLosses());
+
+        for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
+            getConfig().set(path + ".gameWins." + entry.getKey().replace(" ", "_"), entry.getValue());
+        }
+        for (Map.Entry<String, Integer> entry : profile.getGameLosses().entrySet()) {
+            getConfig().set(path + ".gameLosses." + entry.getKey().replace(" ", "_"), entry.getValue());
+        }
 
         saveConfig();
     }

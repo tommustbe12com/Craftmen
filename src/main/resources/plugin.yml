@@ -36,6 +36,12 @@ commands:
     aliases: q
     description: Open the queue menu
     usage: /queue
+  spectate:
+    aliases:
+      - spec
+      - s
+    description: Spectate a player
+    usage: /spectate <player>
 permissions:
   craftmen.admin:
     default: op

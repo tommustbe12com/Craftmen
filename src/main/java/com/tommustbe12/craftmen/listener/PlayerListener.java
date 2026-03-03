@@ -24,20 +24,31 @@ public class PlayerListener implements Listener {
         player.spigot().sendMessage(net.md_5.bungee.api.ChatMessageType.ACTION_BAR,
                 new net.md_5.bungee.api.chat.TextComponent("§aWelcome to Craftmen!"));
 
-        // buns sound cuz why not
         player.playSound(player.getLocation(), Sound.UI_TOAST_IN, 0.7f, 1.2f);
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
 
         // load stats from config if they exist
-        if (Craftmen.get().getConfig().contains("stats." + player.getUniqueId())) {
-            profile.setWins(Craftmen.get().getConfig().getInt("stats." + player.getUniqueId() + ".wins"));
-            profile.setLosses(Craftmen.get().getConfig().getInt("stats." + player.getUniqueId() + ".losses"));
-            profile.setDeaths(Craftmen.get().getConfig().getInt("stats." + player.getUniqueId() + ".deaths"));
+        String path = "stats." + player.getUniqueId();
+        if (Craftmen.get().getConfig().contains(path)) {
+            profile.setWins(Craftmen.get().getConfig().getInt(path + ".wins"));
+            profile.setLosses(Craftmen.get().getConfig().getInt(path + ".losses"));
+
+            if (Craftmen.get().getConfig().contains(path + ".gameWins")) {
+                for (String game : Craftmen.get().getConfig().getConfigurationSection(path + ".gameWins").getKeys(false)) {
+                    profile.setGameWins(game.replace("_", " "), Craftmen.get().getConfig().getInt(path + ".gameWins." + game));
+                }
+            }
+            if (Craftmen.get().getConfig().contains(path + ".gameLosses")) {
+                for (String game : Craftmen.get().getConfig().getConfigurationSection(path + ".gameLosses").getKeys(false)) {
+                    profile.setGameLosses(game.replace("_", " "), Craftmen.get().getConfig().getInt(path + ".gameLosses." + game));
+                }
+            }
         }
+
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
             Craftmen.get().getScoreboardManager().create(player);
-        }, 2L); // delay ig for scoreboard cuz buns simpleranks conflicts and stuff
+        }, 2L);
 
         player.setGameMode(GameMode.SURVIVAL);
         player.teleport(Craftmen.get().getHubLocation());

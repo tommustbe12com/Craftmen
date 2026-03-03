@@ -29,12 +29,12 @@ public class AxeGame extends Game {
         sword.addEnchantment(ench("sharpness"), 1);
 
         ItemStack bow = new ItemStack(Material.BOW);
-        bow.addEnchantment(ench("power"), 1);
 
         player.getInventory().addItem(axe);
         player.getInventory().addItem(sword);
+        player.getInventory().addItem(new ItemStack(Material.CROSSBOW));
         player.getInventory().addItem(bow);
-        player.getInventory().addItem(new ItemStack(Material.ARROW, 8));
+        player.getInventory().setItem(8, new ItemStack(Material.ARROW, 5));
 
         player.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
 
