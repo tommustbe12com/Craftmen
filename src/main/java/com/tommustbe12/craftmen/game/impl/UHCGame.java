@@ -105,10 +105,11 @@ public class UHCGame extends Game {
                 {"unbreaking", 3}
         }));
         inv.setItem(21, createItem(Material.WATER_BUCKET));
-        inv.setItem(22, createItem(Material.LAVA_BUCKET));
-        inv.setItem(23, new ItemStack(Material.COBBLESTONE, 64));
-        inv.setItem(24, new ItemStack(Material.OAK_PLANKS, 64));
-        inv.setItem(25, new ItemStack(Material.OAK_PLANKS, 64));
+        inv.setItem(30, createItem(Material.WATER_BUCKET));
+        inv.setItem(31, createItem(Material.LAVA_BUCKET));
+        inv.setItem(32, new ItemStack(Material.COBBLESTONE, 64));
+        inv.setItem(33, new ItemStack(Material.OAK_PLANKS, 64));
+        inv.setItem(34, new ItemStack(Material.OAK_PLANKS, 64));
     }
 
     @Override public void onStart(Match match) {}
