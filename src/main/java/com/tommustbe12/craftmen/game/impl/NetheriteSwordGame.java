@@ -14,7 +14,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 public class NetheriteSwordGame extends Game {
 
     public NetheriteSwordGame() {
-        super("Netherite Sword", Material.NETHERITE_SWORD);
+        super("Netherite Sword", Material.NETHERITE_BOOTS);
     }
 
     private Enchantment ench(String key) {

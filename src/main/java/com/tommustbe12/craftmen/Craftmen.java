@@ -53,7 +53,6 @@ public final class Craftmen extends JavaPlugin {
         scoreboardManager = new ScoreboardManager();
         hubManager = new HubManager();
 
-        // Register example game
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
         gameManager.registerGame(new GappleGame());
@@ -65,6 +64,8 @@ public final class Craftmen extends JavaPlugin {
         gameManager.registerGame(new PotionFightGame());
         gameManager.registerGame(new RandomKitGame());
         gameManager.registerGame(new UHCGame());
+        gameManager.registerGame(new SMPGame());
+        gameManager.registerGame(new MaceGame());
 
         getServer().getPluginManager().registerEvents(new PlayerListener(), this);
         getServer().getPluginManager().registerEvents(new CombatListener(), this);

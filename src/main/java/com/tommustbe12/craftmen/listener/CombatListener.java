@@ -3,19 +3,23 @@ package com.tommustbe12.craftmen.listener;
 import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.match.Match;
 import com.tommustbe12.craftmen.profile.PlayerState;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityResurrectEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.inventory.ItemStack;
 
 public class CombatListener implements Listener {
 
     @EventHandler
     public void onDamage(EntityDamageByEntityEvent e) {
-        if (!(e.getEntity() instanceof Player) || !(e.getDamager() instanceof Player)) return;
+        if (!(e.getEntity() instanceof Player)) return;
+        if (!(e.getDamager() instanceof Player)) return;
 
         Player damaged = (Player) e.getEntity();
         Player damager = (Player) e.getDamager();
@@ -37,11 +41,9 @@ public class CombatListener implements Listener {
         if (!match.getGame().getName().equals("Sumo")) return;
 
         if (e instanceof EntityDamageByEntityEvent) {
-            // knockback only, no health loss
             e.setDamage(0.0);
             player.setNoDamageTicks(0);
         } else {
-            // cancel all environmental damage in Sumo
             e.setCancelled(true);
         }
     }
@@ -56,16 +58,31 @@ public class CombatListener implements Listener {
         Match match = Craftmen.get().getMatchManager().getMatch(player);
         if (match == null) return;
 
-        // Sumo has no health-based death
         if (match.getGame().getName().equals("Sumo")) return;
 
-        if (player.getHealth() - e.getFinalDamage() <= 0) {
+        double finalHealth = player.getHealth() - e.getFinalDamage();
+
+        if (finalHealth <= 0) {
+
+            if (hasTotem(player)) {
+                return;
+            }
+
             e.setCancelled(true);
             handleCustomDeath(player);
         }
     }
 
-    // Safety net in case damage cancellation slips through
+    @EventHandler
+    public void onTotemPop(EntityResurrectEvent e) {
+        if (!(e.getEntity() instanceof Player player)) return;
+
+        Match match = Craftmen.get().getMatchManager().getMatch(player);
+        if (match == null) return;
+
+        if (e.isCancelled()) return;
+    }
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onDeath(PlayerDeathEvent e) {
         Player dead = e.getEntity();
@@ -77,7 +94,7 @@ public class CombatListener implements Listener {
         e.getDrops().clear();
         e.setDroppedExp(0);
 
-        Player winner = match.getP1() == dead ? match.getP2() : match.getP1();
+        Player winner = match.getP1().equals(dead) ? match.getP2() : match.getP1();
         Craftmen.get().getMatchManager().endMatch(match, winner);
     }
 
@@ -91,7 +108,15 @@ public class CombatListener implements Listener {
             return;
         }
 
-        Player winner = match.getP1() == dead ? match.getP2() : match.getP1();
+        Player winner = match.getP1().equals(dead) ? match.getP2() : match.getP1();
         Craftmen.get().getMatchManager().endMatch(match, winner);
+    }
+
+    private boolean hasTotem(Player player) {
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+
+        return (mainHand != null && mainHand.getType() == Material.TOTEM_OF_UNDYING)
+                || (offHand != null && offHand.getType() == Material.TOTEM_OF_UNDYING);
     }
 }

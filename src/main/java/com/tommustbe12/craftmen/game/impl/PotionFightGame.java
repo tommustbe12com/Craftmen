@@ -27,12 +27,12 @@ public class PotionFightGame extends Game {
 
         // 0-8 hotbar
         player.getInventory().setItem(0, new ItemStack(Material.STONE_SWORD));
-        player.getInventory().setItem(1, createPotion(PotionType.INSTANT_DAMAGE, true));
-        player.getInventory().setItem(2, createPotion(PotionType.POISON, true));
-        player.getInventory().setItem(3, createPotion(PotionType.INSTANT_HEAL, true));
-        player.getInventory().setItem(4, createPotion(PotionType.SPEED, true));
+        player.getInventory().setItem(1, createPotion(PotionType.STRONG_HARMING, true));
+        player.getInventory().setItem(2, createPotion(PotionType.STRONG_POISON, true));
+        player.getInventory().setItem(3, createPotion(PotionType.STRONG_HEALING, true));
+        player.getInventory().setItem(4, createPotion(PotionType.STRONG_SWIFTNESS, true));
         player.getInventory().setItem(5, createPotion(PotionType.SLOWNESS, true));
-        player.getInventory().setItem(6, createPotion(PotionType.INSTANT_DAMAGE, true));
+        player.getInventory().setItem(6, createPotion(PotionType.STRONG_HARMING, true));
         player.getInventory().setItem(7, new ItemStack(Material.BOW));
         player.getInventory().setItem(8, new ItemStack(Material.ARROW, 16));
 
@@ -40,10 +40,10 @@ public class PotionFightGame extends Game {
         for (int slot = 9; slot < 36; slot++) {
             PotionType type;
             switch (slot % 5) {
-                case 0 -> type = PotionType.INSTANT_DAMAGE;
-                case 1 -> type = PotionType.INSTANT_HEAL;
-                case 2 -> type = PotionType.POISON;
-                case 3 -> type = PotionType.SPEED;
+                case 0 -> type = PotionType.STRONG_HARMING;
+                case 1 -> type = PotionType.STRONG_HEALING;
+                case 2 -> type = PotionType.STRONG_POISON;
+                case 3 -> type = PotionType.STRONG_SWIFTNESS;
                 default -> type = PotionType.SLOWNESS;
             }
             player.getInventory().setItem(slot, createPotion(type, true));
