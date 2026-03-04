@@ -4,11 +4,13 @@ import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.queue.QueueManager;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
@@ -16,44 +18,90 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
+import java.util.Collection;
 import java.util.function.Consumer;
 
 public class HubManager implements Listener {
 
-    private final QueueManager queueManager = Craftmen.get().getQueueManager();
+    private static final String GUI_TITLE_PREFIX = "§8Select a Kit";
 
-    private final Map<UUID, Consumer<Game>> selectedGameCallbacks = new HashMap<>();
+    // The exact ordered list of kit names shown on page 1
+    private static final List<String> PAGE_ONE_KITS = Arrays.asList(
+            "Sword", "Mace", "Axe", "Netherite Potion", "Diamond Potion", "SMP", "UHC"
+    );
 
-    // Give the player the iron sword that opens the GUI
+    // Slots in a 54-slot (6-row) inventory that are "content" cells
+    // Layout:
+    //   Row 0 (slots  0- 8): border
+    //   Row 1 (slots  9-17): border | content (10-16) | border
+    //   Row 2 (slots 18-26): border | content (19-25) | border
+    //   Row 3 (slots 27-35): border | content (28-34) | border
+    //   Row 4 (slots 36-44): border | content (37-43) | border
+    //   Row 5 (slots 45-53): border | ← (46) | · | barrier (49) | · | → (52) | border
+    //
+    // Content slots per row: 7 slots wide (columns 1-7)
+    // 4 content rows → 28 content slots per page, but page 1 only shows 7 kits in row 1 (+Crystal centred in row 2)
+
+    private static final int INV_SIZE = 54;
+    private static final int[] CONTENT_SLOTS = {
+            10, 11, 12, 13, 14, 15, 16,
+            19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34,
+            37, 38, 39, 40, 41, 42, 43
+    };
+    private static final int ITEMS_PER_PAGE = CONTENT_SLOTS.length; // 28
+
+    // Special slots
+    private static final int SLOT_PREV  = 46;
+    private static final int SLOT_CLOSE = 49;
+    private static final int SLOT_NEXT  = 52;
+
+    // Crystal goes in slot 22 (centre of row 2) on page 1
+    private static final int CRYSTAL_SLOT = 22;
+
+    // ── Persistent player state ──────────────────────────────────────────────
+    private final Map<UUID, Integer>           playerPage      = new HashMap<>();
+    private final Map<UUID, Consumer<Game>>    gameCallbacks   = new HashMap<>();
+
+    // ── Hub item helpers ─────────────────────────────────────────────────────
+
     public void giveHubItems(Player player) {
         player.getInventory().clear();
-        ItemStack hubItem = new ItemStack(Material.IRON_SWORD);
-        ItemMeta meta = hubItem.getItemMeta();
+        ItemStack selector = new ItemStack(Material.IRON_SWORD);
+        ItemMeta meta = selector.getItemMeta();
         meta.setDisplayName("§6Game Selector");
-        hubItem.setItemMeta(meta);
-        player.getInventory().setItem(0, hubItem);
+        selector.setItemMeta(meta);
+        player.getInventory().setItem(0, selector);
     }
 
-    // Give hub items on join
+    public void giveLeaveQueueItem(Player player) {
+        player.getInventory().clear();
+        ItemStack leave = new ItemStack(Material.RED_DYE);
+        ItemMeta meta = leave.getItemMeta();
+        meta.setDisplayName("§cLeave Queue");
+        leave.setItemMeta(meta);
+        player.getInventory().setItem(4, leave);
+        player.updateInventory();
+    }
+
+    // ── Event handlers ───────────────────────────────────────────────────────
+
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
         giveHubItems(e.getPlayer());
     }
 
-    // Give hub items on respawn
     @EventHandler
     public void onRespawn(PlayerRespawnEvent e) {
-        Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> giveHubItems(e.getPlayer()), 1L);
+        Bukkit.getScheduler().runTaskLater(Craftmen.get(),
+                () -> giveHubItems(e.getPlayer()), 1L);
     }
 
-    // right click item detector interact
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
-        if (!(e.getAction() == Action.RIGHT_CLICK_AIR ||
-                e.getAction() == Action.RIGHT_CLICK_BLOCK)) return;
+        if (e.getAction() != Action.RIGHT_CLICK_AIR &&
+                e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 
         ItemStack item = e.getItem();
         if (item == null || !item.hasItemMeta()) return;
@@ -61,78 +109,206 @@ public class HubManager implements Listener {
         String name = item.getItemMeta().getDisplayName();
         Player player = e.getPlayer();
 
-        // game select
         if (name.equals("§6Game Selector")) {
             e.setCancelled(true);
-
             openGameSelector(player, game -> {
                 giveLeaveQueueItem(player);
                 Craftmen.get().getQueueManager().addPlayer(player, game);
             });
-            return;
-        }
 
-        // left queue
-        if (name.equals("§cLeave Queue")) {
+        } else if (name.equals("§cLeave Queue")) {
             e.setCancelled(true);
-
             Craftmen.get().getQueueManager().removePlayer(player);
             giveHubItems(player);
         }
     }
 
-    // Opens the GUI listing all registered games
-    public void openGameSelector(Player player, java.util.function.Consumer<Game> onSelect) {
-        int size = 9;
-        int gameCount = Craftmen.get().getGameManager().getGames().size();
-        while (size < gameCount) size += 9;
-
-        Inventory gui = Bukkit.createInventory(null, size, "Select a Game");
-
-        for (Game game : Craftmen.get().getGameManager().getGames()) {
-            ItemStack item = game.getIcon();
-            ItemMeta meta = item.getItemMeta();
-            meta.setDisplayName("§a" + game.getName());
-            item.setItemMeta(meta);
-            gui.addItem(item);
-        }
-
-        player.openInventory(gui);
-
-        // Store the callback somewhere temporarily so onGUIClick can use it
-        selectedGameCallbacks.put(player.getUniqueId(), onSelect);
-    }
-
-    // Handle clicks in the GUI
     @EventHandler
-    public void onGUIClick(org.bukkit.event.inventory.InventoryClickEvent e) {
-        if (e.getView().getTitle().equals("Select a Game")) {
-            e.setCancelled(true);
-            if (e.getCurrentItem() == null || !e.getCurrentItem().hasItemMeta()) return;
+    public void onGUIClick(InventoryClickEvent e) {
+        if (!e.getView().getTitle().startsWith(GUI_TITLE_PREFIX)) return;
+        e.setCancelled(true);
 
-            Player clicker = (Player) e.getWhoClicked();
-            java.util.function.Consumer<Game> callback = selectedGameCallbacks.remove(clicker.getUniqueId());
-            if (callback == null) return; // not a duel selection
+        if (!(e.getWhoClicked() instanceof Player)) return;
+        Player player = (Player) e.getWhoClicked();
 
-            String gameName = e.getCurrentItem().getItemMeta().getDisplayName().replace("§a", "");
-            Game game = Craftmen.get().getGameManager().getGame(gameName);
-            if (game != null) callback.accept(game);
+        ItemStack clicked = e.getCurrentItem();
+        if (clicked == null || clicked.getType() == Material.AIR) return;
+        if (!clicked.hasItemMeta() || clicked.getItemMeta().getDisplayName() == null) return;
 
-            clicker.closeInventory();
+        int slot = e.getRawSlot();
+
+        // Navigation buttons
+        if (slot == SLOT_PREV) {
+            int page = playerPage.getOrDefault(player.getUniqueId(), 0);
+            if (page > 0) openPage(player, page - 1);
+            return;
+        }
+        if (slot == SLOT_NEXT) {
+            int page = playerPage.getOrDefault(player.getUniqueId(), 0);
+            openPage(player, page + 1);
+            return;
+        }
+        if (slot == SLOT_CLOSE) {
+            player.closeInventory();
+            playerPage.remove(player.getUniqueId());
+            gameCallbacks.remove(player.getUniqueId());
+            return;
+        }
+
+        // Content slot — find which game was clicked
+        String rawName = clicked.getItemMeta().getDisplayName();
+        // Strip colour codes
+        String gameName = ChatColor.stripColor(rawName);
+
+        Game game = Craftmen.get().getGameManager().getGame(gameName);
+        if (game == null) return;
+
+        Consumer<Game> callback = gameCallbacks.remove(player.getUniqueId());
+        playerPage.remove(player.getUniqueId());
+        player.closeInventory();
+
+        if (callback != null) callback.accept(game);
+    }
+
+    // ── GUI construction ─────────────────────────────────────────────────────
+
+    /**
+     * Opens the game-selector GUI for the given player, calling {@code onSelect}
+     * when a game is chosen.
+     */
+    public void openGameSelector(Player player, Consumer<Game> onSelect) {
+        gameCallbacks.put(player.getUniqueId(), onSelect);
+        openPage(player, 0);
+    }
+
+    private void openPage(Player player, int page) {
+        Collection<Game> allGames  = Craftmen.get().getGameManager().getGames();
+        List<Game> page1Games     = getPage1Games(allGames);   // ordered, no Crystal
+        Game       crystalGame    = getCrystalGame(allGames);
+        List<Game> extraGames     = getExtraGames(allGames);   // everything not on page 1
+
+        int totalPages = 1 + (int) Math.ceil(extraGames.size() / (double) ITEMS_PER_PAGE);
+        page = Math.max(0, Math.min(page, totalPages - 1));
+        playerPage.put(player.getUniqueId(), page);
+
+        String title = GUI_TITLE_PREFIX + " §7(Page " + (page + 1) + "/" + totalPages + ")";
+        Inventory inv = Bukkit.createInventory(null, INV_SIZE, title);
+
+        // Fill border with black stained glass
+        fillBorder(inv);
+
+        // Navigation buttons
+        if (page > 0)           inv.setItem(SLOT_PREV,  makeArrow(true));
+        if (page < totalPages - 1) inv.setItem(SLOT_NEXT, makeArrow(false));
+        inv.setItem(SLOT_CLOSE, makeBarrier());
+
+        if (page == 0) {
+            // Page 1: ordered kits in row 1 (slots 10-16), Crystal centred in row 2 (slot 22)
+            int col = 0;
+            for (Game g : page1Games) {
+                if (col >= 7) break;
+                inv.setItem(CONTENT_SLOTS[col], makeGameItem(g));
+                col++;
+            }
+            if (crystalGame != null) {
+                inv.setItem(CRYSTAL_SLOT, makeGameItem(crystalGame));
+            }
+        } else {
+            // Extra pages: fill all 28 content slots
+            int startIndex = (page - 1) * ITEMS_PER_PAGE;
+            for (int i = 0; i < ITEMS_PER_PAGE; i++) {
+                int gameIndex = startIndex + i;
+                if (gameIndex >= extraGames.size()) break;
+                inv.setItem(CONTENT_SLOTS[i], makeGameItem(extraGames.get(gameIndex)));
+            }
+        }
+
+        player.openInventory(inv);
+    }
+
+    // ── Sorting helpers ──────────────────────────────────────────────────────
+
+    /** Returns the page-1 kit list in the prescribed order (excludes Crystal). */
+    private List<Game> getPage1Games(Collection<Game> all) {
+        List<Game> result = new ArrayList<>();
+        for (String name : PAGE_ONE_KITS) {
+            for (Game g : all) {
+                if (g.getName().equalsIgnoreCase(name)) {
+                    result.add(g);
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
+    /** Returns the Crystal game if registered. */
+    private Game getCrystalGame(Collection<Game> all) {
+        for (Game g : all) {
+            if (g.getName().equalsIgnoreCase("Crystal")) return g;
+        }
+        return null;
+    }
+
+    /**
+     * Returns all games NOT in the page-1 set (i.e. not in PAGE_ONE_KITS and not Crystal),
+     * preserving registration order.
+     */
+    private List<Game> getExtraGames(Collection<Game> all) {
+        Set<String> reserved = new HashSet<>();
+        for (String s : PAGE_ONE_KITS) reserved.add(s.toLowerCase());
+        reserved.add("crystal");
+
+        List<Game> result = new ArrayList<>();
+        for (Game g : all) {
+            if (!reserved.contains(g.getName().toLowerCase())) result.add(g);
+        }
+        return result;
+    }
+
+    // ── Item factories ───────────────────────────────────────────────────────
+
+    private ItemStack makeBorderPane() {
+        ItemStack pane = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta meta  = pane.getItemMeta();
+        meta.setDisplayName(" ");
+        pane.setItemMeta(meta);
+        return pane;
+    }
+
+    private void fillBorder(Inventory inv) {
+        ItemStack pane = makeBorderPane();
+        // Top row (0-8) and bottom row (45-53)
+        for (int i = 0; i < 9; i++)  inv.setItem(i, pane);
+        for (int i = 45; i < 54; i++) inv.setItem(i, pane);
+        // Left and right columns for rows 1-4
+        for (int row = 1; row <= 4; row++) {
+            inv.setItem(row * 9,     pane); // col 0
+            inv.setItem(row * 9 + 8, pane); // col 8
         }
     }
 
-    public void giveLeaveQueueItem(Player player) {
-        player.getInventory().clear();
+    private ItemStack makeArrow(boolean left) {
+        ItemStack arrow = new ItemStack(left ? Material.ARROW : Material.ARROW);
+        ItemMeta meta   = arrow.getItemMeta();
+        meta.setDisplayName(left ? "§e◀ Previous" : "§eNext ▶");
+        arrow.setItemMeta(meta);
+        return arrow;
+    }
 
-        ItemStack leave = new ItemStack(Material.RED_DYE);
-        ItemMeta meta = leave.getItemMeta();
-        meta.setDisplayName("§cLeave Queue");
-        leave.setItemMeta(meta);
+    private ItemStack makeBarrier() {
+        ItemStack barrier = new ItemStack(Material.BARRIER);
+        ItemMeta meta     = barrier.getItemMeta();
+        meta.setDisplayName("§cClose");
+        barrier.setItemMeta(meta);
+        return barrier;
+    }
 
-        // Slot 4 = middle of hotbar (0-8)
-        player.getInventory().setItem(4, leave);
-
-        player.updateInventory();
+    private ItemStack makeGameItem(Game game) {
+        ItemStack item = game.getIcon().clone();
+        ItemMeta meta  = item.getItemMeta();
+        meta.setDisplayName("§a" + game.getName());
+        item.setItemMeta(meta);
+        return item;
     }
 }

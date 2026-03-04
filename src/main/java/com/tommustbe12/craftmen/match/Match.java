@@ -11,6 +11,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.Random;
@@ -127,6 +128,13 @@ public class Match {
 
         // after 5 seconds, reset players and remove arena
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+
+            for (PotionEffectType type : PotionEffectType.values()) {
+                if (type != null) {
+                    p1.removePotionEffect(type);
+                    p2.removePotionEffect(type);
+                }
+            }
 
             // full health
             p1.setHealth(20.0);
