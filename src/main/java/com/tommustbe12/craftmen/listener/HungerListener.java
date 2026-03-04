@@ -24,7 +24,10 @@ public class HungerListener implements Listener {
             "Random Kit",
             "UHC",
             "SMP",
-            "Mace"
+            "Mace",
+            "Netherite Potion",
+            "Diamond Potion",
+            "Diamond SMP"
     );
 
     @EventHandler

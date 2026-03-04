@@ -26,7 +26,10 @@ public class RegenListener implements Listener {
             "Netherite Sword",
             "UHC",
             "SMP",
-            "Mace"
+            "Mace",
+            "Netherite Potion",
+            "Diamond SMP",
+            "Diamond Potion"
     );
 
     @EventHandler(priority = EventPriority.HIGH)
