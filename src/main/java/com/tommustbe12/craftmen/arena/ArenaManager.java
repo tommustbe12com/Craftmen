@@ -19,78 +19,133 @@ import org.bukkit.block.Block;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class ArenaManager {
 
     private final Map<String, List<Arena>> arenasByCategory = new HashMap<>();
+
     private final File baseFolder = new File("plugins/Craftmen/arenas");
+    private final File mainFolder = new File(baseFolder, "main");
 
     public ArenaManager() {
         if (!baseFolder.exists()) baseFolder.mkdirs();
+        if (!mainFolder.exists()) mainFolder.mkdirs();
         loadAllArenas();
     }
 
     /**
-     * Scans /arenas/<category>/ folders and loads all schematics as arenas
+     * Load arenas from:
+     * arenas/main/ (default pool)
+     * arenas/<gamemode>/ (override pools)
      */
     private void loadAllArenas() {
-        File[] categories = baseFolder.listFiles(File::isDirectory);
-        if (categories == null) return;
 
-        for (File category : categories) {
+        arenasByCategory.clear();
+
+        // Load main arenas
+        List<Arena> mainArenas = new ArrayList<>();
+
+        File[] mainFiles = mainFolder.listFiles((dir, name) -> name.endsWith(".schem"));
+        if (mainFiles != null) {
+            for (File schem : mainFiles) {
+                mainArenas.add(new Arena(
+                        schem.getName().replace(".schem", ""),
+                        "main",
+                        null,
+                        null
+                ));
+            }
+        }
+
+        arenasByCategory.put("main", mainArenas);
+
+        // Load gamemode folders
+        File[] folders = baseFolder.listFiles(File::isDirectory);
+
+        if (folders == null) return;
+
+        for (File folder : folders) {
+
+            if (folder.getName().equalsIgnoreCase("main")) continue;
+
             List<Arena> list = new ArrayList<>();
-            File[] files = category.listFiles((dir, name) -> name.endsWith(".schem"));
+
+            File[] files = folder.listFiles((dir, name) -> name.endsWith(".schem"));
             if (files == null) continue;
 
             for (File schem : files) {
-                list.add(new Arena(schem.getName().replace(".schem", ""), category.getName(), null, null));
+                list.add(new Arena(
+                        schem.getName().replace(".schem", ""),
+                        folder.getName(),
+                        null,
+                        null
+                ));
             }
 
-            arenasByCategory.put(category.getName(), list);
+            arenasByCategory.put(folder.getName(), list);
         }
     }
 
     /**
-     * Get all arenas in a category
+     * Get arenas for gamemode
+     * Falls back to main if none exist
      */
     public List<Arena> getArenas(String category) {
-        return arenasByCategory.getOrDefault(category, new ArrayList<>());
+
+        if (arenasByCategory.containsKey(category) &&
+                !arenasByCategory.get(category).isEmpty()) {
+            return arenasByCategory.get(category);
+        }
+
+        return arenasByCategory.getOrDefault("main", new ArrayList<>());
     }
 
     /**
-     * Paste a schematic arena at a location (auto sets spawn1/spawn2)
+     * Paste schematic
      */
     public void pasteArena(String category, String arenaName, Location pasteLocation, Match match) {
+
         try {
+
             File file = new File(baseFolder, category + "/" + arenaName + ".schem");
+
             if (!file.exists()) {
-                Bukkit.getLogger().warning("Schematic " + arenaName + " not found in category " + category);
+                file = new File(mainFolder, arenaName + ".schem");
+            }
+
+            if (!file.exists()) {
+                Bukkit.getLogger().warning("Schematic " + arenaName + " not found.");
                 return;
             }
 
             ClipboardFormat format = ClipboardFormats.findByFile(file);
+
             if (format == null) {
                 Bukkit.getLogger().warning("Unknown schematic format for " + arenaName);
                 return;
             }
 
             try (ClipboardReader reader = format.getReader(new FileInputStream(file))) {
+
                 Clipboard clipboard = reader.read();
 
                 ClipboardHolder holder = new ClipboardHolder(clipboard);
+
                 EditSession session = WorldEdit.getInstance()
                         .newEditSession(BukkitAdapter.adapt(pasteLocation.getWorld()));
 
-                // Paste at the location
-                BlockVector3 to = BlockVector3.at(pasteLocation.getX(), pasteLocation.getY(), pasteLocation.getZ());
+                BlockVector3 to = BlockVector3.at(
+                        pasteLocation.getX(),
+                        pasteLocation.getY(),
+                        pasteLocation.getZ()
+                );
+
                 Operations.complete(holder.createPaste(session)
                         .to(to)
                         .ignoreAirBlocks(false)
                         .build());
+
                 session.close();
 
                 BlockVector3 clipOrigin = clipboard.getOrigin();
@@ -98,7 +153,12 @@ public class ArenaManager {
                 BlockVector3 max = clipboard.getRegion().getMaximumPoint();
                 BlockVector3 offset = min.subtract(clipOrigin);
 
-                Location minCorner = pasteLocation.clone().add(offset.getX(), offset.getY(), offset.getZ());
+                Location minCorner = pasteLocation.clone().add(
+                        offset.getX(),
+                        offset.getY(),
+                        offset.getZ()
+                );
+
                 Location maxCorner = minCorner.clone().add(
                         max.getX() - min.getX(),
                         max.getY() - min.getY(),
@@ -110,14 +170,16 @@ public class ArenaManager {
                     match.setPasteMaxLocation(maxCorner);
                 }
 
-                // Save arena in memory
                 List<Arena> list = arenasByCategory.get(category);
+
                 if (list == null) {
                     list = new ArrayList<>();
                     arenasByCategory.put(category, list);
                 }
-                list.removeIf(a -> a.getName().equals(arenaName)); // remove old
-                list.add(new Arena(arenaName, category, minCorner, null)); // spawn2 null if not needed
+
+                list.removeIf(a -> a.getName().equals(arenaName));
+                list.add(new Arena(arenaName, category, minCorner, null));
+
             }
 
         } catch (Exception e) {
@@ -125,16 +187,15 @@ public class ArenaManager {
         }
     }
 
-
     public void removeArenaAtLocation(String arenaName, Location min, Location max) {
 
         if (min == null || min.getWorld() == null) {
-            Bukkit.getLogger().warning("[ArenaManager] Cannot remove arena '" + arenaName + "' - min of location is null.");
+            Bukkit.getLogger().warning("[ArenaManager] Cannot remove arena '" + arenaName + "' - min location null.");
             return;
         }
 
         if (max == null || max.getWorld() == null) {
-            Bukkit.getLogger().warning("[ArenaManager] Cannot remove arena '" + arenaName + "' - max of location is null.");
+            Bukkit.getLogger().warning("[ArenaManager] Cannot remove arena '" + arenaName + "' - max location null.");
             return;
         }
 
@@ -146,8 +207,6 @@ public class ArenaManager {
         int maxY = max.getBlockY();
         int minZ = min.getBlockZ();
         int maxZ = max.getBlockZ();
-
-        Bukkit.getLogger().info("[ArenaManager] MIN:" + minX + " " +  minY + " " + minZ + ", MAX: " + maxX + " " + maxY + " " + maxZ + ".");
 
         int blocksCleared = 0;
 
@@ -170,69 +229,71 @@ public class ArenaManager {
     }
 
     public boolean isAreaEmpty(Location loc, int width, int length, World world) {
+
         int yStart = loc.getBlockY();
-        int yEnd = yStart + 10; // check 10 blocks vertically; adjust if needed
+        int yEnd = yStart + 10;
 
         for (int x = 0; x < width; x++) {
             for (int z = 0; z < length; z++) {
                 for (int y = yStart; y <= yEnd; y++) {
-                    if (!world.getBlockAt(loc.getBlockX() + x, y, loc.getBlockZ() + z).isEmpty()) {
+
+                    if (!world.getBlockAt(
+                            loc.getBlockX() + x,
+                            y,
+                            loc.getBlockZ() + z).isEmpty()) {
+
                         return false;
                     }
                 }
             }
         }
+
         return true;
     }
 
-    // Return width (X dimension) of a schematic in blocks
     public int getSchematicWidth(String category, String arenaName) {
-        try {
-            File file = new File(baseFolder, category + "/" + arenaName + ".schem");
-            ClipboardFormat format = ClipboardFormats.findByFile(file);
-            if (format == null) return 0;
-
-            try (ClipboardReader reader = format.getReader(new FileInputStream(file))) {
-                Clipboard clipboard = reader.read();
-                return clipboard.getDimensions().getX();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return 0;
-        }
+        return getDimension(category, arenaName, "x");
     }
 
     public int getSchematicLength(String category, String arenaName) {
-        try {
-            File file = new File(baseFolder, category + "/" + arenaName + ".schem");
-            ClipboardFormat format = ClipboardFormats.findByFile(file);
-            if (format == null) return 0;
-
-            try (ClipboardReader reader = format.getReader(new FileInputStream(file))) {
-                Clipboard clipboard = reader.read();
-                return clipboard.getDimensions().getZ();
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-            return 0;
-        }
+        return getDimension(category, arenaName, "z");
     }
 
     public int getSchematicHeight(String category, String arenaName) {
+        return getDimension(category, arenaName, "y");
+    }
+
+    private int getDimension(String category, String arenaName, String axis) {
+
         try {
+
             File file = new File(baseFolder, category + "/" + arenaName + ".schem");
+
+            if (!file.exists()) {
+                file = new File(mainFolder, arenaName + ".schem");
+            }
+
             if (!file.exists()) return 0;
 
             ClipboardFormat format = ClipboardFormats.findByFile(file);
+
             if (format == null) return 0;
 
             try (ClipboardReader reader = format.getReader(new FileInputStream(file))) {
+
                 Clipboard clipboard = reader.read();
-                return clipboard.getDimensions().getY();
+
+                switch (axis) {
+                    case "x": return clipboard.getDimensions().getX();
+                    case "y": return clipboard.getDimensions().getY();
+                    case "z": return clipboard.getDimensions().getZ();
+                }
             }
+
         } catch (Exception e) {
             e.printStackTrace();
-            return 0;
         }
+
+        return 0;
     }
 }
