@@ -27,7 +27,8 @@ public class HungerListener implements Listener {
             "Mace",
             "Netherite Potion",
             "Diamond Potion",
-            "Diamond SMP"
+            "Diamond SMP",
+            "Crystal"
     );
 
     @EventHandler
