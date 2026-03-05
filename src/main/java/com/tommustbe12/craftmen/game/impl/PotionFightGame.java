@@ -57,10 +57,7 @@ public class PotionFightGame extends Game {
     }
 
     @Override
-    public void onStart(Match match) {
-        applyLoadout(match.getP1());
-        applyLoadout(match.getP2());
-    }
+    public void onStart(Match match) {}
 
     @Override
     public void onEnd(Match match) {
