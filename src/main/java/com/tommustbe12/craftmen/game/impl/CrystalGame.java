@@ -8,11 +8,13 @@ import org.bukkit.Registry;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.CrossbowMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.potion.PotionType;
 
 public class CrystalGame extends Game {
 
@@ -104,7 +106,7 @@ public class CrystalGame extends Game {
         inv.setItem(2, new ItemStack(Material.OBSIDIAN, 64));
         inv.setItem(3, new ItemStack(Material.RESPAWN_ANCHOR, 64));
         inv.setItem(4, new ItemStack(Material.GLOWSTONE, 64));
-        inv.setItem(5, new ItemStack(Material.ENCHANTED_GOLDEN_APPLE, 16));
+        inv.setItem(5, new ItemStack(Material.GOLDEN_APPLE, 64));
 
         inv.setItem(6, createEnchanted(Material.NETHERITE_PICKAXE, new Object[][]{
                 {"efficiency",5},
@@ -128,12 +130,23 @@ public class CrystalGame extends Game {
                 {"unbreaking",3}
         }));
 
-        inv.setItem(11, createEnchanted(Material.CROSSBOW, new Object[][]{
+        ItemStack crossbow = createEnchanted(Material.CROSSBOW, new Object[][]{
                 {"multishot",1},
                 {"quick_charge",3},
                 {"unbreaking",3},
                 {"mending",1}
-        }));
+        });
+
+        ItemStack arrow = new ItemStack(Material.TIPPED_ARROW);
+        PotionMeta arrowMeta = (PotionMeta) arrow.getItemMeta();
+        arrowMeta.setBasePotionType(PotionType.SLOW_FALLING);
+        arrow.setItemMeta(arrowMeta);
+
+        CrossbowMeta meta = (CrossbowMeta) crossbow.getItemMeta();
+        meta.addChargedProjectile(arrow);
+        crossbow.setItemMeta(meta);
+
+        inv.setItem(11, crossbow);
 
         inv.setItem(12, new ItemStack(Material.TOTEM_OF_UNDYING));
         inv.setItem(13, new ItemStack(Material.TOTEM_OF_UNDYING));
@@ -147,7 +160,14 @@ public class CrystalGame extends Game {
         // Row 2
         inv.setItem(18, new ItemStack(Material.EXPERIENCE_BOTTLE, 64));
         inv.setItem(19, new ItemStack(Material.EXPERIENCE_BOTTLE, 64));
-        inv.setItem(20, new ItemStack(Material.ARROW, 64));
+        ItemStack arroww = new ItemStack(Material.TIPPED_ARROW, 63);
+
+        PotionMeta metaw = (PotionMeta) arroww.getItemMeta();
+        metaw.setBasePotionType(PotionType.SLOW_FALLING);
+
+        arroww.setItemMeta(metaw);
+
+        inv.setItem(20, arroww);
         inv.setItem(21, new ItemStack(Material.TOTEM_OF_UNDYING));
         inv.setItem(22, new ItemStack(Material.TOTEM_OF_UNDYING));
         inv.setItem(23, new ItemStack(Material.COBWEB, 64));
@@ -161,7 +181,7 @@ public class CrystalGame extends Game {
         inv.setItem(29, new ItemStack(Material.OBSIDIAN, 64));
         inv.setItem(30, new ItemStack(Material.TOTEM_OF_UNDYING));
         inv.setItem(31, new ItemStack(Material.TOTEM_OF_UNDYING));
-        inv.setItem(32, new ItemStack(Material.ENCHANTED_GOLDEN_APPLE, 16));
+        inv.setItem(32, new ItemStack(Material.GOLDEN_APPLE, 64));
         inv.setItem(33, speed.clone());
         inv.setItem(34, speed.clone());
         inv.setItem(35, new ItemStack(Material.ENDER_PEARL, 16));
