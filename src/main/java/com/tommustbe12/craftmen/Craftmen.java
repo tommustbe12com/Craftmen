@@ -2,6 +2,8 @@ package com.tommustbe12.craftmen;
 
 import com.tommustbe12.craftmen.arena.ArenaManager;
 import com.tommustbe12.craftmen.command.*;
+import com.tommustbe12.craftmen.endfight.EndFightListener;
+import com.tommustbe12.craftmen.endfight.EndFightManager;
 import com.tommustbe12.craftmen.game.GameManager;
 import com.tommustbe12.craftmen.game.impl.*;
 import com.tommustbe12.craftmen.hub.HubManager;
@@ -52,6 +54,7 @@ public final class Craftmen extends JavaPlugin {
         queueManager = new QueueManager();
         scoreboardManager = new ScoreboardManager();
         hubManager = new HubManager();
+        EndFightManager endFightManager = new EndFightManager(this);
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -78,6 +81,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new RegenListener(), this);
         getServer().getPluginManager().registerEvents(new HungerListener(), this);
         getServer().getPluginManager().registerEvents(new BlockListener(), this);
+        getServer().getPluginManager().registerEvents(new EndFightListener(endFightManager), this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
@@ -88,6 +92,7 @@ public final class Craftmen extends JavaPlugin {
         getCommand("forfeit").setExecutor(new ForfeitCommand());
         getCommand("queue").setExecutor(new QueueCommand());
         getCommand("spectate").setExecutor(new SpectateCommand());
+        getCommand("endfight").setExecutor(new EndFightCommand(endFightManager));
 
         getCommand("stat").setTabCompleter(new StatCommand());
 

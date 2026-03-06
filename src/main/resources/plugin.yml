@@ -42,6 +42,12 @@ commands:
       - s
     description: Spectate a player
     usage: /spectate <player>
+  endfight:
+    aliases:
+      - ef
+      - end
+    description: Join the current End Fight, or start a new one!
+    usage: /endfight
 permissions:
   craftmen.admin:
     default: op
