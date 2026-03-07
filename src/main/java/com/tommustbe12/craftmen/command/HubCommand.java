@@ -30,12 +30,19 @@ public class HubCommand implements CommandExecutor {
             return true;
         }
 
+        if (Craftmen.get().getEndFightManager().isInGame(player)) {
+            player.sendMessage("§cYou cannot use /hub while in a match!");
+            return true;
+        }
+
         Location hubLocation = Craftmen.get().getHubLocation();
 
         if (hubLocation == null) {
             player.sendMessage("§cHub location is not set.");
             return false;
         }
+
+
 
         player.teleport(hubLocation);
         return true;
