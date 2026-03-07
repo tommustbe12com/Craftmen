@@ -72,15 +72,19 @@ public class EndFightManager {
             public void run() {
                 world = Bukkit.createWorld(wc);
 
-                // Wait a tick to ensure world is fully loaded
                 new BukkitRunnable() {
                     @Override
                     public void run() {
 
-                        // Teleport all current players
+                        spawn = new Location(world, 100.5, 50, 0.5);
+
+                        for (int x = -2; x <= 2; x++) {
+                            for (int z = -2; z <= 2; z++) {
+                                world.getBlockAt(100 + x, 49, z).setType(Material.OBSIDIAN);
+                            }
+                        }
+
                         for (Player p : players) {
-                            // Set the spawn dynamically to the normal End spawn location
-                            spawn = world.getSpawnLocation();
                             teleportToSpawn(p);
                             giveStartItems(p);
                         }
@@ -115,10 +119,19 @@ public class EndFightManager {
 
         if (world != null) {
             String name = world.getName();
+
             Bukkit.unloadWorld(world, false);
 
-            File folder = new File(name);
-            deleteWorld(folder);
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    File folder = new File(Bukkit.getWorldContainer(), name);
+
+                    if (name.startsWith("endfight_")) {
+                        deleteWorld(folder);
+                    }
+                }
+            }.runTaskLater(plugin, 100L);
         }
 
         running = false;

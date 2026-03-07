@@ -53,16 +53,16 @@ public class HubManager implements Listener {
     private static final int ITEMS_PER_PAGE = CONTENT_SLOTS.length; // 28
 
     // Special slots
-    private static final int SLOT_PREV  = 46;
+    private static final int SLOT_PREV = 46;
     private static final int SLOT_CLOSE = 49;
-    private static final int SLOT_NEXT  = 52;
+    private static final int SLOT_NEXT = 52;
 
     // Crystal goes in slot 22 (centre of row 2) on page 1
     private static final int CRYSTAL_SLOT = 22;
 
     // ── Persistent player state ──────────────────────────────────────────────
-    private final Map<UUID, Integer>           playerPage      = new HashMap<>();
-    private final Map<UUID, Consumer<Game>>    gameCallbacks   = new HashMap<>();
+    private final Map<UUID, Integer> playerPage = new HashMap<>();
+    private final Map<UUID, Consumer<Game>> gameCallbacks = new HashMap<>();
 
     // ── Hub item helpers ─────────────────────────────────────────────────────
 
@@ -94,8 +94,10 @@ public class HubManager implements Listener {
 
     @EventHandler
     public void onRespawn(PlayerRespawnEvent e) {
-        Bukkit.getScheduler().runTaskLater(Craftmen.get(),
-                () -> giveHubItems(e.getPlayer()), 1L);
+        if (!Craftmen.get().getEndFightManager().isInGame(e.getPlayer())) {
+            Bukkit.getScheduler().runTaskLater(Craftmen.get(), ()->
+            giveHubItems(e.getPlayer()),1L);
+        }
     }
 
     @EventHandler

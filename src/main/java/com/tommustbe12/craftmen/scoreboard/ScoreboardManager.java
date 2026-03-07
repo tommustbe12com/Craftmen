@@ -15,20 +15,22 @@ public class ScoreboardManager {
     private final Map<UUID, Scoreboard> boards = new HashMap<>();
 
     public void create(Player player) {
-        org.bukkit.scoreboard.ScoreboardManager manager = Bukkit.getScoreboardManager();
-        Scoreboard board = manager.getNewScoreboard();
+        Scoreboard board = player.getScoreboard();
+        if (board == null) {
+            board = Bukkit.getScoreboardManager().getNewScoreboard();
+        }
 
-        // ===== SIDEBAR OBJECTIVE =====
-        Objective obj = board.registerNewObjective("craftmen", "dummy", "§b§lCRAFTMEN");
-        obj.setDisplaySlot(DisplaySlot.SIDEBAR);
+        Objective obj = board.getObjective("craftmen");
+        if (obj == null) {
+            obj = board.registerNewObjective("craftmen", "dummy", "§b§lCRAFTMEN");
+            obj.setDisplaySlot(DisplaySlot.SIDEBAR);
+        }
 
-        // ===== BELOW NAME HEALTH OBJECTIVE =====
-        Objective health = board.registerNewObjective(
-                "health",
-                Criteria.HEALTH,
-                "§c❤"
-        );
-        health.setDisplaySlot(DisplaySlot.BELOW_NAME);
+        Objective health = board.getObjective("health");
+        if (health == null) {
+            health = board.registerNewObjective("health", Criteria.HEALTH, "§c❤");
+            health.setDisplaySlot(DisplaySlot.BELOW_NAME);
+        }
 
         boards.put(player.getUniqueId(), board);
         player.setScoreboard(board);
@@ -38,7 +40,8 @@ public class ScoreboardManager {
 
     public void remove(Player player) {
         boards.remove(player.getUniqueId());
-        player.setScoreboard(Bukkit.getScoreboardManager().getMainScoreboard());
+        Scoreboard mainBoard = Bukkit.getScoreboardManager().getMainScoreboard();
+        player.setScoreboard(mainBoard);
     }
 
     public void update(Player player) {
@@ -47,29 +50,27 @@ public class ScoreboardManager {
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
 
-        // Clear old teams
-        for (Team team : board.getTeams()) {
-            team.unregister();
-        }
+        board.getTeams().stream()
+                .filter(team -> team.getName().startsWith("sb_"))
+                .forEach(Team::unregister);
 
         Objective obj = board.getObjective("craftmen");
         if (obj == null) return;
 
-        // Create lines using teams (no numbers show)
-        addTeamLine(board, "line1", " "); // empty spacer
-        addTeamLine(board, "wins", "§7Wins: §f" + profile.getWins());
-        addTeamLine(board, "losses", "§7Losses: §f" + profile.getLosses());
-        addTeamLine(board, "line2", "  "); // another spacer
-        addTeamLine(board, "footer", "§bplay.craftmen.net");
+        addTeamLine(board, "sb_line1", " "); // spacer
+        addTeamLine(board, "sb_wins", "§7Wins: §f" + profile.getWins());
+        addTeamLine(board, "sb_losses", "§7Losses: §f" + profile.getLosses());
+        addTeamLine(board, "sb_line2", "  "); // another spacer
+        addTeamLine(board, "sb_footer", "§bplay.craftmen.net");
     }
 
     private void addTeamLine(Scoreboard board, String teamName, String text) {
         Team team = board.registerNewTeam(teamName);
-        String entry = "§" + (char) (0x1 + board.getTeams().size()); // unique dummy entry
+        String entry = "§" + (char) ('0' + board.getTeams().size());
         team.addEntry(entry);
         team.setPrefix(text);
 
         Objective obj = board.getObjective("craftmen");
-        if (obj != null) obj.getScore(entry).setScore(0); // score is ignored visually
+        if (obj != null) obj.getScore(entry).setScore(0);
     }
 }

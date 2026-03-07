@@ -6,10 +6,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.player.PlayerPortalEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.*;
 
 public class EndFightListener implements Listener {
 
@@ -26,18 +23,28 @@ public class EndFightListener implements Listener {
     }
 
     @EventHandler
-    public void onTeleport(PlayerTeleportEvent e) {
+    public void onMove(PlayerMoveEvent e) {
+
         Player p = e.getPlayer();
 
         if (!manager.isInGame(p)) return;
 
-        if (e.getCause() != PlayerTeleportEvent.TeleportCause.END_PORTAL) return;
+        // Only check if they changed block
+        if (e.getFrom().getBlockX() == e.getTo().getBlockX()
+                && e.getFrom().getBlockY() == e.getTo().getBlockY()
+                && e.getFrom().getBlockZ() == e.getTo().getBlockZ()) return;
+
+        if (p.getLocation().getBlock().getType() != Material.END_PORTAL) return;
 
         if (p.getInventory().contains(Material.DRAGON_EGG)) {
+
             manager.win(p);
+
         } else {
-            e.setCancelled(true);
+
+            p.teleport(manager.getSpawn());
             p.sendMessage("§cYou must escape with the Dragon Egg!");
+
         }
     }
 
