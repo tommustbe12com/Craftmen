@@ -64,7 +64,7 @@ public class DSMPGame extends Game {
 
         // ===== POTIONS =====
         ItemStack strength = splash(PotionEffectType.STRENGTH, 90, 1);
-        ItemStack speed = splash(PotionEffectType.SPEED, 90, 1);
+        ItemStack speed = splash(PotionEffectType.SPEED, 90, 0);
         ItemStack fire = splash(PotionEffectType.FIRE_RESISTANCE, 480, 0);
 
         // ===== HOTBAR =====
