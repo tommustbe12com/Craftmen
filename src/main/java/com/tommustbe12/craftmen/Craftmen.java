@@ -38,6 +38,7 @@ public final class Craftmen extends JavaPlugin {
     private MatchManager matchManager;
     private ScoreboardManager scoreboardManager;
     private HubManager hubManager;
+    private EndFightManager endFightManager;
 
     @Override
     public void onEnable() {
@@ -54,7 +55,7 @@ public final class Craftmen extends JavaPlugin {
         queueManager = new QueueManager();
         scoreboardManager = new ScoreboardManager();
         hubManager = new HubManager();
-        EndFightManager endFightManager = new EndFightManager(this);
+        endFightManager = new EndFightManager(this);
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -128,6 +129,7 @@ public final class Craftmen extends JavaPlugin {
     public MatchManager getMatchManager() { return matchManager; }
     public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
     public HubManager getHubManager() { return hubManager; }
+    public EndFightManager getEndFightManager() { return endFightManager; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {

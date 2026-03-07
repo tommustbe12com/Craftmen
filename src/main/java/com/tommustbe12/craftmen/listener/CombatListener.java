@@ -18,11 +18,15 @@ public class CombatListener implements Listener {
 
     @EventHandler
     public void onDamage(EntityDamageByEntityEvent e) {
-        if (!(e.getEntity() instanceof Player)) return;
-        if (!(e.getDamager() instanceof Player)) return;
 
-        Player damaged = (Player) e.getEntity();
-        Player damager = (Player) e.getDamager();
+        if (!(e.getEntity() instanceof Player damaged)) return;
+        if (!(e.getDamager() instanceof Player damager)) return;
+
+        // Allow damage in End Fight
+        if (Craftmen.get().getEndFightManager().isInGame(damaged)
+                && Craftmen.get().getEndFightManager().isInGame(damager)) {
+            return;
+        }
 
         PlayerState damagedState = Craftmen.get().getProfileManager().getProfile(damaged).getState();
         PlayerState damagerState = Craftmen.get().getProfileManager().getProfile(damager).getState();
