@@ -15,22 +15,8 @@ public class RegenListener implements Listener {
     // Add gamemode names here
     private static final Set<String> NO_NATURAL_REGEN = Set.of(
             "Sword",
-            "Boxing",
             "Axe",
-            "Combo",
-            "Gapple",
-            "Sumo",
-            "Invis",
-            "Potion Fight",
-            "Random Kit",
-            "Netherite Sword",
-            "UHC",
-            "SMP",
-            "Mace",
-            "Netherite Potion",
-            "Diamond SMP",
-            "Diamond Potion",
-            "Crystal"
+            "UHC"
     );
 
     @EventHandler(priority = EventPriority.HIGH)
