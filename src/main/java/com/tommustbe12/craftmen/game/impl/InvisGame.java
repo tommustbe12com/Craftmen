@@ -27,9 +27,7 @@ public class InvisGame extends Game {
         PotionMeta potionMeta = (PotionMeta) potion.getItemMeta();
 
         if (potionMeta != null) {
-            potionMeta.setBasePotionType(PotionType.HEALING);
-
-            potionMeta.addCustomEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 1, 0, false, false), true);
+            potionMeta.setBasePotionType(PotionType.INVISIBILITY);
 
             potion.setItemMeta(potionMeta);
         }

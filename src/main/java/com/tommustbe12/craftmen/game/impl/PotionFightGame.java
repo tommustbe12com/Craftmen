@@ -25,8 +25,6 @@ public class PotionFightGame extends Game {
         if (potionMeta != null) {
             potionMeta.setBasePotionType(PotionType.HARMING);
 
-            potionMeta.addCustomEffect(new PotionEffect(PotionEffectType.INSTANT_DAMAGE, 1, 1, false, false), true);
-
             potion.setItemMeta(potionMeta);
         }
 

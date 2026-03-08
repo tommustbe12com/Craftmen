@@ -282,18 +282,17 @@ public class HubManager implements Listener {
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName("§a" + game.getName());
 
-        // Get the number of players queued for the game
         int queuedPlayers = Craftmen.get().getQueueManager().getPlayersInQueue(game).size();
 
-        // Get the number of players already in a match
-        int playingPlayers = game.getPlayersInGame().size(); // Assuming this method exists
+        int playingPlayers = game.getPlayersInGame().size();
 
-        // Calculate total players
         int totalPlayers = queuedPlayers + playingPlayers;
 
-        // Add the player count as lore
+        int amount = Math.max(1, Math.min(totalPlayers, 99));
+        item.setAmount(amount);
+
         List<String> lore = new ArrayList<>();
-        lore.add("§7Players: §a" + totalPlayers); // You can format this text as you like
+        lore.add("§7Players: §a" + totalPlayers);
         meta.setLore(lore);
 
         item.setItemMeta(meta);

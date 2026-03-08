@@ -9,9 +9,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.scheduler.BukkitRunnable;
 
 public class EndFightListener implements Listener {
@@ -113,6 +115,43 @@ public class EndFightListener implements Listener {
                 manager.endGame();
             }
         }.runTaskLater(Craftmen.get(), 20L * 10); // 10 seconds
+    }
+
+    @EventHandler
+    public void onPickupBed(EntityPickupItemEvent e) {
+        if (!(e.getEntity() instanceof Player p)) return;
+
+        if (!manager.isInGame(p)) return;
+
+        ItemStack groundItem = e.getItem().getItemStack();
+
+        if (!groundItem.getType().name().endsWith("_BED")) return;
+
+        PlayerInventory inv = p.getInventory();
+        int remaining = groundItem.getAmount();
+
+        for (ItemStack stack : inv.getContents()) {
+            if (stack == null) continue;
+            if (stack.getType() != groundItem.getType()) continue;
+
+            int max = 64;
+            int space = max - stack.getAmount();
+
+            if (space <= 0) continue;
+
+            int toAdd = Math.min(space, remaining);
+
+            stack.setAmount(stack.getAmount() + toAdd);
+            remaining -= toAdd;
+
+            if (remaining <= 0) {
+                e.getItem().remove();
+                e.setCancelled(true);
+                return;
+            }
+        }
+
+        groundItem.setAmount(remaining);
     }
 
     @EventHandler

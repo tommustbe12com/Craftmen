@@ -26,8 +26,6 @@ public class DPotionGame extends Game {
         if (potionMeta != null) {
             potionMeta.setBasePotionType(PotionType.HEALING);
 
-            potionMeta.addCustomEffect(new PotionEffect(PotionEffectType.INSTANT_HEALTH, 1, 1, false, false), true);
-
             potion.setItemMeta(potionMeta);
         }
 
