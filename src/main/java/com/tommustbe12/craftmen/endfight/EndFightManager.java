@@ -206,15 +206,15 @@ public class EndFightManager {
 
         player.getInventory().setItem(9, new ItemStack(Material.EXPERIENCE_BOTTLE, 64));
 
-        ItemStack fireRes = makeSplashPotion(Material.POTION, PotionEffectType.FIRE_RESISTANCE, 9600, 0);
+        ItemStack fireRes = makeSplashPotion(Material.SPLASH_POTION, PotionEffectType.FIRE_RESISTANCE, 9600, 0);
         for (int i = 10; i <= 12; i++) player.getInventory().setItem(i, fireRes.clone());
 
-        ItemStack strength = makeSplashPotion(Material.POTION, PotionEffectType.STRENGTH, 1800, 1);
+        ItemStack strength = makeSplashPotion(Material.SPLASH_POTION, PotionEffectType.STRENGTH, 1800, 1);
         for (int i = 13; i <= 17; i++) player.getInventory().setItem(i, strength.clone());
 
         player.getInventory().setItem(18, new ItemStack(Material.OAK_LOG, 64));
 
-        ItemStack speed = makeSplashPotion(Material.POTION, PotionEffectType.SPEED, 9600, 0);
+        ItemStack speed = makeSplashPotion(Material.SPLASH_POTION, PotionEffectType.SPEED, 9600, 0);
         for (int i = 19; i <= 21; i++) player.getInventory().setItem(i, speed.clone());
 
         for (int i = 22; i <= 26; i++) player.getInventory().setItem(i, strength.clone());
@@ -296,9 +296,9 @@ public class EndFightManager {
                 Map.of(Enchantment.UNBREAKING, 3, Enchantment.MENDING, 1));
         player.getInventory().setItemInOffHand(offShield);
 
-        ItemStack speed = makeSplashPotion(Material.POTION, PotionEffectType.SPEED, 9600, 0);
-        ItemStack strength = makeSplashPotion(Material.POTION, PotionEffectType.STRENGTH, 1800, 1);
-        ItemStack fireRes = makeSplashPotion(Material.POTION, PotionEffectType.FIRE_RESISTANCE, 9600, 0);
+        ItemStack speed = makeSplashPotion(Material.SPLASH_POTION, PotionEffectType.SPEED, 9600, 0);
+        ItemStack strength = makeSplashPotion(Material.SPLASH_POTION, PotionEffectType.STRENGTH, 1800, 1);
+        ItemStack fireRes = makeSplashPotion(Material.SPLASH_POTION, PotionEffectType.FIRE_RESISTANCE, 9600, 0);
 
         for (int i = 9; i <= 11; i++) player.getInventory().setItem(i, speed.clone());
 

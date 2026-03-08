@@ -22,6 +22,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.logging.Filter;
+import java.util.logging.Handler;
+import java.util.logging.LogRecord;
 
 public final class Craftmen extends JavaPlugin {
 
@@ -43,6 +46,21 @@ public final class Craftmen extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
+
+        for (Handler handler : Bukkit.getLogger().getParent().getHandlers()) {
+            handler.setFilter((LogRecord record) -> {
+                String msg = record.getMessage();
+
+                if (msg != null && (
+                        msg.contains("Failed to save level ./endfight_") ||
+                                msg.contains("NoSuchFileException: ./endfight_")
+                )) {
+                    return false; // block this log
+                }
+
+                return true;
+            });
+        }
 
         hubLocation = Bukkit.getWorld("world").getSpawnLocation();
 

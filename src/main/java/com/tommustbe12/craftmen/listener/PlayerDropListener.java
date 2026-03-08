@@ -15,6 +15,10 @@ public class PlayerDropListener implements Listener {
 
         if (profile == null) return;
 
+        if (Craftmen.get().getEndFightManager().isInGame(event.getPlayer())) {
+            return;
+        }
+
         if (profile.getState() != PlayerState.IN_MATCH) {
             event.setCancelled(true);
         }
