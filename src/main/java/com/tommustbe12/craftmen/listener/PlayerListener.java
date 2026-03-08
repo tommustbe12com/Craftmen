@@ -47,7 +47,12 @@ public class PlayerListener implements Listener {
         }
 
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
-            Craftmen.get().getScoreboardManager().create(player);
+            if (player.isOnline()) {
+                Craftmen.get().getScoreboardManager().create(player);
+                for (Player p : Bukkit.getOnlinePlayers()) {
+                    Craftmen.get().getScoreboardManager().update(p);
+                }
+            }
         }, 2L);
 
         player.setGameMode(GameMode.SURVIVAL);
