@@ -34,6 +34,11 @@ public class EndFightManager {
         this.plugin = plugin;
     }
 
+    public List<Player> getPlayers() {
+        // Return a copy to avoid external modification
+        return new ArrayList<>(players);
+    }
+
     public void join(Player player) {
         if (players.contains(player)) {
             player.sendMessage("§cYou are already in End Fight.");
