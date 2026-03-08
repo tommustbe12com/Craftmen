@@ -16,7 +16,8 @@ public class RegenListener implements Listener {
     private static final Set<String> NO_NATURAL_REGEN = Set.of(
             "Sword",
             "Axe",
-            "UHC"
+            "UHC",
+            "Netherite Sword"
     );
 
     @EventHandler(priority = EventPriority.HIGH)

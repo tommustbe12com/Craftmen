@@ -15,20 +15,11 @@ public class HungerListener implements Listener {
             "Sword",
             "Boxing",
             "Axe",
-            "Combo",
-            "Gapple",
             "Sumo",
             "Invis",
             "Potion Fight",
             "Netherite Sword",
-            "Random Kit",
-            "UHC",
-            "SMP",
-            "Mace",
-            "Netherite Potion",
-            "Diamond Potion",
-            "Diamond SMP",
-            "Crystal"
+            "Random Kit"
     );
 
     @EventHandler
