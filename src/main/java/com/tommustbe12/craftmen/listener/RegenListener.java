@@ -17,6 +17,8 @@ public class RegenListener implements Listener {
             "Sword",
             "Axe",
             "UHC",
+            "Invis",
+            "Sumo",
             "Netherite Sword"
     );
 
