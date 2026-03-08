@@ -83,6 +83,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HungerListener(), this);
         getServer().getPluginManager().registerEvents(new BlockListener(), this);
         getServer().getPluginManager().registerEvents(new EndFightListener(endFightManager), this);
+        getServer().getPluginManager().registerEvents(new PlayerDropListener(), this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
