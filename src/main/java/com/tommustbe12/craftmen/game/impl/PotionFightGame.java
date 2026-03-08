@@ -21,7 +21,7 @@ public class PotionFightGame extends Game {
         player.getInventory().clear();
 
         // reset stats
-        player.setHealth(player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getDefaultValue());
+        player.setHealth(20);
         player.setFoodLevel(20);
         player.setSaturation(20f);
 

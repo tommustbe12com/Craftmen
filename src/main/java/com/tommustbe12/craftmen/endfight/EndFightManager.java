@@ -255,8 +255,8 @@ public class EndFightManager {
 
         player.getInventory().setItem(4, new ItemStack(Material.WATER_BUCKET));
 
-        ItemStack spear = enchant(new ItemStack(Material.TRIDENT),
-                Map.of(Enchantment.RIPTIDE, 3, Enchantment.SHARPNESS, 5,
+        ItemStack spear = enchant(new ItemStack(Material.NETHERITE_SPEAR),
+                Map.of(Enchantment.LUNGE, 3, Enchantment.SHARPNESS, 5,
                         Enchantment.UNBREAKING, 3));
         player.getInventory().setItem(5, spear);
 
@@ -348,8 +348,8 @@ public class EndFightManager {
 
         player.getInventory().setItem(7, new ItemStack(Material.COBWEB, 32));
 
-        ItemStack spear = enchant(new ItemStack(Material.TRIDENT),
-                Map.of(Enchantment.RIPTIDE, 2, Enchantment.SHARPNESS, 5,
+        ItemStack spear = enchant(new ItemStack(Material.DIAMOND_SPEAR),
+                Map.of(Enchantment.LUNGE, 2, Enchantment.SHARPNESS, 5,
                         Enchantment.UNBREAKING, 3));
         player.getInventory().setItem(8, spear);
     }
@@ -393,6 +393,8 @@ public class EndFightManager {
         player.getInventory().setItem(7, new ItemStack(Material.BREAD, 16));
 
         player.getInventory().setItem(8, new ItemStack(Material.SPRUCE_LOG, 64));
+
+        player.getInventory().setItem(9, new ItemStack(Material.POWDER_SNOW_BUCKET));
     }
 
     private ItemStack enchant(ItemStack item, Map<Enchantment, Integer> enchantments) {

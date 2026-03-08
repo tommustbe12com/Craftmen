@@ -35,8 +35,7 @@ public class NetheriteSwordGame extends Game {
     public void applyLoadout(Player player) {
         player.getInventory().clear();
 
-        // Reset health/food properly
-        player.setHealth(player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getDefaultValue());
+        player.setHealth(20);
         player.setFoodLevel(20);
         player.setSaturation(20f);
 

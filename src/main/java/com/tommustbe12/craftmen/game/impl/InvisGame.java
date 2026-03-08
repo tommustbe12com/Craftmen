@@ -40,7 +40,7 @@ public class InvisGame extends Game {
         player.getInventory().clear();
 
         // Reset stats
-        player.setHealth(player.getAttribute(Attribute.GENERIC_MAX_HEALTH).getDefaultValue());
+        player.setHealth(20);
         player.setFoodLevel(20);
         player.setSaturation(20f);
 
