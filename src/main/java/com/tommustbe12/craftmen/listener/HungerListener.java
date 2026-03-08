@@ -1,6 +1,7 @@
 package com.tommustbe12.craftmen.listener;
 
 import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.endfight.EndFightManager;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -27,6 +28,12 @@ public class HungerListener implements Listener {
         if (!(event.getEntity() instanceof Player player)) return;
 
         Match match = Craftmen.get().getMatchManager().getMatch(player);
+
+        EndFightManager endFight = Craftmen.get().getEndFightManager();
+
+        if (endFight != null && endFight.isInGame(player)) {
+            return;
+        }
 
         // always cancel in hub
         if (match == null) {

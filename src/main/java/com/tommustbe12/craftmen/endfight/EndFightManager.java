@@ -1,5 +1,6 @@
 package com.tommustbe12.craftmen.endfight;
 
+import com.tommustbe12.craftmen.Craftmen;
 import org.bukkit.*;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -117,7 +118,12 @@ public class EndFightManager {
     public void endGame() {
         for (Player p : new ArrayList<>(players)) {
             if (p.isOnline()) {
-                p.teleport(Bukkit.getWorlds().get(0).getSpawnLocation());
+                p.getInventory().clear();
+                p.setHealth(20);
+                p.setSaturation(20);
+                p.setGameMode(GameMode.SURVIVAL);
+                p.teleport(Craftmen.get().getHubLocation());
+                Craftmen.get().getHubManager().giveHubItems(p);
             }
         }
 
