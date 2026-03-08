@@ -25,12 +25,10 @@ public class HubManager implements Listener {
 
     private static final String GUI_TITLE_PREFIX = "§8Select a Kit";
 
-    // The exact ordered list of kit names shown on page 1
     private static final List<String> PAGE_ONE_KITS = Arrays.asList(
             "Sword", "Mace", "Axe", "Netherite Potion", "Diamond Potion", "SMP", "UHC"
     );
 
-    // Slots in a 54-slot (6-row) inventory that are "content" cells
     private static final int INV_SIZE = 54;
     private static final int[] CONTENT_SLOTS = {
             10, 11, 12, 13, 14, 15, 16,
@@ -40,15 +38,12 @@ public class HubManager implements Listener {
     };
     private static final int ITEMS_PER_PAGE = CONTENT_SLOTS.length; // 28
 
-    // Special slots
     private static final int SLOT_PREV = 46;
     private static final int SLOT_CLOSE = 49;
     private static final int SLOT_NEXT = 52;
 
-    // Crystal goes in slot 22 (centre of row 2) on page 1
     private static final int CRYSTAL_SLOT = 22;
 
-    // ── Persistent player state ──────────────────────────────────────────────
     private final Map<UUID, Integer> playerPage = new HashMap<>();
     private final Map<UUID, Consumer<Game>> gameCallbacks = new HashMap<>();
 
