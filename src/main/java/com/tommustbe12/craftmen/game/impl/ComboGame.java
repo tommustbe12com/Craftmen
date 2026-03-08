@@ -12,7 +12,7 @@ import org.bukkit.enchantments.Enchantment;
 public class ComboGame extends Game {
 
     public ComboGame() {
-        super("Combo", Material.BLAZE_ROD);
+        super("Combo", new ItemStack(Material.BLAZE_ROD));
     }
 
     private Enchantment ench(String key) {

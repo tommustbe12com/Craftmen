@@ -19,7 +19,7 @@ import org.bukkit.potion.PotionType;
 public class CrystalGame extends Game {
 
     public CrystalGame() {
-        super("Crystal", Material.END_CRYSTAL);
+        super("Crystal", new ItemStack(Material.END_CRYSTAL));
     }
 
     private Enchantment ench(String key) {

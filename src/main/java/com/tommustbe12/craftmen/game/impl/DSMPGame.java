@@ -14,7 +14,7 @@ import org.bukkit.potion.PotionEffectType;
 public class DSMPGame extends Game {
 
     public DSMPGame() {
-        super("Diamond SMP", Material.DIAMOND_SWORD);
+        super("Diamond SMP", new ItemStack(Material.CHORUS_FRUIT));
     }
 
     private Enchantment ench(String key) {

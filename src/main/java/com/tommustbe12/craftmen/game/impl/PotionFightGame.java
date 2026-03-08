@@ -3,17 +3,34 @@ package com.tommustbe12.craftmen.game.impl;
 import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.Material;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.potion.PotionData;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 
 public class PotionFightGame extends Game {
 
     public PotionFightGame() {
-        super("Potion Fight", Material.SPLASH_POTION);
+        super("Potion Fight", createHarmingPotion());
+    }
+
+    private static ItemStack createHarmingPotion() {
+        ItemStack potion = new ItemStack(Material.SPLASH_POTION);
+
+        PotionMeta potionMeta = (PotionMeta) potion.getItemMeta();
+
+        if (potionMeta != null) {
+            potionMeta.setBasePotionType(PotionType.HARMING);
+
+            potionMeta.addCustomEffect(new PotionEffect(PotionEffectType.INSTANT_DAMAGE, 1, 1, false, false), true);
+
+            potion.setItemMeta(potionMeta);
+        }
+
+        return potion;
     }
 
     @Override

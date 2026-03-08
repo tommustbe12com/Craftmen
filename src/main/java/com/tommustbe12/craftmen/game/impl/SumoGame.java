@@ -4,11 +4,12 @@ import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 public class SumoGame extends Game {
 
     public SumoGame() {
-        super("Sumo", Material.LEAD);
+        super("Sumo", new ItemStack(Material.LEAD));
     }
 
     @Override

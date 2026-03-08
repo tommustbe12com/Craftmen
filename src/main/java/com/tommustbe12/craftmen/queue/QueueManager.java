@@ -12,10 +12,7 @@ import com.tommustbe12.craftmen.profile.PlayerState;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 
 public class QueueManager {
 
@@ -76,6 +73,18 @@ public class QueueManager {
         duelRequests.values().removeIf(v -> v == player);
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         profile.setState(PlayerState.LOBBY);
+    }
+
+    public List<Player> getPlayersInQueue(Game game) {
+        List<Player> playersInQueue = new ArrayList<>();
+        Queue queue = queues.get(game.getName());
+
+        if (queue != null) {
+            // Add all players in the queue to the list
+            playersInQueue.addAll(queue.getPlayers());
+        }
+
+        return playersInQueue;
     }
 
     public static class DuelRequest {

@@ -10,11 +10,28 @@ import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.potion.PotionType;
 
 public class DPotionGame extends Game {
 
     public DPotionGame() {
-        super("Diamond Potion", Material.SPLASH_POTION);
+        super("Diamond Potion", createInstantHealthPotion());
+    }
+
+    private static ItemStack createInstantHealthPotion() {
+        ItemStack potion = new ItemStack(Material.SPLASH_POTION);
+
+        PotionMeta potionMeta = (PotionMeta) potion.getItemMeta();
+
+        if (potionMeta != null) {
+            potionMeta.setBasePotionType(PotionType.HEALING);
+
+            potionMeta.addCustomEffect(new PotionEffect(PotionEffectType.INSTANT_HEALTH, 1, 1, false, false), true);
+
+            potion.setItemMeta(potionMeta);
+        }
+
+        return potion;
     }
 
     private Enchantment ench(String key) {

@@ -14,7 +14,7 @@ import org.bukkit.potion.PotionEffectType;
 public class PotionGame extends Game {
 
     public PotionGame() {
-        super("Netherite Potion", Material.SPLASH_POTION);
+        super("Netherite Potion", new ItemStack(Material.NETHERITE_HELMET));
     }
 
     private Enchantment ench(String key) {

@@ -17,7 +17,7 @@ import org.bukkit.potion.PotionEffectType;
 public class SMPGame extends Game {
 
     public SMPGame() {
-        super("SMP", Material.NETHERITE_SWORD);
+        super("SMP", new ItemStack(Material.SHIELD));
     }
 
     private Enchantment ench(String key) {

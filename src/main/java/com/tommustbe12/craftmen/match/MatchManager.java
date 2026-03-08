@@ -52,5 +52,15 @@ public class MatchManager {
         return null;
     }
 
+    public List<Match> getMatchesByGame(Game game) {
+        List<Match> gameMatches = new ArrayList<>();
+        for (Match match : matches) {
+            if (match.getGame().equals(game)) {  // Check if match is associated with the game
+                gameMatches.add(match);
+            }
+        }
+        return gameMatches;
+    }
+
     public List<Match> getMatches() { return matches; }
 }

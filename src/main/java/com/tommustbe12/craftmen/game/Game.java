@@ -3,25 +3,43 @@ package com.tommustbe12.craftmen.game;
 import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.match.Match;
 import com.tommustbe12.craftmen.profile.PlayerState;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.Sound;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public abstract class Game {
 
     private final String name;
-    private final Material iconMaterial;
+    private final ItemStack iconItemStack;
 
-    public Game(String name, Material iconMaterial) {
+    public Game(String name, ItemStack iconItemStack) {
         this.name = name;
-        this.iconMaterial = iconMaterial;
+        this.iconItemStack = iconItemStack;
+    }
+
+    public List<Player> getPlayersInGame() {
+        List<Player> players = new ArrayList<>();
+
+        // Iterate through all matches related to this game
+        for (Match match : Craftmen.get().getMatchManager().getMatchesByGame(this)) {
+            Player p1 = match.getP1();
+            Player p2 = match.getP2();
+
+            // Add players to the list if they are not null
+            if (p1 != null) players.add(p1);
+            if (p2 != null) players.add(p2);
+        }
+
+        return players;
     }
 
     public String getName() { return name; }
 
     public ItemStack getIcon() {
-        return new ItemStack(iconMaterial);
+        return iconItemStack;
     }
 
     public abstract void applyLoadout(Player player);

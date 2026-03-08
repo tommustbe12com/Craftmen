@@ -14,7 +14,7 @@ import org.bukkit.potion.PotionEffectType;
 public class MaceGame extends Game {
 
     public MaceGame() {
-        super("Mace", Material.MACE);
+        super("Mace", new ItemStack(Material.MACE));
     }
 
     private Enchantment ench(String key) {

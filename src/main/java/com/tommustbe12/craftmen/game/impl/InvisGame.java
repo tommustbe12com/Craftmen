@@ -18,7 +18,23 @@ import org.bukkit.potion.PotionType;
 public class InvisGame extends Game {
 
     public InvisGame() {
-        super("Invis", Material.POTION);
+        super("Invis", createInvisPotion());
+    }
+
+    private static ItemStack createInvisPotion() {
+        ItemStack potion = new ItemStack(Material.POTION);
+
+        PotionMeta potionMeta = (PotionMeta) potion.getItemMeta();
+
+        if (potionMeta != null) {
+            potionMeta.setBasePotionType(PotionType.HEALING);
+
+            potionMeta.addCustomEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 1, 0, false, false), true);
+
+            potion.setItemMeta(potionMeta);
+        }
+
+        return potion;
     }
 
     private Enchantment ench(String key) {
@@ -83,18 +99,5 @@ public class InvisGame extends Game {
     private void removeInvis(Player player) {
         if (player == null) return;
         player.removePotionEffect(PotionEffectType.INVISIBILITY);
-    }
-
-    private static ItemStack createInvisPotion() {
-        ItemStack potion = new ItemStack(Material.POTION);
-        PotionMeta meta = (PotionMeta) potion.getItemMeta();
-
-        if (meta != null) {
-            meta.setBasePotionType(PotionType.INVISIBILITY);
-            meta.setDisplayName("§7Invisibility");
-            potion.setItemMeta(meta);
-        }
-
-        return potion;
     }
 }

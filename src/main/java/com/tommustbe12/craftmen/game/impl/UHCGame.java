@@ -14,7 +14,7 @@ import org.bukkit.enchantments.Enchantment;
 public class UHCGame extends Game {
 
     public UHCGame() {
-        super("UHC", Material.GOLDEN_APPLE);
+        super("UHC", new ItemStack(Material.GOLDEN_APPLE));
     }
 
     private Enchantment ench(String key) {

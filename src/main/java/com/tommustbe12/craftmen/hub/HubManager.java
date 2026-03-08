@@ -19,7 +19,6 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.*;
-import java.util.Collection;
 import java.util.function.Consumer;
 
 public class HubManager implements Listener {
@@ -32,17 +31,6 @@ public class HubManager implements Listener {
     );
 
     // Slots in a 54-slot (6-row) inventory that are "content" cells
-    // Layout:
-    //   Row 0 (slots  0- 8): border
-    //   Row 1 (slots  9-17): border | content (10-16) | border
-    //   Row 2 (slots 18-26): border | content (19-25) | border
-    //   Row 3 (slots 27-35): border | content (28-34) | border
-    //   Row 4 (slots 36-44): border | content (37-43) | border
-    //   Row 5 (slots 45-53): border | ← (46) | · | barrier (49) | · | → (52) | border
-    //
-    // Content slots per row: 7 slots wide (columns 1-7)
-    // 4 content rows → 28 content slots per page, but page 1 only shows 7 kits in row 1 (+Crystal centred in row 2)
-
     private static final int INV_SIZE = 54;
     private static final int[] CONTENT_SLOTS = {
             10, 11, 12, 13, 14, 15, 16,
@@ -95,15 +83,13 @@ public class HubManager implements Listener {
     @EventHandler
     public void onRespawn(PlayerRespawnEvent e) {
         if (!Craftmen.get().getEndFightManager().isInGame(e.getPlayer())) {
-            Bukkit.getScheduler().runTaskLater(Craftmen.get(), ()->
-            giveHubItems(e.getPlayer()),1L);
+            Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> giveHubItems(e.getPlayer()), 1L);
         }
     }
 
     @EventHandler
     public void onInteract(PlayerInteractEvent e) {
-        if (e.getAction() != Action.RIGHT_CLICK_AIR &&
-                e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        if (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 
         ItemStack item = e.getItem();
         if (item == null || !item.hasItemMeta()) return;
@@ -174,20 +160,16 @@ public class HubManager implements Listener {
 
     // ── GUI construction ─────────────────────────────────────────────────────
 
-    /**
-     * Opens the game-selector GUI for the given player, calling {@code onSelect}
-     * when a game is chosen.
-     */
     public void openGameSelector(Player player, Consumer<Game> onSelect) {
         gameCallbacks.put(player.getUniqueId(), onSelect);
         openPage(player, 0);
     }
 
     private void openPage(Player player, int page) {
-        Collection<Game> allGames  = Craftmen.get().getGameManager().getGames();
-        List<Game> page1Games     = getPage1Games(allGames);   // ordered, no Crystal
-        Game       crystalGame    = getCrystalGame(allGames);
-        List<Game> extraGames     = getExtraGames(allGames);   // everything not on page 1
+        Collection<Game> allGames = Craftmen.get().getGameManager().getGames();
+        List<Game> page1Games = getPage1Games(allGames); // ordered, no Crystal
+        Game crystalGame = getCrystalGame(allGames);
+        List<Game> extraGames = getExtraGames(allGames); // everything not on page 1
 
         int totalPages = 1 + (int) Math.ceil(extraGames.size() / (double) ITEMS_PER_PAGE);
         page = Math.max(0, Math.min(page, totalPages - 1));
@@ -200,12 +182,12 @@ public class HubManager implements Listener {
         fillBorder(inv);
 
         // Navigation buttons
-        if (page > 0)           inv.setItem(SLOT_PREV,  makeArrow(true));
+        if (page > 0) inv.setItem(SLOT_PREV, makeArrow(true));
         if (page < totalPages - 1) inv.setItem(SLOT_NEXT, makeArrow(false));
         inv.setItem(SLOT_CLOSE, makeBarrier());
 
         if (page == 0) {
-            // Page 1: ordered kits in row 1 (slots 10-16), Crystal centred in row 2 (slot 22)
+            // Page 1: ordered kits in row 1 (slots 10-16), Crystal centered in row 2 (slot 22)
             int col = 0;
             for (Game g : page1Games) {
                 if (col >= 7) break;
@@ -230,7 +212,6 @@ public class HubManager implements Listener {
 
     // ── Sorting helpers ──────────────────────────────────────────────────────
 
-    /** Returns the page-1 kit list in the prescribed order (excludes Crystal). */
     private List<Game> getPage1Games(Collection<Game> all) {
         List<Game> result = new ArrayList<>();
         for (String name : PAGE_ONE_KITS) {
@@ -244,7 +225,6 @@ public class HubManager implements Listener {
         return result;
     }
 
-    /** Returns the Crystal game if registered. */
     private Game getCrystalGame(Collection<Game> all) {
         for (Game g : all) {
             if (g.getName().equalsIgnoreCase("Crystal")) return g;
@@ -252,10 +232,6 @@ public class HubManager implements Listener {
         return null;
     }
 
-    /**
-     * Returns all games NOT in the page-1 set (i.e. not in PAGE_ONE_KITS and not Crystal),
-     * preserving registration order.
-     */
     private List<Game> getExtraGames(Collection<Game> all) {
         Set<String> reserved = new HashSet<>();
         for (String s : PAGE_ONE_KITS) reserved.add(s.toLowerCase());
@@ -272,7 +248,7 @@ public class HubManager implements Listener {
 
     private ItemStack makeBorderPane() {
         ItemStack pane = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
-        ItemMeta meta  = pane.getItemMeta();
+        ItemMeta meta = pane.getItemMeta();
         meta.setDisplayName(" ");
         pane.setItemMeta(meta);
         return pane;
@@ -281,18 +257,18 @@ public class HubManager implements Listener {
     private void fillBorder(Inventory inv) {
         ItemStack pane = makeBorderPane();
         // Top row (0-8) and bottom row (45-53)
-        for (int i = 0; i < 9; i++)  inv.setItem(i, pane);
+        for (int i = 0; i < 9; i++) inv.setItem(i, pane);
         for (int i = 45; i < 54; i++) inv.setItem(i, pane);
         // Left and right columns for rows 1-4
         for (int row = 1; row <= 4; row++) {
-            inv.setItem(row * 9,     pane); // col 0
+            inv.setItem(row * 9, pane); // col 0
             inv.setItem(row * 9 + 8, pane); // col 8
         }
     }
 
     private ItemStack makeArrow(boolean left) {
         ItemStack arrow = new ItemStack(left ? Material.ARROW : Material.ARROW);
-        ItemMeta meta   = arrow.getItemMeta();
+        ItemMeta meta = arrow.getItemMeta();
         meta.setDisplayName(left ? "§e◀ Previous" : "§eNext ▶");
         arrow.setItemMeta(meta);
         return arrow;
@@ -300,7 +276,7 @@ public class HubManager implements Listener {
 
     private ItemStack makeBarrier() {
         ItemStack barrier = new ItemStack(Material.BARRIER);
-        ItemMeta meta     = barrier.getItemMeta();
+        ItemMeta meta = barrier.getItemMeta();
         meta.setDisplayName("§cClose");
         barrier.setItemMeta(meta);
         return barrier;
@@ -308,8 +284,23 @@ public class HubManager implements Listener {
 
     private ItemStack makeGameItem(Game game) {
         ItemStack item = game.getIcon().clone();
-        ItemMeta meta  = item.getItemMeta();
+        ItemMeta meta = item.getItemMeta();
         meta.setDisplayName("§a" + game.getName());
+
+        // Get the number of players queued for the game
+        int queuedPlayers = Craftmen.get().getQueueManager().getPlayersInQueue(game).size();
+
+        // Get the number of players already in a match
+        int playingPlayers = game.getPlayersInGame().size(); // Assuming this method exists
+
+        // Calculate total players
+        int totalPlayers = queuedPlayers + playingPlayers;
+
+        // Add the player count as lore
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Players: §a" + totalPlayers); // You can format this text as you like
+        meta.setLore(lore);
+
         item.setItemMeta(meta);
         return item;
     }

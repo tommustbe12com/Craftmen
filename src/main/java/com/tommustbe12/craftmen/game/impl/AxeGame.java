@@ -12,7 +12,7 @@ import org.bukkit.enchantments.Enchantment;
 public class AxeGame extends Game {
 
     public AxeGame() {
-        super("Axe", Material.DIAMOND_AXE);
+        super("Axe", new ItemStack(Material.DIAMOND_AXE));
     }
 
     private Enchantment ench(String key) {

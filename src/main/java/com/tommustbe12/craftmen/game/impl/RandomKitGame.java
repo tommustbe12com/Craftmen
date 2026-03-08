@@ -17,20 +17,18 @@ public class RandomKitGame extends Game {
     private final Random random = new Random();
 
     public RandomKitGame() {
-        super("Random Kit", Material.CHEST);
+        super("Random Kit", new ItemStack(Material.CHEST));
     }
 
     @Override
     public void applyLoadout(Player player) {
         player.getInventory().clear();
 
-        // Random armor
-        player.getInventory().setHelmet(randomArmorPiece());
-        player.getInventory().setChestplate(randomArmorPiece());
-        player.getInventory().setLeggings(randomArmorPiece());
-        player.getInventory().setBoots(randomArmorPiece());
+        player.getInventory().setHelmet(randomArmorPiece("helmet"));
+        player.getInventory().setChestplate(randomArmorPiece("chestplate"));
+        player.getInventory().setLeggings(randomArmorPiece("leggings"));
+        player.getInventory().setBoots(randomArmorPiece("boots"));
 
-        // Random 9-slot hotbar
         List<ItemStack> hotbar = new ArrayList<>();
         for (int i = 0; i < 9; i++) {
             hotbar.add(randomItem());
@@ -50,16 +48,54 @@ public class RandomKitGame extends Game {
         // Optional: nothing special needed
     }
 
-    private ItemStack randomArmorPiece() {
-        Material[] armor = {
+    private ItemStack randomArmorPiece(String type) {
+        Material[] helmet = {
                 Material.LEATHER_HELMET,
                 Material.CHAINMAIL_HELMET,
                 Material.IRON_HELMET,
                 Material.DIAMOND_HELMET,
                 Material.NETHERITE_HELMET
         };
-        Material mat = armor[random.nextInt(armor.length)];
-        return new ItemStack(mat);
+        Material[] chestplate = {
+                Material.LEATHER_CHESTPLATE,
+                Material.CHAINMAIL_CHESTPLATE,
+                Material.IRON_CHESTPLATE,
+                Material.DIAMOND_CHESTPLATE,
+                Material.NETHERITE_CHESTPLATE
+        };
+        Material[] leggings = {
+                Material.LEATHER_LEGGINGS,
+                Material.CHAINMAIL_LEGGINGS,
+                Material.IRON_LEGGINGS,
+                Material.DIAMOND_LEGGINGS,
+                Material.NETHERITE_LEGGINGS
+        };
+        Material[] boots = {
+                Material.LEATHER_BOOTS,
+                Material.CHAINMAIL_BOOTS,
+                Material.IRON_BOOTS,
+                Material.DIAMOND_BOOTS,
+                Material.NETHERITE_BOOTS
+        };
+
+        Material mat = null;
+
+        switch (type.toLowerCase()) {
+            case "helmet":
+                mat = helmet[random.nextInt(helmet.length)];
+                break;
+            case "chestplate":
+                mat = chestplate[random.nextInt(chestplate.length)];
+                break;
+            case "leggings":
+                mat = leggings[random.nextInt(leggings.length)];
+                break;
+            case "boots":
+                mat = boots[random.nextInt(boots.length)];
+                break;
+        }
+
+        return mat != null ? new ItemStack(mat) : null;
     }
 
     private ItemStack randomItem() {

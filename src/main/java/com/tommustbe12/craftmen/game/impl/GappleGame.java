@@ -13,7 +13,7 @@ import org.bukkit.enchantments.Enchantment;
 public class GappleGame extends Game {
 
     public GappleGame() {
-        super("Gapple", Material.GOLDEN_APPLE);
+        super("Gapple", new ItemStack(Material.ENCHANTED_GOLDEN_APPLE));
     }
 
     private Enchantment ench(String key) {
