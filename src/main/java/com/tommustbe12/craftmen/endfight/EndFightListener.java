@@ -51,7 +51,34 @@ public class EndFightListener implements Listener {
                 && e.getFrom().getBlockY() == e.getTo().getBlockY()
                 && e.getFrom().getBlockZ() == e.getTo().getBlockZ()) return;
 
-        if (p.getLocation().getBlock().getType() != Material.END_PORTAL) return;
+        org.bukkit.Location loc = p.getLocation();
+
+        if (loc.getWorld().getEnvironment() != org.bukkit.World.Environment.THE_END) return;
+
+        int px = loc.getBlockX();
+        int pz = loc.getBlockZ();
+
+        // All XZ coords of the end portal exit area
+        int[][] portalCoords = {
+                {1,2},{0,2},{-1,2},{-2,1},{-2,0},{-2,-1},
+                {-1,-2},{0,-2},{1,-2},{2,-1},{2,0},{2,1},
+                {1,1},{0,1},{-1,1},{-1,0},{-1,-1},{0,-1},{1,-1},{1,0}
+        };
+
+        boolean inPortalArea = false;
+        for (int[] coord : portalCoords) {
+            if (px == coord[0] && pz == coord[1]) {
+                inPortalArea = true;
+                break;
+            }
+        }
+
+        if (!inPortalArea) return;
+
+        // Get highest Y at 0,0 (center of portal) as the reference
+        int portalY = loc.getWorld().getHighestBlockYAt(0, 0);
+
+        if (loc.getY() < portalY || loc.getY() > portalY + 3) return;
 
         if (p.getInventory().contains(Material.DRAGON_EGG)) {
             manager.win(p);
