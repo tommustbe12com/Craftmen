@@ -17,6 +17,8 @@ public class BlockListener implements Listener {
         // op bypass
         if (player.isOp()) return;
 
+        if(Craftmen.get().getEndFightManager().isInGame(e.getPlayer())) return;
+
         PlayerState state = Craftmen.get()
                 .getProfileManager()
                 .getProfile(player)
@@ -34,6 +36,8 @@ public class BlockListener implements Listener {
 
         // op bypass
         if (player.isOp()) return;
+
+        if(Craftmen.get().getEndFightManager().isInGame(e.getPlayer())) return;
 
         PlayerState state = Craftmen.get()
                 .getProfileManager()

@@ -20,7 +20,8 @@ public class HungerListener implements Listener {
             "Invis",
             "Potion Fight",
             "Netherite Sword",
-            "Random Kit"
+            "Random Kit",
+            "UHC"
     );
 
     @EventHandler
