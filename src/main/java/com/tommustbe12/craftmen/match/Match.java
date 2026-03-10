@@ -140,6 +140,12 @@ public class Match {
             p1.setHealth(20.0);
             p2.setHealth(20.0);
 
+            p1.setSaturation(20f);
+            p2.setSaturation(20f);
+
+            p1.setFireTicks(0);
+            p2.setFireTicks(0);
+
             // teleport to hub
             p1.teleport(Craftmen.get().getHubLocation());
             p2.teleport(Craftmen.get().getHubLocation());
