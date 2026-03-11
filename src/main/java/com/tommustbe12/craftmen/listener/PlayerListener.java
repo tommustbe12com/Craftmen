@@ -56,6 +56,8 @@ public class PlayerListener implements Listener {
         }, 2L);
 
         player.setGameMode(GameMode.SURVIVAL);
+        player.setSaturation(20f);
+        player.setHealth(20);
         player.teleport(Craftmen.get().getHubLocation());
     }
 
