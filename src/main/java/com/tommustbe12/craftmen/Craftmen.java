@@ -20,6 +20,7 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Filter;
@@ -46,6 +47,8 @@ public final class Craftmen extends JavaPlugin {
     @Override
     public void onEnable() {
         instance = this;
+
+        deleteEndFightWorlds();
 
         for (Handler handler : Bukkit.getLogger().getParent().getHandlers()) {
             handler.setFilter((LogRecord record) -> {
@@ -212,5 +215,31 @@ public final class Craftmen extends JavaPlugin {
         }
 
         saveConfig();
+    }
+
+    private void deleteEndFightWorlds() {
+        File serverDir = Bukkit.getWorldContainer(); // server root directory
+        File[] files = serverDir.listFiles();
+
+        if (files == null) return;
+
+        for (File file : files) {
+            if (file.isDirectory() && file.getName().startsWith("endfight_")) {
+                deleteDirectory(file);
+                getLogger().info("Deleted world folder: " + file.getName());
+            }
+        }
+    }
+
+    private void deleteDirectory(File file) {
+        if (file.isDirectory()) {
+            File[] contents = file.listFiles();
+            if (contents != null) {
+                for (File f : contents) {
+                    deleteDirectory(f);
+                }
+            }
+        }
+        file.delete();
     }
 }
