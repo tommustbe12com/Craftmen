@@ -20,15 +20,12 @@ public class BlockListener implements Listener {
     public void onBlockBreak(BlockBreakEvent e) {
         Player player = e.getPlayer();
 
-        // op bypass
+        // OP bypass
         if (player.isOp()) return;
 
-        if(Craftmen.get().getEndFightManager().isInGame(e.getPlayer())) return;
+        if (Craftmen.get().getEndFightManager().isInGame(player)) return;
 
-        PlayerState state = Craftmen.get()
-                .getProfileManager()
-                .getProfile(player)
-                .getState();
+        PlayerState state = Craftmen.get().getProfileManager().getProfile(player).getState();
 
         if (state != PlayerState.IN_MATCH) {
             e.setCancelled(true);
@@ -37,19 +34,19 @@ public class BlockListener implements Listener {
         }
 
         Match match = Craftmen.get().getMatchManager().getMatch(player);
-
         if (match == null) return;
+
+        // Only spleef
         if (!(match.getGame() instanceof SpleefGame)) return;
 
         Material type = e.getBlock().getType();
-
-        if (type != Material.SNOW_BLOCK && type != Material.SNOW) return;
+        if (type != Material.SNOW_BLOCK && type != Material.SNOW && type != Material.POWDER_SNOW) return; // idk if well use powdered snow but still
 
         e.setDropItems(false);
 
-        // 25% chance to get a snowball
-        if (ThreadLocalRandom.current().nextDouble() < 0.25) {
-            player.getInventory().addItem(new ItemStack(Material.SNOWBALL));
+        if (ThreadLocalRandom.current().nextDouble() < 0.20) {
+            // 20% chance
+            player.getInventory().addItem(new ItemStack(Material.SNOWBALL, 1));
         }
     }
 
