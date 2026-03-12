@@ -95,6 +95,7 @@ public final class Craftmen extends JavaPlugin {
         gameManager.registerGame(new DSMPGame());
         gameManager.registerGame(new PotionGame());
         gameManager.registerGame(new CrystalGame());
+        gameManager.registerGame(new SpleefGame());
 
         getServer().getPluginManager().registerEvents(new PlayerListener(), this);
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
