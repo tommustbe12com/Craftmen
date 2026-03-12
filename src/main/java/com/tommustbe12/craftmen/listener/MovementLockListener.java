@@ -33,7 +33,7 @@ public class MovementLockListener implements Listener {
 
         Match match = Craftmen.get().getMatchManager().getMatch(player);
         if (match == null) return;
-        if (!match.getGame().getName().equals("Sumo")) return;
+        if (!match.getGame().getName().equals("Sumo") && !match.getGame().getName().equals("Spleef")) return;
 
         if (player.getLocation().getBlock().getType() == Material.WATER) {
             Player opponent = match.getP1().equals(player) ? match.getP2() : match.getP1();
