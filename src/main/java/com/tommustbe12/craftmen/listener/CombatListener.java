@@ -42,7 +42,7 @@ public class CombatListener implements Listener {
 
         Match match = Craftmen.get().getMatchManager().getMatch(player);
         if (match == null) return;
-        if (!match.getGame().getName().equals("Sumo")) return;
+        if (!match.getGame().getName().equals("Sumo") && !match.getGame().getName().equals("Spleef")) return;
 
         if (e instanceof EntityDamageByEntityEvent) {
             e.setDamage(0.0);

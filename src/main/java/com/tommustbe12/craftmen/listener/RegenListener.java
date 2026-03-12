@@ -11,15 +11,14 @@ import org.bukkit.event.entity.EntityRegainHealthEvent;
 import java.util.Set;
 
 public class RegenListener implements Listener {
-
-    // Add gamemode names here
     private static final Set<String> NO_NATURAL_REGEN = Set.of(
             "Sword",
             "Axe",
             "UHC",
             "Invis",
             "Sumo",
-            "Netherite Sword"
+            "Netherite Sword",
+            "Spleef"
     );
 
     @EventHandler(priority = EventPriority.HIGH)
