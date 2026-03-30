@@ -37,7 +37,7 @@ public class BlockListener implements Listener {
         if (match == null) return;
 
         // Only spleef
-        if (!(match.getGame() instanceof SpleefGame)) return;
+        if (!match.getGame().getName().equals("Spleef")) return;
 
         Material type = e.getBlock().getType();
         if (type != Material.SNOW_BLOCK && type != Material.SNOW && type != Material.POWDER_SNOW) return; // idk if well use powdered snow but still
