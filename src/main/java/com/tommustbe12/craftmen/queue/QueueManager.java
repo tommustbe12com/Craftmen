@@ -23,6 +23,10 @@ public class QueueManager {
         duelRequests.put(target, new DuelRequest(sender, target, game));
     }
 
+    public void queueAgain(Player player) {
+        addPlayer(player, Craftmen.get().getGameManager().getGame(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame()));
+    }
+
     public DuelRequest getDuelRequest(Player target) {
         return duelRequests.get(target);
     }

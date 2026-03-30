@@ -110,8 +110,21 @@ public class Match {
         Player loser = winner == p1 ? p2 : p1;
 
         // set game modes
-        loser.setGameMode(GameMode.SPECTATOR);
+        loser.setGameMode(GameMode.ADVENTURE);
         winner.setGameMode(GameMode.SURVIVAL);
+
+        p1.setInvulnerable(true);
+        p2.setInvulnerable(true);
+
+        p1.setAllowFlight(true);
+        p2.setAllowFlight(true);
+
+        p1.setFlying(true);
+        p2.setFlying(true);
+
+        // reset player states
+        Craftmen.get().getProfileManager().getProfile(p1).setState(PlayerState.LOBBY);
+        Craftmen.get().getProfileManager().getProfile(p2).setState(PlayerState.LOBBY);
 
         // victory messages
         winner.sendTitle("§6§lVICTORY!", "§eDefeated " + loser.getName(), 10, 70, 20);
@@ -126,8 +139,22 @@ public class Match {
         Profile loserProfile = Craftmen.get().getProfileManager().getProfile(loser);
         loserProfile.addLoss(game.getName());
 
+        winnerProfile.setLastPlayedGame(game.getName());
+        loserProfile.setLastPlayedGame(game.getName());
+
+        givePlayAgain(p1);
+        givePlayAgain(p2);
+
         // after 5 seconds, reset players and remove arena
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+
+            Profile profile1 = Craftmen.get().getProfileManager().getProfile(p1);
+            Profile profile2 = Craftmen.get().getProfileManager().getProfile(p2);
+
+            // ONLY continue if both players are still in lobby
+            if (profile1.getState() != PlayerState.LOBBY || profile2.getState() != PlayerState.LOBBY) {
+                return;
+            }
 
             for (PotionEffectType type : PotionEffectType.values()) {
                 if (type != null) {
@@ -154,19 +181,29 @@ public class Match {
             p1.getInventory().clear();
             p2.getInventory().clear();
 
-            // reset player states
-            Craftmen.get().getProfileManager().getProfile(p1).setState(PlayerState.LOBBY);
-            Craftmen.get().getProfileManager().getProfile(p2).setState(PlayerState.LOBBY);
-
-            // give hub swords
+            // give items
             giveHubSword(p1);
             giveHubSword(p2);
+            givePlayAgain(p1);
+            givePlayAgain(p2);
 
             // reset gamemode
             p1.setGameMode(GameMode.SURVIVAL);
             p2.setGameMode(GameMode.SURVIVAL);
 
-            // remove ONLY this match’s arena
+            p1.setAllowFlight(false);
+            p2.setAllowFlight(false);
+
+            p1.setFlying(false);
+            p2.setFlying(false);
+
+            p1.setInvulnerable(false);
+            p2.setInvulnerable(false);
+
+            p1.setCollidable(true);
+            p2.setCollidable(true);
+
+            // remove arena
             if (pasteMinLocation != null && pasteMaxLocation != null) {
                 Craftmen.get().getArenaManager().removeArenaAtLocation(
                         arena.getName(),
@@ -178,9 +215,17 @@ public class Match {
         }, 5 * 20L);
     }
 
+    private void givePlayAgain(Player player) {
+        org.bukkit.inventory.ItemStack paper = new org.bukkit.inventory.ItemStack(Material.PAPER);
+        org.bukkit.inventory.meta.ItemMeta meta = paper.getItemMeta();
+        if (meta != null) meta.setDisplayName("§6Play Again");
+        paper.setItemMeta(meta);
+        player.getInventory().setItem(player.getInventory().getHeldItemSlot(), paper);
+    }
+
     private void giveHubSword(Player player) {
         player.getInventory().clear();
-        org.bukkit.inventory.ItemStack sword = new org.bukkit.inventory.ItemStack(org.bukkit.Material.IRON_SWORD);
+        org.bukkit.inventory.ItemStack sword = new org.bukkit.inventory.ItemStack(Material.IRON_SWORD);
         org.bukkit.inventory.meta.ItemMeta meta = sword.getItemMeta();
         if (meta != null) meta.setDisplayName("§6Game Selector");
         sword.setItemMeta(meta);
