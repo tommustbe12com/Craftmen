@@ -56,6 +56,13 @@ public class HubManager implements Listener {
         meta.setDisplayName("§6Game Selector");
         selector.setItemMeta(meta);
         player.getInventory().setItem(0, selector);
+
+        if(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame().equals("None")) return;
+        ItemStack again = new ItemStack(Craftmen.get().getGameManager().getGame(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame()).getIcon()); // complicated lol
+        ItemMeta meta1 = again.getItemMeta();
+        meta1.setDisplayName("§6Play Again");
+        again.setItemMeta(meta1);
+        player.getInventory().setItem(1, again);
     }
 
     public void giveLeaveQueueItem(Player player) {
@@ -103,6 +110,10 @@ public class HubManager implements Listener {
             e.setCancelled(true);
             Craftmen.get().getQueueManager().removePlayer(player);
             giveHubItems(player);
+        } else if (name.equals("§6Play Again")) {
+            e.setCancelled(true);
+            Craftmen.get().getQueueManager().queueAgain(player);
+            giveLeaveQueueItem(player);
         }
     }
 

@@ -15,6 +15,8 @@ public class Profile {
     private final Map<String, Integer> gameWins = new HashMap<>();
     private final Map<String, Integer> gameLosses = new HashMap<>();
 
+    private String lastPlayedGame;
+
     public Profile(Player player) {
         this.player = player;
         this.state = PlayerState.LOBBY;
@@ -60,5 +62,13 @@ public class Profile {
             case "wins" -> this.wins = value;
             case "losses" -> this.losses = value;
         }
+    }
+
+    public String getLastPlayedGame() {
+        return lastPlayedGame != null ? lastPlayedGame : "None";
+    }
+
+    public void setLastPlayedGame(String gameName) {
+        this.lastPlayedGame = gameName;
     }
 }
