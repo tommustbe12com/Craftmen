@@ -113,6 +113,7 @@ public class HubManager implements Listener {
         } else if (name.equals("§6Play Again")) {
             e.setCancelled(true);
             Craftmen.get().getQueueManager().queueAgain(player);
+            player.teleport(Craftmen.get().getHubLocation());
             giveLeaveQueueItem(player);
         }
     }

@@ -151,6 +151,14 @@ public class Match {
             Profile profile1 = Craftmen.get().getProfileManager().getProfile(p1);
             Profile profile2 = Craftmen.get().getProfileManager().getProfile(p2);
 
+            if (pasteMinLocation != null && pasteMaxLocation != null) {
+                Craftmen.get().getArenaManager().removeArenaAtLocation(
+                        arena.getName(),
+                        pasteMinLocation,
+                        pasteMaxLocation
+                );
+            }
+
             // ONLY continue if both players are still in lobby
             if (profile1.getState() != PlayerState.LOBBY || profile2.getState() != PlayerState.LOBBY) {
                 return;
@@ -184,8 +192,8 @@ public class Match {
             // give items
             giveHubSword(p1);
             giveHubSword(p2);
-            givePlayAgain(p1);
-            givePlayAgain(p2);
+            givePlayAgainFinal(p1);
+            givePlayAgainFinal(p2);
 
             // reset gamemode
             p1.setGameMode(GameMode.SURVIVAL);
@@ -203,15 +211,6 @@ public class Match {
             p1.setCollidable(true);
             p2.setCollidable(true);
 
-            // remove arena
-            if (pasteMinLocation != null && pasteMaxLocation != null) {
-                Craftmen.get().getArenaManager().removeArenaAtLocation(
-                        arena.getName(),
-                        pasteMinLocation,
-                        pasteMaxLocation
-                );
-            }
-
         }, 5 * 20L);
     }
 
@@ -221,6 +220,14 @@ public class Match {
         if (meta != null) meta.setDisplayName("§6Play Again");
         paper.setItemMeta(meta);
         player.getInventory().setItem(player.getInventory().getHeldItemSlot(), paper);
+    }
+
+    private void givePlayAgainFinal(Player player) {
+        org.bukkit.inventory.ItemStack paper = new org.bukkit.inventory.ItemStack(Material.PAPER);
+        org.bukkit.inventory.meta.ItemMeta meta = paper.getItemMeta();
+        if (meta != null) meta.setDisplayName("§6Play Again");
+        paper.setItemMeta(meta);
+        player.getInventory().setItem(1, paper);
     }
 
     private void giveHubSword(Player player) {
