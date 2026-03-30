@@ -87,6 +87,9 @@ public class SpectateCommand implements CommandExecutor {
 
         player.sendMessage("§aNow spectating §f" + target.getName());
 
+        match.getP1().sendMessage(player.getName() + " is now spectating.");
+        match.getP1().sendMessage(player.getName() + " is now spectating.");
+
         return true;
     }
 
