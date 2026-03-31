@@ -163,6 +163,7 @@ public final class Craftmen extends JavaPlugin {
 
             getConfig().set(path + ".wins", profile.getWins());
             getConfig().set(path + ".losses", profile.getLosses());
+            getConfig().set(path + ".last", profile.getLastPlayedGame());
 
             // save per-game wins/losses
             for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
@@ -188,6 +189,7 @@ public final class Craftmen extends JavaPlugin {
 
             profile.setWins(getConfig().getInt(path + ".wins"));
             profile.setLosses(getConfig().getInt(path + ".losses"));
+            profile.setLastPlayedGame(getConfig().getString(path + ".last"));
 
             // load per-game wins/losses
             if (getConfig().contains(path + ".gameWins")) {
@@ -209,6 +211,7 @@ public final class Craftmen extends JavaPlugin {
 
         getConfig().set(path + ".wins", profile.getWins());
         getConfig().set(path + ".losses", profile.getLosses());
+        getConfig().set(path + ".last", profile.getLastPlayedGame());
 
         for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
             getConfig().set(path + ".gameWins." + entry.getKey().replace(" ", "_"), entry.getValue());

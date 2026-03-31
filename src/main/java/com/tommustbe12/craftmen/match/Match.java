@@ -151,6 +151,7 @@ public class Match {
             Profile profile1 = Craftmen.get().getProfileManager().getProfile(p1);
             Profile profile2 = Craftmen.get().getProfileManager().getProfile(p2);
 
+            // ALWAYS remove arena
             if (pasteMinLocation != null && pasteMaxLocation != null) {
                 Craftmen.get().getArenaManager().removeArenaAtLocation(
                         arena.getName(),
@@ -159,59 +160,48 @@ public class Match {
                 );
             }
 
-            // ONLY continue if both players are still in lobby
-            if (profile1.getState() != PlayerState.LOBBY || profile2.getState() != PlayerState.LOBBY) {
-                return;
+            // Reset each player individually
+            if (profile1.getState() == PlayerState.LOBBY) {
+                resetPlayer(p1);
             }
 
-            for (PotionEffectType type : PotionEffectType.values()) {
-                if (type != null) {
-                    p1.removePotionEffect(type);
-                    p2.removePotionEffect(type);
-                }
+            if (profile2.getState() == PlayerState.LOBBY) {
+                resetPlayer(p2);
             }
-
-            // full health
-            p1.setHealth(20.0);
-            p2.setHealth(20.0);
-
-            p1.setSaturation(20f);
-            p2.setSaturation(20f);
-
-            p1.setFireTicks(0);
-            p2.setFireTicks(0);
-
-            // teleport to hub
-            p1.teleport(Craftmen.get().getHubLocation());
-            p2.teleport(Craftmen.get().getHubLocation());
-
-            // reset inventories
-            p1.getInventory().clear();
-            p2.getInventory().clear();
-
-            // give items
-            giveHubSword(p1);
-            giveHubSword(p2);
-            givePlayAgainFinal(p1);
-            givePlayAgainFinal(p2);
-
-            // reset gamemode
-            p1.setGameMode(GameMode.SURVIVAL);
-            p2.setGameMode(GameMode.SURVIVAL);
-
-            p1.setAllowFlight(false);
-            p2.setAllowFlight(false);
-
-            p1.setFlying(false);
-            p2.setFlying(false);
-
-            p1.setInvulnerable(false);
-            p2.setInvulnerable(false);
-
-            p1.setCollidable(true);
-            p2.setCollidable(true);
 
         }, 5 * 20L);
+    }
+
+    private void resetPlayer(Player player) {
+        if (player == null || !player.isOnline()) return;
+
+        for (PotionEffectType type : PotionEffectType.values()) {
+            if (type != null) player.removePotionEffect(type);
+        }
+
+        // health + food
+        player.setHealth(20.0);
+        player.setFoodLevel(20);
+        player.setSaturation(20f);
+
+        // status
+        player.setFireTicks(0);
+        player.setFallDistance(0);
+
+        // teleport
+        player.teleport(Craftmen.get().getHubLocation());
+
+        // inventory
+        player.getInventory().clear();
+        Craftmen.get().getHubManager().giveHubItems(player);
+
+        // gamemode + flags
+        player.setGameMode(GameMode.SURVIVAL);
+
+        player.setAllowFlight(false);
+        player.setFlying(false);
+        player.setInvulnerable(false);
+        player.setCollidable(true);
     }
 
     private void givePlayAgain(Player player) {

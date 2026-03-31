@@ -33,6 +33,7 @@ public class PlayerListener implements Listener {
         if (Craftmen.get().getConfig().contains(path)) {
             profile.setWins(Craftmen.get().getConfig().getInt(path + ".wins"));
             profile.setLosses(Craftmen.get().getConfig().getInt(path + ".losses"));
+            profile.setLastPlayedGame(Craftmen.get().getConfig().getString(path + ".last"));
 
             if (Craftmen.get().getConfig().contains(path + ".gameWins")) {
                 for (String game : Craftmen.get().getConfig().getConfigurationSection(path + ".gameWins").getKeys(false)) {
