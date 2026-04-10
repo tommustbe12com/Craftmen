@@ -3,6 +3,7 @@ package com.tommustbe12.craftmen.kit.command;
 import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.kit.gui.KitEditorMenu;
+import com.tommustbe12.craftmen.profile.PlayerState;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -26,6 +27,11 @@ public final class KitCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Players only.");
+            return true;
+        }
+
+        if (Craftmen.get().getProfileManager().getProfile(player).getState() != PlayerState.LOBBY) {
+            player.sendMessage(ChatColor.RED + "You can only edit kits in the hub.");
             return true;
         }
 
@@ -61,4 +67,3 @@ public final class KitCommand implements CommandExecutor, TabCompleter {
         return out;
     }
 }
-

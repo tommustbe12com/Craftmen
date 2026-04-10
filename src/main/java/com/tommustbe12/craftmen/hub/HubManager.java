@@ -2,6 +2,7 @@ package com.tommustbe12.craftmen.hub;
 
 import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.profile.PlayerState;
 import com.tommustbe12.craftmen.queue.QueueManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -24,6 +25,11 @@ import java.util.function.Consumer;
 public class HubManager implements Listener {
 
     private static final String GUI_TITLE_PREFIX = "§8Select a Kit";
+
+    private static final String HUB_ITEM_GAME_SELECTOR = ChatColor.GOLD + "Game Selector";
+    private static final String HUB_ITEM_KIT_EDITOR = ChatColor.AQUA + "Kit Editor";
+    private static final String HUB_ITEM_PLAY_AGAIN = ChatColor.GOLD + "Play Again";
+    private static final String HUB_ITEM_LEAVE_QUEUE = ChatColor.RED + "Leave Queue";
 
     private static final List<String> PAGE_ONE_KITS = Arrays.asList(
             "Sword", "Mace", "Axe", "Netherite Potion", "Diamond Potion", "SMP", "UHC"
@@ -53,20 +59,20 @@ public class HubManager implements Listener {
         player.getInventory().clear();
         ItemStack selector = new ItemStack(Material.IRON_SWORD);
         ItemMeta meta = selector.getItemMeta();
-        meta.setDisplayName("§6Game Selector");
+        meta.setDisplayName(HUB_ITEM_GAME_SELECTOR);
         selector.setItemMeta(meta);
         player.getInventory().setItem(0, selector);
 
         ItemStack kitEditor = new ItemStack(Material.CHEST);
         ItemMeta kitMeta = kitEditor.getItemMeta();
-        kitMeta.setDisplayName("Â§bKit Editor");
+        kitMeta.setDisplayName(HUB_ITEM_KIT_EDITOR);
         kitEditor.setItemMeta(kitMeta);
         player.getInventory().setItem(8, kitEditor);
 
         if(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame().equals("None")) return;
         ItemStack again = new ItemStack(Craftmen.get().getGameManager().getGame(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame()).getIcon()); // complicated lol
         ItemMeta meta1 = again.getItemMeta();
-        meta1.setDisplayName("§6Play Again");
+        meta1.setDisplayName(HUB_ITEM_PLAY_AGAIN);
         again.setItemMeta(meta1);
         player.getInventory().setItem(1, again);
     }
@@ -75,7 +81,7 @@ public class HubManager implements Listener {
         player.getInventory().clear();
         ItemStack leave = new ItemStack(Material.RED_DYE);
         ItemMeta meta = leave.getItemMeta();
-        meta.setDisplayName("§cLeave Queue");
+        meta.setDisplayName(HUB_ITEM_LEAVE_QUEUE);
         leave.setItemMeta(meta);
         player.getInventory().setItem(4, leave);
         player.updateInventory();
@@ -105,18 +111,26 @@ public class HubManager implements Listener {
         String name = item.getItemMeta().getDisplayName();
         Player player = e.getPlayer();
 
-        if (name.equals("§6Game Selector")) {
+        if (name.equals(HUB_ITEM_GAME_SELECTOR)) {
             e.setCancelled(true);
             openGameSelector(player, game -> {
                 giveLeaveQueueItem(player);
                 Craftmen.get().getQueueManager().addPlayer(player, game);
             });
 
-        } else if (name.equals("§cLeave Queue")) {
+        } else if (name.equals(HUB_ITEM_KIT_EDITOR)) {
+            e.setCancelled(true);
+            if (Craftmen.get().getProfileManager().getProfile(player).getState() != PlayerState.LOBBY) {
+                player.sendMessage(ChatColor.RED + "You can only edit kits in the hub.");
+                return;
+            }
+            Craftmen.get().getKitEditorMenu().openSelect(player);
+
+        } else if (name.equals(HUB_ITEM_LEAVE_QUEUE)) {
             e.setCancelled(true);
             Craftmen.get().getQueueManager().removePlayer(player);
             giveHubItems(player);
-        } else if (name.equals("§6Play Again")) {
+        } else if (name.equals(HUB_ITEM_PLAY_AGAIN)) {
             e.setCancelled(true);
             Craftmen.get().getQueueManager().queueAgain(player);
             player.teleport(Craftmen.get().getHubLocation());

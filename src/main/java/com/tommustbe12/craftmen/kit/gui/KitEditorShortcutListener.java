@@ -1,6 +1,8 @@
 package com.tommustbe12.craftmen.kit.gui;
 
 import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.profile.PlayerState;
+import org.bukkit.ChatColor;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
@@ -18,10 +20,13 @@ public final class KitEditorShortcutListener implements Listener {
         if (item == null || !item.hasItemMeta()) return;
 
         String name = item.getItemMeta().getDisplayName();
-        if (!"Â§bKit Editor".equals(name)) return;
+        if (!(ChatColor.AQUA + "Kit Editor").equals(name)) return;
 
         e.setCancelled(true);
+        if (Craftmen.get().getProfileManager().getProfile(e.getPlayer()).getState() != PlayerState.LOBBY) {
+            e.getPlayer().sendMessage(ChatColor.RED + "You can only edit kits in the hub.");
+            return;
+        }
         Craftmen.get().getKitEditorMenu().openSelect(e.getPlayer());
     }
 }
-

@@ -22,10 +22,26 @@ import java.util.*;
 
 public final class KitEditorMenu implements Listener {
 
-    private static final String TITLE_SELECT = ChatColor.DARK_GRAY + "Kit Editor";
+    private static final String TITLE_SELECT_PREFIX = ChatColor.DARK_GRAY + "Kit Editor";
     private static final String TITLE_EDIT_PREFIX = ChatColor.DARK_GRAY + "Edit Kit: ";
 
     private static final int EDIT_SIZE = 54;
+
+    // Match Hub selector layout
+    private static final List<String> PAGE_ONE_KITS = Arrays.asList(
+            "Sword", "Mace", "Axe", "Netherite Potion", "Diamond Potion", "SMP", "UHC"
+    );
+    private static final int[] CONTENT_SLOTS = {
+            10, 11, 12, 13, 14, 15, 16,
+            19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34,
+            37, 38, 39, 40, 41, 42, 43
+    };
+    private static final int ITEMS_PER_PAGE = CONTENT_SLOTS.length; // 28
+    private static final int SLOT_PREV = 46;
+    private static final int SLOT_CLOSE = 49;
+    private static final int SLOT_NEXT = 52;
+    private static final int CRYSTAL_SLOT = 22;
 
     private static final int SLOT_HELMET = 45;
     private static final int SLOT_CHEST = 46;
@@ -40,6 +56,7 @@ public final class KitEditorMenu implements Listener {
     private final KitManager kitManager;
     private final Set<UUID> suppressCloseReopen = new HashSet<>();
     private final Map<UUID, Boolean> cursorFromEditor = new HashMap<>();
+    private final Map<UUID, Integer> playerPage = new HashMap<>();
 
     public KitEditorMenu(KitManager kitManager) {
         this.kitManager = kitManager;
@@ -49,31 +66,53 @@ public final class KitEditorMenu implements Listener {
         List<Game> games = new ArrayList<>(Craftmen.get().getGameManager().getGames());
         games.sort(Comparator.comparing(Game::getName, String.CASE_INSENSITIVE_ORDER));
 
+        int page = playerPage.getOrDefault(player.getUniqueId(), 0);
+        openSelectPage(player, games, page);
+    }
+
+    private void openSelectPage(Player player, List<Game> games, int page) {
+        Collection<Game> all = games;
+
+        List<Game> page1Games = getPage1Games(all);
+        Game crystalGame = getCrystalGame(all);
+        List<Game> extraGames = getExtraGames(all);
+
+        int extraPages = (int) Math.ceil(extraGames.size() / (double) ITEMS_PER_PAGE);
+        int maxPage = extraPages; // page 0 is special
+        int clamped = Math.max(0, Math.min(page, maxPage));
+        playerPage.put(player.getUniqueId(), clamped);
+
         Inventory inv = Bukkit.createInventory(
                 new KitEditorHolder(KitEditorHolder.Type.SELECT, player.getUniqueId(), null),
                 54,
-                TITLE_SELECT
+                TITLE_SELECT_PREFIX + ChatColor.DARK_GRAY + " (Page " + (clamped + 1) + ")"
         );
 
-        ItemStack pane = borderPane();
-        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, pane);
+        fillBorder(inv);
 
-        int slot = 10;
-        int col = 0;
-        int row = 1;
-        for (Game game : games) {
-            int s = row * 9 + col + 1;
-            inv.setItem(s, makeGameIcon(game, player));
-            col++;
-            if (col >= 7) {
-                col = 0;
-                row++;
-                if (row >= 5) break;
+        inv.setItem(SLOT_PREV, makeArrow(true, clamped > 0));
+        inv.setItem(SLOT_NEXT, makeArrow(false, clamped < maxPage));
+        inv.setItem(SLOT_CLOSE, closeItem());
+
+        if (clamped == 0) {
+            int col = 0;
+            for (Game g : page1Games) {
+                if (col >= 7) break;
+                inv.setItem(CONTENT_SLOTS[col], makeGameIcon(g, player));
+                col++;
             }
-            slot++;
+            if (crystalGame != null) {
+                inv.setItem(CRYSTAL_SLOT, makeGameIcon(crystalGame, player));
+            }
+        } else {
+            int startIndex = (clamped - 1) * ITEMS_PER_PAGE;
+            for (int i = 0; i < ITEMS_PER_PAGE; i++) {
+                int idx = startIndex + i;
+                if (idx >= extraGames.size()) break;
+                inv.setItem(CONTENT_SLOTS[i], makeGameIcon(extraGames.get(idx), player));
+            }
         }
 
-        inv.setItem(49, closeItem());
         player.openInventory(inv);
     }
 
@@ -94,7 +133,10 @@ public final class KitEditorMenu implements Listener {
         for (int i = 36; i < 45; i++) inv.setItem(i, pane);
 
         ItemStack[] contents = kit.getContents();
-        for (int i = 0; i < 36; i++) inv.setItem(i, contents[i]);
+        for (int kitIndex = 0; kitIndex < 36; kitIndex++) {
+            int editorSlot = editorSlotForKitIndex(kitIndex);
+            inv.setItem(editorSlot, contents[kitIndex]);
+        }
 
         ItemStack[] armor = kit.getArmor();
         inv.setItem(SLOT_HELMET, armor[0]);
@@ -128,6 +170,22 @@ public final class KitEditorMenu implements Listener {
 
             if (isClose(clicked)) {
                 player.closeInventory();
+                return;
+            }
+
+            int raw = e.getRawSlot();
+            if (raw == SLOT_PREV) {
+                int page = playerPage.getOrDefault(player.getUniqueId(), 0);
+                playerPage.put(player.getUniqueId(), Math.max(0, page - 1));
+                suppressCloseReopen.add(player.getUniqueId());
+                Bukkit.getScheduler().runTask(Craftmen.get(), () -> openSelect(player));
+                return;
+            }
+            if (raw == SLOT_NEXT) {
+                int page = playerPage.getOrDefault(player.getUniqueId(), 0);
+                playerPage.put(player.getUniqueId(), page + 1);
+                suppressCloseReopen.add(player.getUniqueId());
+                Bukkit.getScheduler().runTask(Craftmen.get(), () -> openSelect(player));
                 return;
             }
 
@@ -311,9 +369,10 @@ public final class KitEditorMenu implements Listener {
 
     private Kit readKitFromEditor(Inventory inv) {
         ItemStack[] contents = new ItemStack[36];
-        for (int i = 0; i < 36; i++) {
-            ItemStack item = inv.getItem(i);
-            contents[i] = item == null ? null : item.clone();
+        for (int kitIndex = 0; kitIndex < 36; kitIndex++) {
+            int editorSlot = editorSlotForKitIndex(kitIndex);
+            ItemStack item = inv.getItem(editorSlot);
+            contents[kitIndex] = item == null ? null : item.clone();
         }
 
         ItemStack[] armor = new ItemStack[4];
@@ -368,7 +427,7 @@ public final class KitEditorMenu implements Listener {
         meta.setDisplayName(ChatColor.YELLOW + "How to edit");
         meta.setLore(Arrays.asList(
                 ChatColor.GRAY + "Drag items around to reorder.",
-                ChatColor.GRAY + "Use your inventory to add items.",
+                ChatColor.GRAY + "You cannot add new items here.",
                 ChatColor.GRAY + "Armor slots are at the bottom-left.",
                 ChatColor.GRAY + "Offhand slot is next to armor.",
                 ChatColor.GRAY + "Click Save when done."
@@ -405,5 +464,65 @@ public final class KitEditorMenu implements Listener {
         if (!item.hasItemMeta()) return false;
         String name = ChatColor.stripColor(item.getItemMeta().getDisplayName());
         return name != null && name.equalsIgnoreCase("Close");
+    }
+
+    // Editor layout: show main inventory (9-35) first (top 3 rows), then hotbar (0-8) on the bottom row.
+    private static int editorSlotForKitIndex(int kitIndex) {
+        if (kitIndex >= 9) return kitIndex - 9; // 9..35 -> 0..26
+        return 27 + kitIndex; // 0..8 -> 27..35
+    }
+
+    private static List<Game> getPage1Games(Collection<Game> all) {
+        List<Game> result = new ArrayList<>();
+        for (String name : PAGE_ONE_KITS) {
+            for (Game g : all) {
+                if (g.getName().equalsIgnoreCase(name)) {
+                    result.add(g);
+                    break;
+                }
+            }
+        }
+        return result;
+    }
+
+    private static Game getCrystalGame(Collection<Game> all) {
+        for (Game g : all) {
+            if (g.getName().equalsIgnoreCase("Crystal")) return g;
+        }
+        return null;
+    }
+
+    private static List<Game> getExtraGames(Collection<Game> all) {
+        Set<String> reserved = new HashSet<>();
+        for (String s : PAGE_ONE_KITS) reserved.add(s.toLowerCase(Locale.ROOT));
+        reserved.add("crystal");
+
+        List<Game> result = new ArrayList<>();
+        for (Game g : all) {
+            if (!reserved.contains(g.getName().toLowerCase(Locale.ROOT))) result.add(g);
+        }
+        return result;
+    }
+
+    private static void fillBorder(Inventory inv) {
+        ItemStack pane = borderPane();
+        for (int i = 0; i < 9; i++) inv.setItem(i, pane);
+        for (int i = 45; i < 54; i++) inv.setItem(i, pane);
+        for (int row = 1; row <= 4; row++) {
+            inv.setItem(row * 9, pane);
+            inv.setItem(row * 9 + 8, pane);
+        }
+    }
+
+    private static ItemStack makeArrow(boolean left, boolean enabled) {
+        ItemStack arrow = new ItemStack(Material.ARROW);
+        ItemMeta meta = arrow.getItemMeta();
+        if (enabled) {
+            meta.setDisplayName((left ? ChatColor.YELLOW + "◀ Previous" : ChatColor.YELLOW + "Next ▶"));
+        } else {
+            meta.setDisplayName(ChatColor.GRAY + (left ? "Previous" : "Next"));
+        }
+        arrow.setItemMeta(meta);
+        return arrow;
     }
 }
