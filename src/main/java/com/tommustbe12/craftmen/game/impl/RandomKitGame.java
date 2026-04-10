@@ -1,9 +1,9 @@
 package com.tommustbe12.craftmen.game.impl;
 
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.Material;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
@@ -21,13 +21,14 @@ public class RandomKitGame extends Game {
     }
 
     @Override
-    public void applyLoadout(Player player) {
-        player.getInventory().clear();
+    public Kit createDefaultKit() {
+        ItemStack[] contents = new ItemStack[36];
 
-        player.getInventory().setHelmet(randomArmorPiece("helmet"));
-        player.getInventory().setChestplate(randomArmorPiece("chestplate"));
-        player.getInventory().setLeggings(randomArmorPiece("leggings"));
-        player.getInventory().setBoots(randomArmorPiece("boots"));
+        ItemStack[] armor = new ItemStack[4];
+        armor[0] = randomArmorPiece("helmet");
+        armor[1] = randomArmorPiece("chestplate");
+        armor[2] = randomArmorPiece("leggings");
+        armor[3] = randomArmorPiece("boots");
 
         List<ItemStack> hotbar = new ArrayList<>();
         for (int i = 0; i < 9; i++) {
@@ -36,8 +37,10 @@ public class RandomKitGame extends Game {
         Collections.shuffle(hotbar);
 
         for (int i = 0; i < hotbar.size(); i++) {
-            player.getInventory().setItem(i, hotbar.get(i));
+            contents[i] = hotbar.get(i);
         }
+
+        return new Kit(contents, armor, null);
     }
 
     @Override

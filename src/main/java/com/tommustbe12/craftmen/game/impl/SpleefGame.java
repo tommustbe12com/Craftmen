@@ -1,18 +1,13 @@
 package com.tommustbe12.craftmen.game.impl;
 
-import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-
-import java.util.concurrent.ThreadLocalRandom;
 
 public class SpleefGame extends Game {
 
@@ -21,9 +16,7 @@ public class SpleefGame extends Game {
     }
 
     @Override
-    public void applyLoadout(Player player) {
-        player.getInventory().clear();
-
+    public Kit createDefaultKit() {
         ItemStack pickaxe = new ItemStack(Material.NETHERITE_SHOVEL);
         ItemMeta meta = pickaxe.getItemMeta();
 
@@ -34,7 +27,9 @@ public class SpleefGame extends Game {
 
         pickaxe.setItemMeta(meta);
 
-        player.getInventory().addItem(pickaxe);
+        ItemStack[] contents = new ItemStack[36];
+        contents[0] = pickaxe;
+        return new Kit(contents, new ItemStack[4], null);
     }
 
     @Override

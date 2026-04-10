@@ -1,6 +1,7 @@
 package com.tommustbe12.craftmen.game.impl;
 
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -29,18 +30,18 @@ public class SwordGame extends Game {
     }
 
     @Override
-    public void applyLoadout(Player player) {
-        player.getInventory().clear();
-
-        // Sword
+    public Kit createDefaultKit() {
+        ItemStack[] contents = new ItemStack[36];
         ItemStack sword = new ItemStack(Material.DIAMOND_SWORD);
-        player.getInventory().addItem(sword);
+        contents[0] = sword;
 
-        // Armor
-        player.getInventory().setHelmet(createArmor(Material.DIAMOND_HELMET, 3));
-        player.getInventory().setChestplate(createArmor(Material.DIAMOND_CHESTPLATE, 3));
-        player.getInventory().setLeggings(createArmor(Material.DIAMOND_LEGGINGS, 4));
-        player.getInventory().setBoots(createArmor(Material.DIAMOND_BOOTS, 4));
+        ItemStack[] armor = new ItemStack[4];
+        armor[0] = createArmor(Material.DIAMOND_HELMET, 3);
+        armor[1] = createArmor(Material.DIAMOND_CHESTPLATE, 3);
+        armor[2] = createArmor(Material.DIAMOND_LEGGINGS, 4);
+        armor[3] = createArmor(Material.DIAMOND_BOOTS, 4);
+
+        return new Kit(contents, armor, null);
     }
 
     @Override public void onStart(Match match) {}

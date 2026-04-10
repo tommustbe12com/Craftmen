@@ -1,9 +1,9 @@
 package com.tommustbe12.craftmen.game.impl;
 
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.*;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
@@ -48,25 +48,24 @@ public class PotionGame extends Game {
     }
 
     @Override
-    public void applyLoadout(Player player) {
-        PlayerInventory inv = player.getInventory();
-        inv.clear();
+    public Kit createDefaultKit() {
+        ItemStack[] contents = new ItemStack[36];
+        ItemStack[] armor = new ItemStack[4];
 
-        // ===== ARMOR =====
-        inv.setHelmet(enchItem(Material.NETHERITE_HELMET, new Object[][]{
+        armor[0] = enchItem(Material.NETHERITE_HELMET, new Object[][]{
                 {"protection",4},{"aqua_affinity",1},{"unbreaking",3},{"mending",1}
-        }));
-        inv.setChestplate(enchItem(Material.NETHERITE_CHESTPLATE, new Object[][]{
+        });
+        armor[1] = enchItem(Material.NETHERITE_CHESTPLATE, new Object[][]{
                 {"protection",4},{"unbreaking",3},{"mending",1}
-        }));
-        inv.setLeggings(enchItem(Material.NETHERITE_LEGGINGS, new Object[][]{
+        });
+        armor[2] = enchItem(Material.NETHERITE_LEGGINGS, new Object[][]{
                 {"protection",4},{"swift_sneak",3},{"unbreaking",3},{"mending",1}
-        }));
-        inv.setBoots(enchItem(Material.NETHERITE_BOOTS, new Object[][]{
+        });
+        armor[3] = enchItem(Material.NETHERITE_BOOTS, new Object[][]{
                 {"protection",4},{"feather_falling",4},{"depth_strider",3},{"unbreaking",3},{"mending",1}
-        }));
+        });
 
-        inv.setItemInOffHand(new ItemStack(Material.GOLDEN_APPLE, 64));
+        ItemStack offhand = new ItemStack(Material.GOLDEN_APPLE, 64);
 
         // ===== POTIONS =====
         ItemStack heal = instantSplash(PotionEffectType.INSTANT_HEALTH, 1);
@@ -74,44 +73,46 @@ public class PotionGame extends Game {
         ItemStack strength = splash(PotionEffectType.STRENGTH, 90, 1);
 
         // ===== HOTBAR =====
-        inv.setItem(0, enchItem(Material.NETHERITE_SWORD, new Object[][]{
+        contents[0] = enchItem(Material.NETHERITE_SWORD, new Object[][]{
                 {"sharpness",5},{"unbreaking",3},{"mending",1}
-        }));
+        });
 
         for(int i=1;i<=5;i++)
-            inv.setItem(i, heal.clone());
+            contents[i] = heal.clone();
 
-        inv.setItem(6, strength.clone());
-        inv.setItem(7, speed.clone());
-        inv.setItem(8, new ItemStack(Material.TOTEM_OF_UNDYING));
+        contents[6] = strength.clone();
+        contents[7] = speed.clone();
+        contents[8] = new ItemStack(Material.TOTEM_OF_UNDYING);
 
         // ===== INVENTORY (+8 offset) =====
 
         // 1-9 healing
         for(int i=1;i<=9;i++)
-            inv.setItem(8 + i, heal.clone());
+            contents[8 + i] = heal.clone();
 
         // 10-13 speed
         for(int i=10;i<=13;i++)
-            inv.setItem(8 + i, speed.clone());
+            contents[8 + i] = speed.clone();
 
         // 14-17 healing
         for(int i=14;i<=17;i++)
-            inv.setItem(8 + i, heal.clone());
+            contents[8 + i] = heal.clone();
 
         // 18 XP bottles
-        inv.setItem(8 + 18, new ItemStack(Material.EXPERIENCE_BOTTLE,64));
+        contents[8 + 18] = new ItemStack(Material.EXPERIENCE_BOTTLE,64);
 
         // 19-22 strength
         for(int i=19;i<=22;i++)
-            inv.setItem(8 + i, strength.clone());
+            contents[8 + i] = strength.clone();
 
         // 23-26 healing
         for(int i=23;i<=26;i++)
-            inv.setItem(8 + i, heal.clone());
+            contents[8 + i] = heal.clone();
 
         // 27 totem
-        inv.setItem(8 + 27, new ItemStack(Material.TOTEM_OF_UNDYING));
+        contents[8 + 27] = new ItemStack(Material.TOTEM_OF_UNDYING);
+
+        return new Kit(contents, armor, offhand);
     }
 
     @Override public void onStart(Match match) {}

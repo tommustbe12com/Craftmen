@@ -1,9 +1,9 @@
 package com.tommustbe12.craftmen.game.impl;
 
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.*;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.*;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
@@ -63,25 +63,24 @@ public class DPotionGame extends Game {
     }
 
     @Override
-    public void applyLoadout(Player player) {
-        PlayerInventory inv = player.getInventory();
-        inv.clear();
+    public Kit createDefaultKit() {
+        ItemStack[] contents = new ItemStack[36];
+        ItemStack[] armor = new ItemStack[4];
 
-        // ===== ARMOR =====
-        inv.setHelmet(enchItem(Material.DIAMOND_HELMET, new Object[][]{
+        armor[0] = enchItem(Material.DIAMOND_HELMET, new Object[][]{
                 {"protection",4},{"aqua_affinity",1},{"unbreaking",3},{"mending",1}
-        }));
-        inv.setChestplate(enchItem(Material.DIAMOND_CHESTPLATE, new Object[][]{
+        });
+        armor[1] = enchItem(Material.DIAMOND_CHESTPLATE, new Object[][]{
                 {"protection",4},{"unbreaking",3},{"mending",1}
-        }));
-        inv.setLeggings(enchItem(Material.DIAMOND_LEGGINGS, new Object[][]{
+        });
+        armor[2] = enchItem(Material.DIAMOND_LEGGINGS, new Object[][]{
                 {"protection",4},{"swift_sneak",3},{"unbreaking",3},{"mending",1}
-        }));
-        inv.setBoots(enchItem(Material.DIAMOND_BOOTS, new Object[][]{
+        });
+        armor[3] = enchItem(Material.DIAMOND_BOOTS, new Object[][]{
                 {"protection",4},{"feather_falling",4},{"depth_strider",3},{"unbreaking",3},{"mending",1}
-        }));
+        });
 
-        inv.setItemInOffHand(new ItemStack(Material.COOKED_BEEF, 5));
+        ItemStack offhand = new ItemStack(Material.COOKED_BEEF, 5);
 
         // ===== POTIONS =====
         ItemStack heal = instantSplash(PotionEffectType.INSTANT_HEALTH, 1); // Health II
@@ -90,53 +89,55 @@ public class DPotionGame extends Game {
         ItemStack regen = splash(PotionEffectType.REGENERATION, 90, 0);
 
         // ===== HOTBAR =====
-        inv.setItem(0, enchItem(Material.DIAMOND_SWORD, new Object[][]{
+        contents[0] = enchItem(Material.DIAMOND_SWORD, new Object[][]{
                 {"sharpness",5},{"unbreaking",3},{"mending",1}
-        }));
+        });
 
         for (int i = 1; i <= 8; i++)
-            inv.setItem(i, regen.clone());
+            contents[i] = regen.clone();
 
         // ===== INVENTORY (+8 offset) =====
 
         // 1-6 healing
         for(int i=1;i<=6;i++)
-            inv.setItem(8 + i, heal.clone());
+            contents[8 + i] = heal.clone();
 
         // 7 strength
-        inv.setItem(8 + 7, strength.clone());
+        contents[8 + 7] = strength.clone();
 
         // 8 speed
-        inv.setItem(8 + 8, speed.clone());
+        contents[8 + 8] = speed.clone();
 
         // 9 regen
-        inv.setItem(8 + 9, regen.clone());
+        contents[8 + 9] = regen.clone();
 
         // 10-15 healing
         for(int i=10;i<=15;i++)
-            inv.setItem(8 + i, heal.clone());
+            contents[8 + i] = heal.clone();
 
         // 16 strength
-        inv.setItem(8 + 16, strength.clone());
+        contents[8 + 16] = strength.clone();
 
         // 17 speed
-        inv.setItem(8 + 17, speed.clone());
+        contents[8 + 17] = speed.clone();
 
         // 18 regen
-        inv.setItem(8 + 18, regen.clone());
+        contents[8 + 18] = regen.clone();
 
         // 19-24 healing
         for(int i=19;i<=24;i++)
-            inv.setItem(8 + i, heal.clone());
+            contents[8 + i] = heal.clone();
 
         // 25 strength
-        inv.setItem(8 + 25, strength.clone());
+        contents[8 + 25] = strength.clone();
 
         // 26 speed
-        inv.setItem(8 + 26, speed.clone());
+        contents[8 + 26] = speed.clone();
 
         // 27 regen
-        inv.setItem(8 + 27, regen.clone());
+        contents[8 + 27] = regen.clone();
+
+        return new Kit(contents, armor, offhand);
     }
 
     @Override public void onStart(Match match) {}

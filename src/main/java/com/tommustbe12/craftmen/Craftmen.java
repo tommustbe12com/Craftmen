@@ -7,6 +7,11 @@ import com.tommustbe12.craftmen.endfight.EndFightManager;
 import com.tommustbe12.craftmen.game.GameManager;
 import com.tommustbe12.craftmen.game.impl.*;
 import com.tommustbe12.craftmen.hub.HubManager;
+import com.tommustbe12.craftmen.kit.KitManager;
+import com.tommustbe12.craftmen.kit.KitStorage;
+import com.tommustbe12.craftmen.kit.command.KitCommand;
+import com.tommustbe12.craftmen.kit.gui.KitEditorMenu;
+import com.tommustbe12.craftmen.kit.gui.KitEditorShortcutListener;
 import com.tommustbe12.craftmen.listener.*;
 import com.tommustbe12.craftmen.match.MatchManager;
 import com.tommustbe12.craftmen.profile.Profile;
@@ -43,6 +48,8 @@ public final class Craftmen extends JavaPlugin {
     private ScoreboardManager scoreboardManager;
     private HubManager hubManager;
     private EndFightManager endFightManager;
+    private KitManager kitManager;
+    private KitEditorMenu kitEditorMenu;
 
     @Override
     public void onEnable() {
@@ -77,6 +84,8 @@ public final class Craftmen extends JavaPlugin {
         scoreboardManager = new ScoreboardManager();
         hubManager = new HubManager();
         endFightManager = new EndFightManager(this);
+        kitManager = new KitManager(new KitStorage(this));
+        kitEditorMenu = new KitEditorMenu(kitManager);
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -108,6 +117,8 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerDropListener(), this);
         getServer().getPluginManager().registerEvents(new CountdownBlockListener(), this);
         getServer().getPluginManager().registerEvents(new SnowballHitListener(), this);
+        getServer().getPluginManager().registerEvents(kitEditorMenu, this);
+        getServer().getPluginManager().registerEvents(new KitEditorShortcutListener(), this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
@@ -119,6 +130,9 @@ public final class Craftmen extends JavaPlugin {
         getCommand("queue").setExecutor(new QueueCommand());
         getCommand("spectate").setExecutor(new SpectateCommand());
         getCommand("endfight").setExecutor(new EndFightCommand(endFightManager));
+        KitCommand kitCommand = new KitCommand(kitEditorMenu);
+        getCommand("kit").setExecutor(kitCommand);
+        getCommand("kit").setTabCompleter(kitCommand);
 
         getCommand("stat").setTabCompleter(new StatCommand());
 
@@ -138,6 +152,7 @@ public final class Craftmen extends JavaPlugin {
     @Override
     public void onDisable() {
         saveProfiles();
+        if (kitManager != null) kitManager.flushAll();
         if (webServer != null) webServer.stop();
     }
 
@@ -155,6 +170,8 @@ public final class Craftmen extends JavaPlugin {
     public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
     public HubManager getHubManager() { return hubManager; }
     public EndFightManager getEndFightManager() { return endFightManager; }
+    public KitManager getKitManager() { return kitManager; }
+    public KitEditorMenu getKitEditorMenu() { return kitEditorMenu; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {

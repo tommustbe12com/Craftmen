@@ -1,11 +1,11 @@
 package com.tommustbe12.craftmen.game.impl;
 
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.enchantments.Enchantment;
 
@@ -20,20 +20,22 @@ public class ComboGame extends Game {
     }
 
     @Override
-    public void applyLoadout(Player player) {
-        player.getInventory().clear();
-
+    public Kit createDefaultKit() {
         ItemStack sword = new ItemStack(Material.DIAMOND_SWORD);
         sword.addEnchantment(ench("sharpness"), 2);
         sword.addEnchantment(ench("knockback"), 2);
 
-        player.getInventory().addItem(sword);
-        player.getInventory().addItem(new ItemStack(Material.GOLDEN_APPLE, 16));
+        ItemStack[] contents = new ItemStack[36];
+        contents[0] = sword;
+        contents[1] = new ItemStack(Material.GOLDEN_APPLE, 16);
 
-        player.getInventory().setHelmet(new ItemStack(Material.DIAMOND_HELMET));
-        player.getInventory().setChestplate(new ItemStack(Material.DIAMOND_CHESTPLATE));
-        player.getInventory().setLeggings(new ItemStack(Material.DIAMOND_LEGGINGS));
-        player.getInventory().setBoots(new ItemStack(Material.DIAMOND_BOOTS));
+        ItemStack[] armor = new ItemStack[4];
+        armor[0] = new ItemStack(Material.DIAMOND_HELMET);
+        armor[1] = new ItemStack(Material.DIAMOND_CHESTPLATE);
+        armor[2] = new ItemStack(Material.DIAMOND_LEGGINGS);
+        armor[3] = new ItemStack(Material.DIAMOND_BOOTS);
+
+        return new Kit(contents, armor, null);
     }
 
     @Override public void onStart(Match match) {}

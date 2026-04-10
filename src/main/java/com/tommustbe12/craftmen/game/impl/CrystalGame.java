@@ -1,13 +1,12 @@
 package com.tommustbe12.craftmen.game.impl;
 
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.CrossbowMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.PotionMeta;
@@ -47,46 +46,41 @@ public class CrystalGame extends Game {
     }
 
     @Override
-    public void applyLoadout(Player player) {
+    public Kit createDefaultKit() {
+        ItemStack[] contents = new ItemStack[36];
+        ItemStack[] armor = new ItemStack[4];
 
-        PlayerInventory inv = player.getInventory();
-        inv.clear();
-
-        // ===== ARMOR =====
-
-        inv.setHelmet(createEnchanted(Material.NETHERITE_HELMET, new Object[][]{
+        armor[0] = createEnchanted(Material.NETHERITE_HELMET, new Object[][]{
                 {"blast_protection",4},
                 {"respiration",3},
                 {"aqua_affinity",1},
                 {"thorns",3},
                 {"unbreaking",3},
                 {"mending",1}
-        }));
+        });
 
-        inv.setChestplate(createEnchanted(Material.NETHERITE_CHESTPLATE, new Object[][]{
+        armor[1] = createEnchanted(Material.NETHERITE_CHESTPLATE, new Object[][]{
                 {"protection",4},
                 {"unbreaking",3},
                 {"mending",1}
-        }));
+        });
 
-        inv.setLeggings(createEnchanted(Material.NETHERITE_LEGGINGS, new Object[][]{
+        armor[2] = createEnchanted(Material.NETHERITE_LEGGINGS, new Object[][]{
                 {"blast_protection",4},
                 {"unbreaking",3},
                 {"mending",1}
-        }));
+        });
 
-        inv.setBoots(createEnchanted(Material.NETHERITE_BOOTS, new Object[][]{
+        armor[3] = createEnchanted(Material.NETHERITE_BOOTS, new Object[][]{
                 {"protection",4},
                 {"feather_falling",4},
                 {"soul_speed",3},
                 {"depth_strider",3},
                 {"unbreaking",3},
                 {"mending",1}
-        }));
+        });
 
-        // ===== OFFHAND =====
-
-        inv.setItemInOffHand(new ItemStack(Material.TOTEM_OF_UNDYING));
+        ItemStack offhand = new ItemStack(Material.TOTEM_OF_UNDYING);
 
         // ===== POTIONS =====
 
@@ -95,40 +89,40 @@ public class CrystalGame extends Game {
 
         // ===== HOTBAR =====
 
-        inv.setItem(0, createEnchanted(Material.NETHERITE_SWORD, new Object[][]{
+        contents[0] = createEnchanted(Material.NETHERITE_SWORD, new Object[][]{
                 {"sharpness",5},
                 {"sweeping_edge",3},
                 {"knockback",1},
                 {"unbreaking",3}
-        }));
+        });
 
-        inv.setItem(1, new ItemStack(Material.END_CRYSTAL, 64));
-        inv.setItem(2, new ItemStack(Material.OBSIDIAN, 64));
-        inv.setItem(3, new ItemStack(Material.RESPAWN_ANCHOR, 64));
-        inv.setItem(4, new ItemStack(Material.GLOWSTONE, 64));
-        inv.setItem(5, new ItemStack(Material.GOLDEN_APPLE, 64));
+        contents[1] = new ItemStack(Material.END_CRYSTAL, 64);
+        contents[2] = new ItemStack(Material.OBSIDIAN, 64);
+        contents[3] = new ItemStack(Material.RESPAWN_ANCHOR, 64);
+        contents[4] = new ItemStack(Material.GLOWSTONE, 64);
+        contents[5] = new ItemStack(Material.GOLDEN_APPLE, 64);
 
-        inv.setItem(6, createEnchanted(Material.NETHERITE_PICKAXE, new Object[][]{
+        contents[6] = createEnchanted(Material.NETHERITE_PICKAXE, new Object[][]{
                 {"efficiency",5},
                 {"fortune",3},
                 {"unbreaking",3}
-        }));
+        });
 
-        inv.setItem(7, new ItemStack(Material.TOTEM_OF_UNDYING, 1));
-        inv.setItem(8, new ItemStack(Material.ENDER_PEARL, 16));
+        contents[7] = new ItemStack(Material.TOTEM_OF_UNDYING, 1);
+        contents[8] = new ItemStack(Material.ENDER_PEARL, 16);
 
         // ===== INVENTORY =====
 
         // Row 1
-        inv.setItem(9, createEnchanted(Material.SHIELD, new Object[][]{
+        contents[9] = createEnchanted(Material.SHIELD, new Object[][]{
                 {"unbreaking",3},
                 {"mending",1}
-        }));
+        });
 
-        inv.setItem(10, createEnchanted(Material.NETHERITE_AXE, new Object[][]{
+        contents[10] = createEnchanted(Material.NETHERITE_AXE, new Object[][]{
                 {"sharpness",5},
                 {"unbreaking",3}
-        }));
+        });
 
         ItemStack crossbow = createEnchanted(Material.CROSSBOW, new Object[][]{
                 {"multishot",1},
@@ -139,52 +133,59 @@ public class CrystalGame extends Game {
 
         ItemStack arrow = new ItemStack(Material.TIPPED_ARROW);
         PotionMeta arrowMeta = (PotionMeta) arrow.getItemMeta();
-        arrowMeta.setBasePotionType(PotionType.SLOW_FALLING);
-        arrow.setItemMeta(arrowMeta);
+        if (arrowMeta != null) {
+            arrowMeta.setBasePotionType(PotionType.SLOW_FALLING);
+            arrow.setItemMeta(arrowMeta);
+        }
 
         CrossbowMeta meta = (CrossbowMeta) crossbow.getItemMeta();
-        meta.addChargedProjectile(arrow);
-        crossbow.setItemMeta(meta);
+        if (meta != null) {
+            meta.addChargedProjectile(arrow);
+            crossbow.setItemMeta(meta);
+        }
 
-        inv.setItem(11, crossbow);
+        contents[11] = crossbow;
 
-        inv.setItem(12, new ItemStack(Material.TOTEM_OF_UNDYING));
-        inv.setItem(13, new ItemStack(Material.TOTEM_OF_UNDYING));
+        contents[12] = new ItemStack(Material.TOTEM_OF_UNDYING);
+        contents[13] = new ItemStack(Material.TOTEM_OF_UNDYING);
 
-        inv.setItem(14, strength.clone());
-        inv.setItem(15, speed.clone());
+        contents[14] = strength.clone();
+        contents[15] = speed.clone();
 
-        inv.setItem(16, new ItemStack(Material.ENDER_PEARL, 16));
-        inv.setItem(17, new ItemStack(Material.ENDER_PEARL, 16));
+        contents[16] = new ItemStack(Material.ENDER_PEARL, 16);
+        contents[17] = new ItemStack(Material.ENDER_PEARL, 16);
 
         // Row 2
-        inv.setItem(18, new ItemStack(Material.EXPERIENCE_BOTTLE, 64));
-        inv.setItem(19, new ItemStack(Material.EXPERIENCE_BOTTLE, 64));
+        contents[18] = new ItemStack(Material.EXPERIENCE_BOTTLE, 64);
+        contents[19] = new ItemStack(Material.EXPERIENCE_BOTTLE, 64);
         ItemStack arroww = new ItemStack(Material.TIPPED_ARROW, 63);
 
         PotionMeta metaw = (PotionMeta) arroww.getItemMeta();
-        metaw.setBasePotionType(PotionType.SLOW_FALLING);
+        if (metaw != null) {
+            metaw.setBasePotionType(PotionType.SLOW_FALLING);
+            arroww.setItemMeta(metaw);
+        }
 
-        arroww.setItemMeta(metaw);
-
-        inv.setItem(20, arroww);
-        inv.setItem(21, new ItemStack(Material.TOTEM_OF_UNDYING));
-        inv.setItem(22, new ItemStack(Material.TOTEM_OF_UNDYING));
-        inv.setItem(23, new ItemStack(Material.COBWEB, 64));
-        inv.setItem(24, strength.clone());
-        inv.setItem(25, new ItemStack(Material.ENDER_PEARL, 16));
-        inv.setItem(26, new ItemStack(Material.ENDER_PEARL, 16));
+        contents[20] = arroww;
+        contents[21] = new ItemStack(Material.TOTEM_OF_UNDYING);
+        contents[22] = new ItemStack(Material.TOTEM_OF_UNDYING);
+        contents[23] = new ItemStack(Material.COBWEB, 64);
+        contents[24] = strength.clone();
+        contents[25] = new ItemStack(Material.ENDER_PEARL, 16);
+        contents[26] = new ItemStack(Material.ENDER_PEARL, 16);
 
         // Row 3
-        inv.setItem(27, new ItemStack(Material.EXPERIENCE_BOTTLE, 64));
-        inv.setItem(28, new ItemStack(Material.END_CRYSTAL, 64));
-        inv.setItem(29, new ItemStack(Material.OBSIDIAN, 64));
-        inv.setItem(30, new ItemStack(Material.TOTEM_OF_UNDYING));
-        inv.setItem(31, new ItemStack(Material.TOTEM_OF_UNDYING));
-        inv.setItem(32, new ItemStack(Material.GOLDEN_APPLE, 64));
-        inv.setItem(33, speed.clone());
-        inv.setItem(34, speed.clone());
-        inv.setItem(35, new ItemStack(Material.ENDER_PEARL, 16));
+        contents[27] = new ItemStack(Material.EXPERIENCE_BOTTLE, 64);
+        contents[28] = new ItemStack(Material.END_CRYSTAL, 64);
+        contents[29] = new ItemStack(Material.OBSIDIAN, 64);
+        contents[30] = new ItemStack(Material.TOTEM_OF_UNDYING);
+        contents[31] = new ItemStack(Material.TOTEM_OF_UNDYING);
+        contents[32] = new ItemStack(Material.GOLDEN_APPLE, 64);
+        contents[33] = speed.clone();
+        contents[34] = speed.clone();
+        contents[35] = new ItemStack(Material.ENDER_PEARL, 16);
+
+        return new Kit(contents, armor, offhand);
     }
 
     @Override

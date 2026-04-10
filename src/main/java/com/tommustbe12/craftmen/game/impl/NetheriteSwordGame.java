@@ -1,11 +1,11 @@
 package com.tommustbe12.craftmen.game.impl;
 
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
@@ -32,27 +32,29 @@ public class NetheriteSwordGame extends Game {
     }
 
     @Override
-    public void applyLoadout(Player player) {
-        player.getInventory().clear();
-
-        player.setHealth(20);
-        player.setFoodLevel(20);
-        player.setSaturation(20f);
-
-        // Netherite Sword
+    public Kit createDefaultKit() {
+        ItemStack[] contents = new ItemStack[36];
         ItemStack sword = new ItemStack(Material.NETHERITE_SWORD);
         ItemMeta swordMeta = sword.getItemMeta();
         if (swordMeta != null) {
             sword.setItemMeta(swordMeta);
         }
+        contents[0] = sword;
 
-        player.getInventory().setItem(0, sword);
+        ItemStack[] armor = new ItemStack[4];
+        armor[0] = createArmor(Material.NETHERITE_HELMET, 3);
+        armor[1] = createArmor(Material.NETHERITE_CHESTPLATE, 3);
+        armor[2] = createArmor(Material.NETHERITE_LEGGINGS, 4);
+        armor[3] = createArmor(Material.NETHERITE_BOOTS, 4);
 
-        // Armor
-        player.getInventory().setHelmet(createArmor(Material.NETHERITE_HELMET, 3));
-        player.getInventory().setChestplate(createArmor(Material.NETHERITE_CHESTPLATE, 3));
-        player.getInventory().setLeggings(createArmor(Material.NETHERITE_LEGGINGS, 4));
-        player.getInventory().setBoots(createArmor(Material.NETHERITE_BOOTS, 4));
+        return new Kit(contents, armor, null);
+    }
+
+    @Override
+    protected void afterLoadoutApplied(Player player) {
+        player.setHealth(20);
+        player.setFoodLevel(20);
+        player.setSaturation(20f);
     }
 
     @Override

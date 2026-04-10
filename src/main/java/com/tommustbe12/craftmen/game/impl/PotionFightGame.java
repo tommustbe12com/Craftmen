@@ -1,6 +1,7 @@
 package com.tommustbe12.craftmen.game.impl;
 
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -32,26 +33,18 @@ public class PotionFightGame extends Game {
     }
 
     @Override
-    public void applyLoadout(Player player) {
-        player.getInventory().clear();
+    public Kit createDefaultKit() {
+        ItemStack[] contents = new ItemStack[36];
+        contents[0] = new ItemStack(Material.STONE_SWORD);
+        contents[1] = createPotion(PotionType.HARMING, true);
+        contents[2] = createPotion(PotionType.POISON, true);
+        contents[3] = createPotion(PotionType.HEALING, true);
+        contents[4] = createPotion(PotionType.SWIFTNESS, true);
+        contents[5] = createPotion(PotionType.SLOWNESS, true);
+        contents[6] = createPotion(PotionType.HARMING, true);
+        contents[7] = new ItemStack(Material.BOW);
+        contents[8] = new ItemStack(Material.ARROW, 16);
 
-        // reset stats
-        player.setHealth(20);
-        player.setFoodLevel(20);
-        player.setSaturation(20f);
-
-        // 0-8 hotbar
-        player.getInventory().setItem(0, new ItemStack(Material.STONE_SWORD));
-        player.getInventory().setItem(1, createPotion(PotionType.HARMING, true));
-        player.getInventory().setItem(2, createPotion(PotionType.POISON, true));
-        player.getInventory().setItem(3, createPotion(PotionType.HEALING, true));
-        player.getInventory().setItem(4, createPotion(PotionType.SWIFTNESS, true));
-        player.getInventory().setItem(5, createPotion(PotionType.SLOWNESS, true));
-        player.getInventory().setItem(6, createPotion(PotionType.HARMING, true));
-        player.getInventory().setItem(7, new ItemStack(Material.BOW));
-        player.getInventory().setItem(8, new ItemStack(Material.ARROW, 16));
-
-        // more pots
         for (int slot = 9; slot < 36; slot++) {
             PotionType type;
             switch (slot % 5) {
@@ -61,14 +54,23 @@ public class PotionFightGame extends Game {
                 case 3 -> type = PotionType.SWIFTNESS;
                 default -> type = PotionType.SLOWNESS;
             }
-            player.getInventory().setItem(slot, createPotion(type, true));
+            contents[slot] = createPotion(type, true);
         }
 
-        // Light armor
-        player.getInventory().setHelmet(new ItemStack(Material.IRON_HELMET));
-        player.getInventory().setChestplate(new ItemStack(Material.IRON_CHESTPLATE));
-        player.getInventory().setLeggings(new ItemStack(Material.IRON_LEGGINGS));
-        player.getInventory().setBoots(new ItemStack(Material.IRON_BOOTS));
+        ItemStack[] armor = new ItemStack[4];
+        armor[0] = new ItemStack(Material.IRON_HELMET);
+        armor[1] = new ItemStack(Material.IRON_CHESTPLATE);
+        armor[2] = new ItemStack(Material.IRON_LEGGINGS);
+        armor[3] = new ItemStack(Material.IRON_BOOTS);
+
+        return new Kit(contents, armor, null);
+    }
+
+    @Override
+    protected void afterLoadoutApplied(Player player) {
+        player.setHealth(20);
+        player.setFoodLevel(20);
+        player.setSaturation(20f);
     }
 
     @Override

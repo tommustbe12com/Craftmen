@@ -48,6 +48,12 @@ commands:
       - end
     description: Join the current End Fight, or start a new one!
     usage: /endfight
+  kit:
+    aliases:
+      - kitedit
+      - kiteditor
+    description: Open the kit editor
+    usage: /kit [game]
 permissions:
   craftmen.admin:
     default: op

@@ -1,11 +1,11 @@
 package com.tommustbe12.craftmen.game.impl;
 
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.enchantments.Enchantment;
 
@@ -20,9 +20,7 @@ public class AxeGame extends Game {
     }
 
     @Override
-    public void applyLoadout(Player player) {
-        player.getInventory().clear();
-
+    public Kit createDefaultKit() {
         ItemStack axe = new ItemStack(Material.DIAMOND_AXE);
 
         ItemStack sword = new ItemStack(Material.DIAMOND_SWORD);
@@ -30,18 +28,20 @@ public class AxeGame extends Game {
 
         ItemStack bow = new ItemStack(Material.BOW);
 
-        player.getInventory().addItem(axe);
-        player.getInventory().addItem(sword);
-        player.getInventory().addItem(new ItemStack(Material.CROSSBOW));
-        player.getInventory().addItem(bow);
-        player.getInventory().setItem(8, new ItemStack(Material.ARROW, 5));
+        ItemStack[] contents = new ItemStack[36];
+        contents[0] = axe;
+        contents[1] = sword;
+        contents[2] = new ItemStack(Material.CROSSBOW);
+        contents[3] = bow;
+        contents[8] = new ItemStack(Material.ARROW, 5);
 
-        player.getInventory().setItemInOffHand(new ItemStack(Material.SHIELD));
+        ItemStack[] armor = new ItemStack[4];
+        armor[0] = new ItemStack(Material.DIAMOND_HELMET);
+        armor[1] = new ItemStack(Material.DIAMOND_CHESTPLATE);
+        armor[2] = new ItemStack(Material.DIAMOND_LEGGINGS);
+        armor[3] = new ItemStack(Material.DIAMOND_BOOTS);
 
-        player.getInventory().setHelmet(new ItemStack(Material.DIAMOND_HELMET));
-        player.getInventory().setChestplate(new ItemStack(Material.DIAMOND_CHESTPLATE));
-        player.getInventory().setLeggings(new ItemStack(Material.DIAMOND_LEGGINGS));
-        player.getInventory().setBoots(new ItemStack(Material.DIAMOND_BOOTS));
+        return new Kit(contents, armor, new ItemStack(Material.SHIELD));
     }
 
     @Override public void onStart(Match match) {}

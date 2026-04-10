@@ -1,11 +1,11 @@
 package com.tommustbe12.craftmen.game.impl;
 
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
-import org.bukkit.attribute.Attribute;
 import org.bukkit.entity.Player;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
@@ -50,22 +50,17 @@ public class InvisGame extends Game {
     }
 
     @Override
-    public void applyLoadout(Player player) {
-        player.getInventory().clear();
+    public Kit createDefaultKit() {
+        ItemStack[] contents = new ItemStack[36];
+        contents[0] = new ItemStack(Material.DIAMOND_SWORD);
+        return new Kit(contents, new ItemStack[4], null);
+    }
 
-        // Reset stats
+    @Override
+    protected void afterLoadoutApplied(Player player) {
         player.setHealth(20);
         player.setFoodLevel(20);
         player.setSaturation(20f);
-
-        // Sword
-        player.getInventory().setItem(0, new ItemStack(Material.DIAMOND_SWORD));
-
-        // Armor
-        player.getInventory().setHelmet(null);
-        player.getInventory().setChestplate(null);
-        player.getInventory().setLeggings(null);
-        player.getInventory().setBoots(null);
     }
 
     @Override

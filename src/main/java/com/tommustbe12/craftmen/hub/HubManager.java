@@ -57,6 +57,12 @@ public class HubManager implements Listener {
         selector.setItemMeta(meta);
         player.getInventory().setItem(0, selector);
 
+        ItemStack kitEditor = new ItemStack(Material.CHEST);
+        ItemMeta kitMeta = kitEditor.getItemMeta();
+        kitMeta.setDisplayName("Â§bKit Editor");
+        kitEditor.setItemMeta(kitMeta);
+        player.getInventory().setItem(8, kitEditor);
+
         if(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame().equals("None")) return;
         ItemStack again = new ItemStack(Craftmen.get().getGameManager().getGame(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame()).getIcon()); // complicated lol
         ItemMeta meta1 = again.getItemMeta();

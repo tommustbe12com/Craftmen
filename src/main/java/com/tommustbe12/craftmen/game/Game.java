@@ -1,6 +1,7 @@
 package com.tommustbe12.craftmen.game;
 
 import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import com.tommustbe12.craftmen.profile.PlayerState;
 import org.bukkit.entity.Player;
@@ -42,7 +43,18 @@ public abstract class Game {
         return iconItemStack;
     }
 
-    public abstract void applyLoadout(Player player);
+    public final void applyLoadout(Player player) {
+        if (player == null) return;
+        Kit kit = Craftmen.get().getKitManager().getEffectiveKit(player, this);
+        kit.apply(player);
+        afterLoadoutApplied(player);
+    }
+
+    public abstract Kit createDefaultKit();
+
+    protected void afterLoadoutApplied(Player player) {
+        // Optional hook for games that need non-inventory setup (health, hunger, effects, etc.)
+    }
 
     public abstract void onStart(Match match);
 
