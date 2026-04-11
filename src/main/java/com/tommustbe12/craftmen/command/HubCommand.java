@@ -35,6 +35,12 @@ public class HubCommand implements CommandExecutor {
             return true;
         }
 
+        // Leaving FFA should always clear inventory/state first.
+        if (Craftmen.get().getFfaManager().isInFfa(player)) {
+            Craftmen.get().getFfaManager().leave(player, true);
+            return true;
+        }
+
         Location hubLocation = Craftmen.get().getHubLocation();
 
         if (hubLocation == null) {
@@ -45,6 +51,7 @@ public class HubCommand implements CommandExecutor {
 
 
         player.teleport(hubLocation);
+        Craftmen.get().getHubManager().giveHubItems(player);
         return true;
     }
 }

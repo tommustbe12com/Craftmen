@@ -26,7 +26,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.File;
@@ -422,34 +421,18 @@ public final class FfaManager implements Listener {
         FfaInstance inst = instancesById.get(instId);
         if (inst == null) return;
 
-        // Skip the respawn screen: force respawn immediately.
+        // FFA death should not respawn you in FFA: you leave and return to hub.
         Bukkit.getScheduler().runTask(plugin, () -> {
-            try {
-                dead.spigot().respawn();
-            } catch (Throwable ignored) {
-                // Not supported on some implementations; respawn event will handle teleport/loadout.
+            String msg;
+            if (killer != null && allowDamage(killer, dead)) {
+                msg = ChatColor.RED + dead.getName() + ChatColor.GRAY + " was killed by " + ChatColor.GREEN + killer.getName();
+            } else {
+                msg = ChatColor.RED + dead.getName() + ChatColor.GRAY + " died";
             }
-        });
-    }
+            broadcast(inst, msg);
 
-    @EventHandler
-    public void onRespawn(PlayerRespawnEvent e) {
-        Player player = e.getPlayer();
-        UUID instId = playerInstance.get(player.getUniqueId());
-        if (instId == null) return;
-        FfaInstance inst = instancesById.get(instId);
-        if (inst == null) return;
-
-        Location loc = findSafeSpawn(inst);
-        if (loc != null) e.setRespawnLocation(loc);
-
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            if (!isInFfa(player)) return;
-            // Ensure correct loadout after respawn
-            if (loc != null) player.teleport(loc);
-            else teleportToSafeSpawn(player, inst);
-            inst.game.applyLoadout(player);
-            player.updateInventory();
+            // Ensure the player is out of the FFA instance and back in the hub.
+            leave(dead, true);
         });
     }
 }

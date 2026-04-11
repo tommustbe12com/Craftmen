@@ -54,7 +54,6 @@ public class CrystalGame extends Game {
                 {"blast_protection",4},
                 {"respiration",3},
                 {"aqua_affinity",1},
-                {"thorns",3},
                 {"unbreaking",3},
                 {"mending",1}
         });
