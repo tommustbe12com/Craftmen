@@ -51,8 +51,10 @@ public final class BadgeDisplay {
         // display name (often used by chat plugins)
         Component currentDisplay = player.displayName();
         String currentLegacy = legacy.serialize(currentDisplay);
+        // Strip our previous badge injection even if the stored injection doesn't match 1:1
+        // due to variation selectors (VS16) or font quirks.
         String injectedDisplay = lastInjectedDisplayPrefix.getOrDefault(player.getUniqueId(), "");
-        String baseLegacy = stripLeading(currentLegacy, injectedDisplay);
+        String baseLegacy = stripLeadingInjectedBadge(currentLegacy, injectedDisplay);
         String nextLegacy = badgePrefix + baseLegacy;
         player.displayName(legacy.deserialize(nextLegacy));
         // Also set legacy display name for plugins/events that still use getDisplayName().
@@ -63,7 +65,7 @@ public final class BadgeDisplay {
         Component currentTab = player.playerListName();
         String currentTabLegacy = legacy.serialize(currentTab);
         String injectedTab = lastInjectedTabPrefix.getOrDefault(player.getUniqueId(), "");
-        String baseTabLegacy = stripLeading(currentTabLegacy, injectedTab);
+        String baseTabLegacy = stripLeadingInjectedBadge(currentTabLegacy, injectedTab);
         String nextTabLegacy = badgePrefix + baseTabLegacy;
         player.playerListName(legacy.deserialize(nextTabLegacy));
         // Also set legacy tab name for plugins/events that still use getPlayerListName().
@@ -100,6 +102,47 @@ public final class BadgeDisplay {
         if (value == null) return "";
         if (leading == null || leading.isEmpty()) return value;
         return value.startsWith(leading) ? value.substring(leading.length()) : value;
+    }
+
+    private static String stripLeadingInjectedBadge(String value, String previouslyInjectedBadgePrefix) {
+        if (value == null) return "";
+        if (previouslyInjectedBadgePrefix == null || previouslyInjectedBadgePrefix.isEmpty()) return value;
+
+        String normValue = removeVariationSelectors(value);
+        String normLeading = removeVariationSelectors(previouslyInjectedBadgePrefix);
+
+        if (!normValue.startsWith(normLeading)) {
+            return value;
+        }
+
+        // Remove the *actual* leading badge prefix from the original string by scanning its structure:
+        // (color codes)* "[" ... "]" (space)?
+        int i = 0;
+        while (i + 1 < value.length() && value.charAt(i) == '§') {
+            i += 2; // skip color code
+        }
+        if (i >= value.length() || value.charAt(i) != '[') {
+            // fallback: best-effort strip by length
+            return value.substring(Math.min(value.length(), previouslyInjectedBadgePrefix.length()));
+        }
+        int close = value.indexOf(']', i + 1);
+        if (close == -1) {
+            return value.substring(Math.min(value.length(), previouslyInjectedBadgePrefix.length()));
+        }
+        int end = close + 1;
+        if (end < value.length() && value.charAt(end) == ' ') end++;
+        return value.substring(end);
+    }
+
+    private static String removeVariationSelectors(String s) {
+        if (s == null || s.isEmpty()) return "";
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c >= '\uFE00' && c <= '\uFE0F') continue;
+            out.append(c);
+        }
+        return out.toString();
     }
 
     public String getBadgePrefix(Player player) {
