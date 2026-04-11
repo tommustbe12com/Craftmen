@@ -32,6 +32,7 @@ import com.tommustbe12.craftmen.party.command.PartyCommand;
 import com.tommustbe12.craftmen.party.command.PartyChatCommand;
 import com.tommustbe12.craftmen.party.command.PartyChatTabCompleter;
 import com.tommustbe12.craftmen.party.command.PartyTabCompleter;
+import com.tommustbe12.craftmen.party.ffa.PartyFfaMenu;
 import com.tommustbe12.craftmen.party.listener.PartyChatListener;
 import com.tommustbe12.craftmen.queue.QueueManager;
 import com.tommustbe12.craftmen.scoreboard.ScoreboardManager;
@@ -74,6 +75,7 @@ public final class Craftmen extends JavaPlugin {
     private BadgeManager badgeManager;
     private PartyManager partyManager;
     private PartyChatManager partyChatManager;
+    private PartyFfaMenu partyFfaMenu;
 
     @Override
     public void onEnable() {
@@ -117,6 +119,7 @@ public final class Craftmen extends JavaPlugin {
         badgeManager = new BadgeManager(this);
         partyManager = new PartyManager();
         partyChatManager = new PartyChatManager();
+        partyFfaMenu = new PartyFfaMenu();
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -156,6 +159,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new KitEditorShortcutListener(), this);
         getServer().getPluginManager().registerEvents(armorTrimMenu, this);
         getServer().getPluginManager().registerEvents(new PartyChatListener(), this);
+        getServer().getPluginManager().registerEvents(partyFfaMenu, this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
@@ -225,6 +229,7 @@ public final class Craftmen extends JavaPlugin {
     public BadgeManager getBadgeManager() { return badgeManager; }
     public PartyManager getPartyManager() { return partyManager; }
     public PartyChatManager getPartyChatManager() { return partyChatManager; }
+    public PartyFfaMenu getPartyFfaMenu() { return partyFfaMenu; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {

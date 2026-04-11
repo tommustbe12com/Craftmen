@@ -39,10 +39,7 @@ public final class PartyManager {
 
     public void disbandParty(Party party) {
         if (party == null) return;
-        for (UUID uuid : new HashSet<>(party.getMembers())) {
-            Player p = Bukkit.getPlayer(uuid);
-            if (p != null) p.sendMessage(ChatColor.RED + "Your party was disbanded.");
-        }
+        broadcastParty(party, ChatColor.RED + "Your party was disbanded.", org.bukkit.Sound.ENTITY_WITHER_DEATH);
         partiesById.remove(party.getId());
         for (UUID uuid : new HashSet<>(party.getMembers())) {
             partiesByMember.remove(uuid);
@@ -83,6 +80,7 @@ public final class PartyManager {
         if (party == null) return false;
 
         UUID uuid = player.getUniqueId();
+        broadcastParty(party, ChatColor.RED + player.getName() + " left the party.", org.bukkit.Sound.UI_BUTTON_CLICK);
         party.removeMember(uuid);
         partiesByMember.remove(uuid);
 
@@ -96,6 +94,7 @@ public final class PartyManager {
             party.setLeader(newLeader);
             Player nl = Bukkit.getPlayer(newLeader);
             if (nl != null) nl.sendMessage(ChatColor.YELLOW + "You are now the party leader.");
+            broadcastParty(party, ChatColor.YELLOW + "New leader: " + (nl != null ? nl.getName() : newLeader.toString()), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP);
         }
 
         if (party.size() == 1) {
@@ -116,6 +115,7 @@ public final class PartyManager {
         if (!party.isMember(target.getUniqueId())) return false;
         if (party.getLeader().equals(target.getUniqueId())) return false;
 
+        broadcastParty(party, ChatColor.RED + target.getName() + " was kicked from the party.", org.bukkit.Sound.ENTITY_IRON_GOLEM_ATTACK);
         party.removeMember(target.getUniqueId());
         partiesByMember.remove(target.getUniqueId());
         return true;
@@ -127,4 +127,14 @@ public final class PartyManager {
     }
 
     public record Invite(UUID partyId, UUID inviterId, long createdAtMillis) {}
+
+    public void broadcastParty(Party party, String message, org.bukkit.Sound sound) {
+        if (party == null) return;
+        for (UUID uuid : party.getMembers()) {
+            Player p = Bukkit.getPlayer(uuid);
+            if (p == null) continue;
+            if (message != null) p.sendMessage(message);
+            if (sound != null) p.playSound(p.getLocation(), sound, 1.0f, 1.2f);
+        }
+    }
 }

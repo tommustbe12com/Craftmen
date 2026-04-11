@@ -78,8 +78,14 @@ public final class PartyCommand implements CommandExecutor {
 
         switch (sub) {
             case "create" -> {
+                if (parties.isInParty(player)) {
+                    player.sendMessage(ChatColor.RED + "You are already in a party. Use /party leave first.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                    return true;
+                }
                 Party party = parties.createParty(player);
                 player.sendMessage(ChatColor.GREEN + "Party created.");
+                player.playSound(player.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.9f, 1.2f);
             }
             case "invite" -> {
                 if (args.length < 2) {
@@ -92,22 +98,29 @@ public final class PartyCommand implements CommandExecutor {
                     return true;
                 }
                 Party party = parties.getParty(player);
-                if (party == null) party = parties.createParty(player);
+                if (party == null) {
+                    party = parties.createParty(player);
+                    player.sendMessage(ChatColor.YELLOW + "Party created.");
+                }
                 if (!party.getLeader().equals(player.getUniqueId())) {
                     player.sendMessage(ChatColor.RED + "Only the party leader can invite.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return true;
                 }
                 if (party.getMembers().size() >= 10) {
                     player.sendMessage(ChatColor.RED + "Party is full (10).");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return true;
                 }
                 if (parties.isInParty(target)) {
                     player.sendMessage(ChatColor.RED + "That player is already in a party.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return true;
                 }
 
                 parties.invite(player, target);
                 player.sendMessage(ChatColor.GREEN + "Invited " + target.getName() + " to your party.");
+                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
 
                 TextComponent msg = new TextComponent("§e" + player.getName() + " invited you to a party. ");
                 TextComponent click = new TextComponent("§a§l[CLICK HERE TO ACCEPT]");
@@ -116,25 +129,32 @@ public final class PartyCommand implements CommandExecutor {
                         new ComponentBuilder("§aJoin " + player.getName() + "'s party").create()));
                 msg.addExtra(click);
                 target.spigot().sendMessage(msg);
+                target.playSound(target.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.1f);
             }
             case "accept" -> {
+                if (parties.isInParty(player)) {
+                    player.sendMessage(ChatColor.RED + "You are already in a party. Use /party leave first.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                    return true;
+                }
                 if (parties.accept(player)) {
                     Party party = parties.getParty(player);
                     player.sendMessage(ChatColor.GREEN + "Joined the party.");
-                    if (party != null) {
-                        Player leader = Bukkit.getPlayer(party.getLeader());
-                        if (leader != null) leader.sendMessage(ChatColor.GREEN + player.getName() + " joined your party.");
-                    }
+                    player.playSound(player.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.9f, 1.2f);
+                    if (party != null) parties.broadcastParty(party, ChatColor.GREEN + player.getName() + " joined the party.", org.bukkit.Sound.ENTITY_PLAYER_LEVELUP);
                 } else {
                     player.sendMessage(ChatColor.RED + "You have no pending party invites.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                 }
             }
             case "leave" -> {
                 if (parties.leave(player)) {
                     Craftmen.get().getPartyChatManager().disable(player.getUniqueId());
                     player.sendMessage(ChatColor.RED + "You left the party.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 0.9f);
                 } else {
                     player.sendMessage(ChatColor.RED + "You are not in a party.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                 }
             }
             case "kick" -> {
@@ -151,18 +171,23 @@ public final class PartyCommand implements CommandExecutor {
                     Craftmen.get().getPartyChatManager().disable(target.getUniqueId());
                     player.sendMessage(ChatColor.GREEN + "Kicked " + target.getName() + " from the party.");
                     target.sendMessage(ChatColor.RED + "You were kicked from the party.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_IRON_GOLEM_ATTACK, 0.8f, 1.0f);
+                    target.playSound(target.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 0.9f);
                 } else {
                     player.sendMessage(ChatColor.RED + "Could not kick that player.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                 }
             }
             case "disband" -> {
                 Party party = parties.getParty(player);
                 if (party == null) {
                     player.sendMessage(ChatColor.RED + "You are not in a party.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return true;
                 }
                 if (!party.getLeader().equals(player.getUniqueId())) {
                     player.sendMessage(ChatColor.RED + "Only the party leader can disband.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return true;
                 }
                 for (var uuid : party.getMembers()) {
@@ -170,46 +195,48 @@ public final class PartyCommand implements CommandExecutor {
                 }
                 parties.disbandParty(party);
                 player.sendMessage(ChatColor.RED + "Party disbanded.");
+                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_WITHER_DEATH, 0.6f, 1.3f);
             }
             case "ffa" -> {
                 Party party = parties.getParty(player);
                 if (party == null) {
                     player.sendMessage(ChatColor.RED + "You are not in a party.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return true;
                 }
                 if (!party.getLeader().equals(player.getUniqueId())) {
                     player.sendMessage(ChatColor.RED + "Only the party leader can start a private FFA.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return true;
                 }
                 if (Craftmen.get().getEndFightManager().isInGame(player)) {
                     player.sendMessage(ChatColor.RED + "You cannot start private FFA while in End Fight.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return true;
                 }
-                // Use the existing kit selector GUI and start private FFA on select.
-                Craftmen.get().getHubManager().openGameSelector(player, (Game game) -> {
-                    if (game == null) return;
-                    if (Craftmen.get().getEndFightManager().isInGame(player)) return;
-                    if (Craftmen.get().getProfileManager().getProfile(player).getState() != PlayerState.LOBBY) return;
-                    Craftmen.get().getFfaManager().joinPrivateParty(party.getId(), party.getMembers(), game);
-                });
-                player.sendMessage(ChatColor.YELLOW + "Select a game for your party FFA...");
+                Craftmen.get().getPartyFfaMenu().openGameSelect(player, party);
+                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
             }
             case "endffa" -> {
                 Party party = parties.getParty(player);
                 if (party == null) {
                     player.sendMessage(ChatColor.RED + "You are not in a party.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return true;
                 }
                 if (!party.getLeader().equals(player.getUniqueId())) {
                     player.sendMessage(ChatColor.RED + "Only the party leader can end the private FFA.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return true;
                 }
                 if (!Craftmen.get().getFfaManager().hasPrivatePartyFfa(party.getId())) {
                     player.sendMessage(ChatColor.RED + "Your party does not have a private FFA running.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return true;
                 }
                 Craftmen.get().getFfaManager().endPrivatePartyFfa(party.getId());
                 player.sendMessage(ChatColor.RED + "Ended your party's private FFA.");
+                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDER_DRAGON_GROWL, 0.7f, 1.4f);
             }
             default -> player.sendMessage(ChatColor.RED + "Unknown subcommand.");
         }
