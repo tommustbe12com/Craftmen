@@ -302,8 +302,11 @@ public final class BadgeManager implements Listener {
         if (name == null || icon == null || req == null) return;
 
         String rank = msg.equalsIgnoreCase("none") ? "" : sanitize(msg);
-        if (!rank.isBlank() && !rank.matches("[A-Za-z0-9_\\-]{1,32}")) {
-            player.sendMessage(ChatColor.RED + "Rank must be 1-32 chars: letters/numbers/_/-. Try again or type 'none'.");
+        // Allow unicode (badge-like ranks), but keep it safe for command parsing:
+        // - no whitespace (most command parsers split args on spaces)
+        // - no control characters
+        if (!rank.isBlank() && (rank.length() > 64 || rank.chars().anyMatch(Character::isISOControl) || rank.chars().anyMatch(Character::isWhitespace))) {
+            player.sendMessage(ChatColor.RED + "Rank must be 1-64 chars, no spaces/newlines. Unicode is allowed. Try again or type 'none'.");
             awaitingCreateRank.add(uuid);
             return;
         }
