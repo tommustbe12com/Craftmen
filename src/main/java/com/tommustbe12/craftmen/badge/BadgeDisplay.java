@@ -55,6 +55,8 @@ public final class BadgeDisplay {
         String baseLegacy = stripLeading(currentLegacy, injectedDisplay);
         String nextLegacy = badgePrefix + baseLegacy;
         player.displayName(legacy.deserialize(nextLegacy));
+        // Also set legacy display name for plugins/events that still use getDisplayName().
+        player.setDisplayName(nextLegacy);
         lastInjectedDisplayPrefix.put(player.getUniqueId(), badgePrefix);
 
         // tab list name
@@ -64,6 +66,8 @@ public final class BadgeDisplay {
         String baseTabLegacy = stripLeading(currentTabLegacy, injectedTab);
         String nextTabLegacy = badgePrefix + baseTabLegacy;
         player.playerListName(legacy.deserialize(nextTabLegacy));
+        // Also set legacy tab name for plugins/events that still use getPlayerListName().
+        player.setPlayerListName(nextTabLegacy);
         lastInjectedTabPrefix.put(player.getUniqueId(), badgePrefix);
     }
 
@@ -116,8 +120,32 @@ public final class BadgeDisplay {
     private static String renderBadgePrefix(BadgeDefinition badge) {
         String color = badge.getColor() == null ? "&7" : badge.getColor();
         String translated = ChatColor.translateAlternateColorCodes('&', color);
+        String icon = sanitizeIcon(badge.getIcon());
         // brackets and icon same color
-        return translated + "[" + badge.getIcon() + "] ";
+        return translated + "[" + icon + "] ";
+    }
+
+    private static String sanitizeIcon(String icon) {
+        if (icon == null) return "";
+        String trimmed = icon.trim();
+        // If someone pasted "[x]" as icon, don't double-wrap.
+        if (trimmed.startsWith("[") && trimmed.endsWith("]") && trimmed.length() >= 2) {
+            trimmed = trimmed.substring(1, trimmed.length() - 1).trim();
+        }
+
+        StringBuilder out = new StringBuilder(trimmed.length());
+        for (int i = 0; i < trimmed.length(); i++) {
+            char c = trimmed.charAt(i);
+
+            // Strip variation selectors (commonly causes weird "VS16" artifacts on some clients/fonts)
+            if (c >= '\uFE00' && c <= '\uFE0F') continue;
+
+            // Strip formatting control chars
+            if (c <= 0x1F || c == 0x7F) continue;
+
+            out.append(c);
+        }
+        return out.toString();
     }
 
     public void startAutoRefresh() {
