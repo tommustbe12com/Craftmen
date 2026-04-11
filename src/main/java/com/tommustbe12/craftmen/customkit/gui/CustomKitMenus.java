@@ -89,7 +89,8 @@ public final class CustomKitMenus {
                 ChatColor.GRAY + "By: " + ChatColor.YELLOW + kit.getCreatorName(),
                 ChatColor.GRAY + "Playing: " + ChatColor.GREEN + activePlayers,
                 ChatColor.GRAY + "Total plays: " + ChatColor.GREEN + kit.getTotalPlays(),
-                ChatColor.GRAY + "Click to queue"
+                ChatColor.GRAY + "Left-click: queue duel",
+                ChatColor.GRAY + "Right-click: join FFA"
         ));
         meta.getPersistentDataContainer().set(KIT_ID_KEY, PersistentDataType.STRING, kit.getId().toString());
         icon.setItemMeta(meta);

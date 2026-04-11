@@ -1,6 +1,9 @@
 package com.tommustbe12.craftmen;
 
 import com.tommustbe12.craftmen.arena.ArenaManager;
+import com.tommustbe12.craftmen.badge.BadgeManager;
+import com.tommustbe12.craftmen.badge.command.BadgeAdminCommand;
+import com.tommustbe12.craftmen.badge.command.BadgesCommand;
 import com.tommustbe12.craftmen.command.*;
 import com.tommustbe12.craftmen.customkit.CustomKitManager;
 import com.tommustbe12.craftmen.ffa.FfaManager;
@@ -61,6 +64,7 @@ public final class Craftmen extends JavaPlugin {
     private ArmorTrimMenu armorTrimMenu;
     private CustomKitManager customKitManager;
     private FfaManager ffaManager;
+    private BadgeManager badgeManager;
 
     @Override
     public void onEnable() {
@@ -101,6 +105,7 @@ public final class Craftmen extends JavaPlugin {
         armorTrimMenu = new ArmorTrimMenu(armorTrimManager);
         customKitManager = new CustomKitManager(this);
         ffaManager = new FfaManager(this);
+        badgeManager = new BadgeManager(this);
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -126,6 +131,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(hubManager, this);
         getServer().getPluginManager().registerEvents(customKitManager, this);
         getServer().getPluginManager().registerEvents(ffaManager, this);
+        getServer().getPluginManager().registerEvents(badgeManager, this);
         getServer().getPluginManager().registerEvents(new MovementLockListener(), this);
         getServer().getPluginManager().registerEvents(new RegenListener(), this);
         getServer().getPluginManager().registerEvents(new HungerListener(), this);
@@ -154,6 +160,8 @@ public final class Craftmen extends JavaPlugin {
         getCommand("kit").setTabCompleter(kitCommand);
         getCommand("trims").setExecutor(new TrimsCommand());
         getCommand("ffa").setExecutor(new FfaCommand());
+        getCommand("badges").setExecutor(new BadgesCommand());
+        getCommand("badgeadmin").setExecutor(new BadgeAdminCommand());
 
         getCommand("stat").setTabCompleter(new StatCommand());
 
@@ -198,6 +206,7 @@ public final class Craftmen extends JavaPlugin {
     public ArmorTrimMenu getArmorTrimMenu() { return armorTrimMenu; }
     public CustomKitManager getCustomKitManager() { return customKitManager; }
     public FfaManager getFfaManager() { return ffaManager; }
+    public BadgeManager getBadgeManager() { return badgeManager; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {
@@ -209,6 +218,7 @@ public final class Craftmen extends JavaPlugin {
             getConfig().set(path + ".last", profile.getLastPlayedGame());
             getConfig().set(path + ".ffa_kills", profile.getFfaKills());
             getConfig().set(path + ".ffa_deaths", profile.getFfaDeaths());
+            getConfig().set(path + ".badge", profile.getSelectedBadgeId() == null ? null : profile.getSelectedBadgeId().toString());
 
             // save per-game wins/losses
             for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
@@ -237,6 +247,14 @@ public final class Craftmen extends JavaPlugin {
             profile.setLastPlayedGame(getConfig().getString(path + ".last"));
             profile.setFfaKills(getConfig().getInt(path + ".ffa_kills", 0));
             profile.setFfaDeaths(getConfig().getInt(path + ".ffa_deaths", 0));
+            String badgeRaw = getConfig().getString(path + ".badge");
+            if (badgeRaw != null) {
+                try {
+                    profile.setSelectedBadgeId(UUID.fromString(badgeRaw));
+                } catch (IllegalArgumentException ignored) {
+                    profile.setSelectedBadgeId(null);
+                }
+            }
 
             // load per-game wins/losses
             if (getConfig().contains(path + ".gameWins")) {
@@ -261,6 +279,7 @@ public final class Craftmen extends JavaPlugin {
         getConfig().set(path + ".last", profile.getLastPlayedGame());
         getConfig().set(path + ".ffa_kills", profile.getFfaKills());
         getConfig().set(path + ".ffa_deaths", profile.getFfaDeaths());
+        getConfig().set(path + ".badge", profile.getSelectedBadgeId() == null ? null : profile.getSelectedBadgeId().toString());
 
         for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
             getConfig().set(path + ".gameWins." + entry.getKey().replace(" ", "_"), entry.getValue());

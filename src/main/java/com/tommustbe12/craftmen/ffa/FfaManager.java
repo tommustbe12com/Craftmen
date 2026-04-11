@@ -11,6 +11,7 @@ import com.sk89q.worldedit.function.operation.Operations;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.session.ClipboardHolder;
 import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.customkit.CustomKit;
 import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.profile.PlayerState;
 import com.tommustbe12.craftmen.profile.Profile;
@@ -39,14 +40,18 @@ public final class FfaManager implements Listener {
 
     private final Craftmen plugin;
     private final File ffaFolder = new File("plugins/Craftmen/arenas/FFA");
+    private final File ffaCustomKitFolder = new File("plugins/Craftmen/arenas/FFA_CustomKits");
 
     private final Map<String, FfaInstance> instances = new HashMap<>();
     private final Map<UUID, UUID> playerInstance = new HashMap<>(); // player -> instanceId
     private final Map<UUID, FfaInstance> instancesById = new HashMap<>();
 
+    private final Map<UUID, FfaInstance> customKitInstances = new HashMap<>(); // kitId -> instance
+
     public FfaManager(Craftmen plugin) {
         this.plugin = plugin;
         if (!ffaFolder.exists()) ffaFolder.mkdirs();
+        if (!ffaCustomKitFolder.exists()) ffaCustomKitFolder.mkdirs();
 
         new BukkitRunnable() {
             @Override
@@ -107,6 +112,40 @@ public final class FfaManager implements Listener {
         broadcast(instance, ChatColor.GREEN + player.getName() + " joined FFA (" + instance.players.size() + " players).");
     }
 
+    public void joinCustomKit(Player player, CustomKit kit) {
+        if (player == null || kit == null) return;
+
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        if (profile == null || profile.getState() != PlayerState.LOBBY) {
+            player.sendMessage(ChatColor.RED + "You can only join FFA from the hub.");
+            return;
+        }
+
+        leave(player, false);
+
+        FfaInstance instance = customKitInstances.get(kit.getId());
+        if (instance == null) {
+            instance = createCustomKitInstance(kit);
+            if (instance == null) {
+                player.sendMessage(ChatColor.RED + "No FFA schematics found in arenas/FFA_CustomKits/.");
+                return;
+            }
+            customKitInstances.put(kit.getId(), instance);
+            instancesById.put(instance.id, instance);
+        }
+
+        instance.players.add(player.getUniqueId());
+        playerInstance.put(player.getUniqueId(), instance.id);
+        profile.setState(PlayerState.FFA_FIGHTING);
+
+        teleportToSafeSpawn(player, instance);
+        kit.getKit().apply(player);
+        Craftmen.get().getArmorTrimManager().apply(player);
+        player.updateInventory();
+
+        broadcast(instance, ChatColor.GREEN + player.getName() + " joined Custom Kit FFA (" + instance.players.size() + " players).");
+    }
+
     public void leave(Player player, boolean message) {
         UUID instId = playerInstance.remove(player.getUniqueId());
         if (instId == null) return;
@@ -127,6 +166,7 @@ public final class FfaManager implements Listener {
         if (inst != null && inst.players.isEmpty()) {
             destroyInstance(inst);
             instances.remove(inst.game.getName());
+            customKitInstances.values().removeIf(v -> v.id.equals(inst.id));
             instancesById.remove(inst.id);
         }
     }
@@ -134,6 +174,12 @@ public final class FfaManager implements Listener {
     private void tick() {
         long now = System.currentTimeMillis();
         for (FfaInstance inst : new ArrayList<>(instances.values())) {
+            if (inst.players.isEmpty()) continue;
+            if (now - inst.lastResetAtMillis >= RESET_EVERY_MILLIS) {
+                resetInstance(inst);
+            }
+        }
+        for (FfaInstance inst : new ArrayList<>(customKitInstances.values())) {
             if (inst.players.isEmpty()) continue;
             if (now - inst.lastResetAtMillis >= RESET_EVERY_MILLIS) {
                 resetInstance(inst);
@@ -155,6 +201,28 @@ public final class FfaManager implements Listener {
 
         Location origin = computePasteOrigin(world, schem, width, length);
         FfaInstance inst = new FfaInstance(UUID.randomUUID(), game, schem, origin, width, height, length);
+        paste(inst);
+        inst.lastResetAtMillis = System.currentTimeMillis();
+        return inst;
+    }
+
+    private FfaInstance createCustomKitInstance(CustomKit kit) {
+        File schem = pickRandomSchematicFrom(ffaCustomKitFolder);
+        if (schem == null) return null;
+
+        World world = Bukkit.getWorld("world");
+        if (world == null) return null;
+
+        int[] dims = readSchematicDims(schem);
+        int width = Math.max(1, dims[0]);
+        int height = Math.max(1, dims[1]);
+        int length = Math.max(1, dims[2]);
+
+        Location origin = computePasteOrigin(world, schem, width, length);
+        // Use a dummy "game" for spacing logic; game is only used for messages/bounds.
+        Game dummy = Craftmen.get().getGameManager().getGame("Sword");
+        if (dummy == null) dummy = Craftmen.get().getGameManager().getGames().iterator().next();
+        FfaInstance inst = new FfaInstance(UUID.randomUUID(), dummy, schem, origin, width, height, length);
         paste(inst);
         inst.lastResetAtMillis = System.currentTimeMillis();
         return inst;
@@ -210,7 +278,11 @@ public final class FfaManager implements Listener {
 
     private File pickRandomSchematic(Game game) {
         // Always random from arenas/FFA/ (no other sources).
-        File[] candidates = listSchems(ffaFolder);
+        return pickRandomSchematicFrom(ffaFolder);
+    }
+
+    private File pickRandomSchematicFrom(File folder) {
+        File[] candidates = listSchems(folder);
         if (candidates == null || candidates.length == 0) return null;
         return candidates[ThreadLocalRandom.current().nextInt(candidates.length)];
     }

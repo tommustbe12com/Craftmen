@@ -214,6 +214,27 @@ public final class CustomKitManager implements Listener {
         tryStartDuel(kitId);
     }
 
+    public void joinKitFfa(Player player, UUID kitId) {
+        if (player == null) return;
+        if (!ensureHub(player)) {
+            player.sendMessage(ChatColor.RED + "You can only join FFA from the hub.");
+            return;
+        }
+        if (drafts.containsKey(player.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "Finish or cancel kit creation first.");
+            return;
+        }
+
+        CustomKit kit = kits.get(kitId);
+        if (kit == null) {
+            player.sendMessage(ChatColor.RED + "That kit no longer exists.");
+            return;
+        }
+
+        player.closeInventory();
+        Craftmen.get().getFfaManager().joinCustomKit(player, kit);
+    }
+
     public void leaveKit(Player player, boolean message) {
         UUID kitId = activeKitByPlayer.remove(player.getUniqueId());
         if (kitId == null) return;
@@ -602,7 +623,11 @@ public final class CustomKitManager implements Listener {
             UUID kitId = CustomKitMenus.readKitId(meta);
             if (kitId == null) return;
             player.closeInventory();
-            joinKit(player, kitId);
+            if (e.isRightClick()) {
+                joinKitFfa(player, kitId);
+            } else {
+                joinKit(player, kitId);
+            }
             return;
         }
 

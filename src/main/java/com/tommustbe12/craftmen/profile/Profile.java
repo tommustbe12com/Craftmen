@@ -15,6 +15,8 @@ public class Profile {
     private int ffaKills;
     private int ffaDeaths;
 
+    private java.util.UUID selectedBadgeId;
+
     private final Map<String, Integer> gameWins = new HashMap<>();
     private final Map<String, Integer> gameLosses = new HashMap<>();
 
@@ -49,6 +51,9 @@ public class Profile {
     public int getFfaDeaths() { return ffaDeaths; }
     public void addFfaDeath() { this.ffaDeaths++; }
     public void setFfaDeaths(int ffaDeaths) { this.ffaDeaths = ffaDeaths; }
+
+    public java.util.UUID getSelectedBadgeId() { return selectedBadgeId; }
+    public void setSelectedBadgeId(java.util.UUID selectedBadgeId) { this.selectedBadgeId = selectedBadgeId; }
 
     public Map<String, Integer> getGameWins() { return gameWins; }
     public Map<String, Integer> getGameLosses() { return gameLosses; }

@@ -63,6 +63,12 @@ commands:
   ffa:
     description: Open FFA menu (or leave if already in FFA)
     usage: /ffa
+  badges:
+    description: Open the badge selector
+    usage: /badges
+  badgeadmin:
+    description: Admin badge editor
+    usage: /badgeadmin
 permissions:
   craftmen.admin:
     default: op
