@@ -285,6 +285,7 @@ public final class ArmorTrimMenu implements Listener {
         else if (key.endsWith("redstone")) icon = Material.REDSTONE;
         else if (key.endsWith("copper")) icon = Material.COPPER_INGOT;
         else if (key.endsWith("iron")) icon = Material.IRON_INGOT;
+        else if (key.endsWith("resin")) icon = Material.RESIN_BRICK;
 
         ItemStack item = new ItemStack(icon);
         ItemMeta meta = item.getItemMeta();
