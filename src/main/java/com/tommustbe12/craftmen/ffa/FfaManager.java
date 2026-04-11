@@ -23,6 +23,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -79,6 +80,14 @@ public final class FfaManager implements Listener {
 
     public boolean isInFfa(Player player) {
         return playerInstance.containsKey(player.getUniqueId());
+    }
+
+    public Game getGame(Player player) {
+        if (player == null) return null;
+        UUID instId = playerInstance.get(player.getUniqueId());
+        if (instId == null) return null;
+        FfaInstance inst = instancesById.get(instId);
+        return inst == null ? null : inst.game;
     }
 
     public boolean allowDamage(Player damager, Player damaged) {
@@ -296,6 +305,7 @@ public final class FfaManager implements Listener {
     }
 
     private void startNextRound(FfaInstance inst, PartyFfaSession session) {
+        clearDroppedItems(inst);
         session.currentRound++;
         session.alive.clear();
         session.spectators.clear();
@@ -518,6 +528,7 @@ public final class FfaManager implements Listener {
     }
 
     private void resetInstance(FfaInstance inst) {
+        clearDroppedItems(inst);
         clear(inst);
 
         File next = pickRandomSchematic(inst.game);
@@ -549,6 +560,7 @@ public final class FfaManager implements Listener {
     }
 
     private void destroyInstance(FfaInstance inst) {
+        clearDroppedItems(inst);
         clear(inst);
     }
 
@@ -724,6 +736,31 @@ public final class FfaManager implements Listener {
         Craftmen.get().getArenaManager().removeArenaAtLocation("FFA", inst.minCorner, inst.maxCorner);
     }
 
+    private void clearDroppedItems(FfaInstance inst) {
+        if (inst == null) return;
+        if (inst.minCorner == null || inst.maxCorner == null) return;
+        World world = inst.minCorner.getWorld();
+        if (world == null) return;
+
+        int minX = Math.min(inst.minCorner.getBlockX(), inst.maxCorner.getBlockX());
+        int maxX = Math.max(inst.minCorner.getBlockX(), inst.maxCorner.getBlockX());
+        int minY = Math.min(inst.minCorner.getBlockY(), inst.maxCorner.getBlockY());
+        int maxY = Math.max(inst.minCorner.getBlockY(), inst.maxCorner.getBlockY());
+        int minZ = Math.min(inst.minCorner.getBlockZ(), inst.maxCorner.getBlockZ());
+        int maxZ = Math.max(inst.minCorner.getBlockZ(), inst.maxCorner.getBlockZ());
+
+        for (Item item : world.getEntitiesByClass(Item.class)) {
+            Location l = item.getLocation();
+            int x = l.getBlockX();
+            int y = l.getBlockY();
+            int z = l.getBlockZ();
+            if (x < minX || x > maxX) continue;
+            if (y < minY || y > maxY) continue;
+            if (z < minZ || z > maxZ) continue;
+            item.remove();
+        }
+    }
+
     private void teleportToSafeSpawn(Player player, FfaInstance inst) {
         Location loc = findSafeSpawn(inst);
         if (loc == null) loc = inst.pasteOrigin.clone().add(0, 5, 0);
@@ -788,8 +825,6 @@ public final class FfaManager implements Listener {
         if (instId == null) return;
 
         e.setDeathMessage(null);
-        e.getDrops().clear();
-        e.setDroppedExp(0);
 
         Player killer = dead.getKiller();
         FfaInstance inst = instancesById.get(instId);
@@ -799,6 +834,11 @@ public final class FfaManager implements Listener {
         if (inst.isPrivate) {
             PartyFfaSession session = getSession(inst);
             Bukkit.getScheduler().runTask(plugin, () -> {
+                // Auto-respawn to avoid "Click to respawn" screen.
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    if (dead.isOnline()) dead.spigot().respawn();
+                }, 1L);
+
                 String msg;
                 if (killer != null && allowDamage(killer, dead)) {
                     msg = ChatColor.RED + dead.getName() + ChatColor.GRAY + " was killed by " + ChatColor.GREEN + killer.getName();
@@ -820,6 +860,10 @@ public final class FfaManager implements Listener {
 
         // FFA death should not respawn you in FFA: you leave and return to hub.
         Bukkit.getScheduler().runTask(plugin, () -> {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (dead.isOnline()) dead.spigot().respawn();
+            }, 1L);
+
             String msg;
             if (killer != null && allowDamage(killer, dead)) {
                 msg = ChatColor.RED + dead.getName() + ChatColor.GRAY + " was killed by " + ChatColor.GREEN + killer.getName();

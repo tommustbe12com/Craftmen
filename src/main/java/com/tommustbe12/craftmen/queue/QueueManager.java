@@ -46,7 +46,7 @@ public class QueueManager {
         Queue queue = queues.computeIfAbsent(game.getName(), k -> new Queue(game));
         queue.addPlayer(player);
         profile.setState(PlayerState.QUEUED);
-        player.sendMessage("Â§aYou joined the " + game.getName() + " queue!");
+        player.sendMessage("§aYou joined the " + game.getName() + " queue!");
 
         checkQueue(queue);
     }
@@ -61,7 +61,7 @@ public class QueueManager {
 
         if (arenas.isEmpty()) {
             for (Player p : players) {
-                p.sendMessage("Â§cNo arena available for this game!");
+                p.sendMessage("§cNo arena available for this game!");
             }
             return;
         }
@@ -110,4 +110,3 @@ public class QueueManager {
         public Game getGame() { return game; }
     }
 }
-

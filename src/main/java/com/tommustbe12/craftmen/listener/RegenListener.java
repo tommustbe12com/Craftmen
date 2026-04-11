@@ -1,6 +1,7 @@
 package com.tommustbe12.craftmen.listener;
 
 import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -26,11 +27,16 @@ public class RegenListener implements Listener {
         if (!(event.getEntity() instanceof Player player)) return;
 
         Match match = Craftmen.get().getMatchManager().getMatch(player);
-        if (match == null) return;
+        String gameName = match == null ? null : match.getGame().getName();
+        if (match == null && Craftmen.get().getFfaManager().isInFfa(player)) {
+            Game g = Craftmen.get().getFfaManager().getGame(player);
+            gameName = g == null ? null : g.getName();
+        }
+        if (gameName == null) return;
 
         // Only cancel natural regen
         if (event.getRegainReason() == EntityRegainHealthEvent.RegainReason.SATIATED) {
-            if (NO_NATURAL_REGEN.contains(match.getGame().getName())) {
+            if (NO_NATURAL_REGEN.contains(gameName)) {
                 event.setCancelled(true);
             }
         }

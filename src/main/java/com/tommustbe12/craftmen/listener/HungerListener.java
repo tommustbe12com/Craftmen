@@ -2,6 +2,7 @@ package com.tommustbe12.craftmen.listener;
 
 import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.endfight.EndFightManager;
+import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.match.Match;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -37,7 +38,16 @@ public class HungerListener implements Listener {
             return;
         }
 
-        // always cancel in hub
+        // FFA: apply the same no-hunger rules as matches.
+        if (match == null && Craftmen.get().getFfaManager().isInFfa(player)) {
+            Game g = Craftmen.get().getFfaManager().getGame(player);
+            if (g != null && NO_HUNGER_LOSS.contains(g.getName())) {
+                event.setCancelled(true);
+            }
+            return;
+        }
+
+        // always cancel in hub (not in match/FFA)
         if (match == null) {
             event.setCancelled(true);
             return;

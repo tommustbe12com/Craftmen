@@ -34,6 +34,7 @@ import com.tommustbe12.craftmen.party.command.PartyChatTabCompleter;
 import com.tommustbe12.craftmen.party.command.PartyTabCompleter;
 import com.tommustbe12.craftmen.party.ffa.PartyFfaMenu;
 import com.tommustbe12.craftmen.party.listener.PartyChatListener;
+import com.tommustbe12.craftmen.party.listener.PartyPlayerListener;
 import com.tommustbe12.craftmen.queue.QueueManager;
 import com.tommustbe12.craftmen.scoreboard.ScoreboardManager;
 import com.tommustbe12.craftmen.web.ExposeData;
@@ -159,6 +160,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new KitEditorShortcutListener(), this);
         getServer().getPluginManager().registerEvents(armorTrimMenu, this);
         getServer().getPluginManager().registerEvents(new PartyChatListener(), this);
+        getServer().getPluginManager().registerEvents(new PartyPlayerListener(), this);
         getServer().getPluginManager().registerEvents(partyFfaMenu, this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());

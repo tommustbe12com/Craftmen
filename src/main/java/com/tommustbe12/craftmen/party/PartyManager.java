@@ -76,11 +76,17 @@ public final class PartyManager {
     }
 
     public boolean leave(Player player) {
+        return leave(player, null, null);
+    }
+
+    public boolean leave(Player player, String customMessage, org.bukkit.Sound customSound) {
         Party party = getParty(player);
         if (party == null) return false;
 
         UUID uuid = player.getUniqueId();
-        broadcastParty(party, ChatColor.RED + player.getName() + " left the party.", org.bukkit.Sound.UI_BUTTON_CLICK);
+        String msg = customMessage != null ? customMessage : (ChatColor.RED + player.getName() + " left the party.");
+        org.bukkit.Sound snd = customSound != null ? customSound : org.bukkit.Sound.UI_BUTTON_CLICK;
+        broadcastParty(party, msg, snd);
         party.removeMember(uuid);
         partiesByMember.remove(uuid);
 
