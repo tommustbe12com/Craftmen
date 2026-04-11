@@ -74,6 +74,9 @@ commands:
       - p
     description: Party commands + private FFA
     usage: /party
+  pc:
+    description: Party chat
+    usage: /pc [message]
 permissions:
   craftmen.admin:
     default: op

@@ -93,6 +93,11 @@ public final class FfaManager implements Listener {
     public void join(Player player, Game game) {
         if (player == null || game == null) return;
 
+        if (Craftmen.get().getEndFightManager().isInGame(player)) {
+            player.sendMessage(ChatColor.RED + "You cannot join FFA while in End Fight.");
+            return;
+        }
+
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         if (profile == null || profile.getState() != PlayerState.LOBBY) {
             player.sendMessage(ChatColor.RED + "You can only join FFA from the hub.");
@@ -126,6 +131,11 @@ public final class FfaManager implements Listener {
 
     public void joinCustomKit(Player player, CustomKit kit) {
         if (player == null || kit == null) return;
+
+        if (Craftmen.get().getEndFightManager().isInGame(player)) {
+            player.sendMessage(ChatColor.RED + "You cannot join FFA while in End Fight.");
+            return;
+        }
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         if (profile == null || profile.getState() != PlayerState.LOBBY) {
@@ -190,6 +200,8 @@ public final class FfaManager implements Listener {
             Player member = Bukkit.getPlayer(memberId);
             if (member == null) continue;
 
+            if (Craftmen.get().getEndFightManager().isInGame(member)) continue;
+
             Profile profile = Craftmen.get().getProfileManager().getProfile(member);
             if (profile == null || profile.getState() != PlayerState.LOBBY) continue;
 
@@ -206,6 +218,35 @@ public final class FfaManager implements Listener {
         }
 
         broadcast(instance, ChatColor.YELLOW + "Private FFA started for your party (" + instance.players.size() + "/" + MAX_PLAYERS_PER_INSTANCE + ").");
+    }
+
+    public boolean hasPrivatePartyFfa(UUID partyId) {
+        return partyId != null && privatePartyInstances.containsKey(partyId);
+    }
+
+    public void endPrivatePartyFfa(UUID partyId) {
+        if (partyId == null) return;
+        FfaInstance inst = privatePartyInstances.get(partyId);
+        if (inst == null) return;
+
+        // Copy first because leave() mutates sets/maps.
+        Set<UUID> members = new HashSet<>(inst.players);
+        for (UUID uuid : members) {
+            Player p = Bukkit.getPlayer(uuid);
+            if (p != null) {
+                leave(p, true);
+            } else {
+                // offline cleanup
+                playerInstance.remove(uuid);
+                inst.players.remove(uuid);
+            }
+        }
+
+        if (inst.players.isEmpty()) {
+            destroyInstance(inst);
+            instancesById.remove(inst.id);
+            privatePartyInstances.remove(partyId);
+        }
     }
 
     private void joinIntoInstance(Player player, FfaInstance instance) {
@@ -646,4 +687,3 @@ public final class FfaManager implements Listener {
         });
     }
 }
-

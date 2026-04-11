@@ -250,6 +250,10 @@ public class HubManager implements Listener {
     }
 
     public void openFfaSelector(Player player, int page) {
+        if (Craftmen.get().getEndFightManager().isInGame(player)) {
+            player.sendMessage(ChatColor.RED + "You cannot join FFA while in End Fight.");
+            return;
+        }
         openFfaSelector(player, page, true);
     }
 

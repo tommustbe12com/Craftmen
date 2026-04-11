@@ -27,7 +27,12 @@ import com.tommustbe12.craftmen.match.MatchManager;
 import com.tommustbe12.craftmen.profile.Profile;
 import com.tommustbe12.craftmen.profile.ProfileManager;
 import com.tommustbe12.craftmen.party.PartyManager;
+import com.tommustbe12.craftmen.party.PartyChatManager;
 import com.tommustbe12.craftmen.party.command.PartyCommand;
+import com.tommustbe12.craftmen.party.command.PartyChatCommand;
+import com.tommustbe12.craftmen.party.command.PartyChatTabCompleter;
+import com.tommustbe12.craftmen.party.command.PartyTabCompleter;
+import com.tommustbe12.craftmen.party.listener.PartyChatListener;
 import com.tommustbe12.craftmen.queue.QueueManager;
 import com.tommustbe12.craftmen.scoreboard.ScoreboardManager;
 import com.tommustbe12.craftmen.web.ExposeData;
@@ -68,6 +73,7 @@ public final class Craftmen extends JavaPlugin {
     private FfaManager ffaManager;
     private BadgeManager badgeManager;
     private PartyManager partyManager;
+    private PartyChatManager partyChatManager;
 
     @Override
     public void onEnable() {
@@ -110,6 +116,7 @@ public final class Craftmen extends JavaPlugin {
         ffaManager = new FfaManager(this);
         badgeManager = new BadgeManager(this);
         partyManager = new PartyManager();
+        partyChatManager = new PartyChatManager();
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -148,6 +155,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(kitEditorMenu, this);
         getServer().getPluginManager().registerEvents(new KitEditorShortcutListener(), this);
         getServer().getPluginManager().registerEvents(armorTrimMenu, this);
+        getServer().getPluginManager().registerEvents(new PartyChatListener(), this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
@@ -167,6 +175,9 @@ public final class Craftmen extends JavaPlugin {
         getCommand("badges").setExecutor(new BadgesCommand());
         getCommand("badgeadmin").setExecutor(new BadgeAdminCommand());
         getCommand("party").setExecutor(new PartyCommand());
+        getCommand("party").setTabCompleter(new PartyTabCompleter());
+        getCommand("pc").setExecutor(new PartyChatCommand());
+        getCommand("pc").setTabCompleter(new PartyChatTabCompleter());
 
         getCommand("stat").setTabCompleter(new StatCommand());
 
@@ -213,6 +224,7 @@ public final class Craftmen extends JavaPlugin {
     public FfaManager getFfaManager() { return ffaManager; }
     public BadgeManager getBadgeManager() { return badgeManager; }
     public PartyManager getPartyManager() { return partyManager; }
+    public PartyChatManager getPartyChatManager() { return partyChatManager; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {

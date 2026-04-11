@@ -26,6 +26,11 @@ public final class FfaCommand implements CommandExecutor {
             return true;
         }
 
+        if (Craftmen.get().getEndFightManager().isInGame(player)) {
+            player.sendMessage(ChatColor.RED + "You cannot join FFA while in End Fight.");
+            return true;
+        }
+
         if (profile.getState() != PlayerState.LOBBY) {
             player.sendMessage(ChatColor.RED + "You can only join FFA from the hub.");
             return true;
@@ -35,4 +40,3 @@ public final class FfaCommand implements CommandExecutor {
         return true;
     }
 }
-

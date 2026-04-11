@@ -39,6 +39,10 @@ public final class PartyManager {
 
     public void disbandParty(Party party) {
         if (party == null) return;
+        for (UUID uuid : new HashSet<>(party.getMembers())) {
+            Player p = Bukkit.getPlayer(uuid);
+            if (p != null) p.sendMessage(ChatColor.RED + "Your party was disbanded.");
+        }
         partiesById.remove(party.getId());
         for (UUID uuid : new HashSet<>(party.getMembers())) {
             partiesByMember.remove(uuid);
@@ -124,4 +128,3 @@ public final class PartyManager {
 
     public record Invite(UUID partyId, UUID inviterId, long createdAtMillis) {}
 }
-

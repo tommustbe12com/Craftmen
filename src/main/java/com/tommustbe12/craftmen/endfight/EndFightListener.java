@@ -5,11 +5,13 @@ import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.EnderDragon;
+import org.bukkit.entity.Enderman;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
@@ -166,5 +168,14 @@ public class EndFightListener implements Listener {
         }
 
         manager.removePlayer(p);
+    }
+
+    // Prevent Endermen from aggro'ing players during End Fight.
+    @EventHandler
+    public void onEndermanTarget(EntityTargetLivingEntityEvent e) {
+        if (!(e.getEntity() instanceof Enderman)) return;
+        if (!(e.getTarget() instanceof Player p)) return;
+        if (!manager.isInGame(p)) return;
+        e.setCancelled(true);
     }
 }
