@@ -31,6 +31,13 @@ public class CombatListener implements Listener {
         PlayerState damagedState = Craftmen.get().getProfileManager().getProfile(damaged).getState();
         PlayerState damagerState = Craftmen.get().getProfileManager().getProfile(damager).getState();
 
+        // Allow hub-only player kit duels (only vs paired opponent)
+        if (damagedState == PlayerState.CUSTOM_KIT_PLAYING && damagerState == PlayerState.CUSTOM_KIT_PLAYING) {
+            if (Craftmen.get().getCustomKitManager().allowDamage(damager, damaged)) return;
+            e.setCancelled(true);
+            return;
+        }
+
         if (damagedState != PlayerState.IN_MATCH || damagerState != PlayerState.IN_MATCH) {
             e.setCancelled(true);
         }

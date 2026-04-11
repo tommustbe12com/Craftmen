@@ -2,6 +2,7 @@ package com.tommustbe12.craftmen;
 
 import com.tommustbe12.craftmen.arena.ArenaManager;
 import com.tommustbe12.craftmen.command.*;
+import com.tommustbe12.craftmen.customkit.CustomKitManager;
 import com.tommustbe12.craftmen.endfight.EndFightListener;
 import com.tommustbe12.craftmen.endfight.EndFightManager;
 import com.tommustbe12.craftmen.game.GameManager;
@@ -56,6 +57,7 @@ public final class Craftmen extends JavaPlugin {
     private KitEditorMenu kitEditorMenu;
     private ArmorTrimManager armorTrimManager;
     private ArmorTrimMenu armorTrimMenu;
+    private CustomKitManager customKitManager;
 
     @Override
     public void onEnable() {
@@ -94,6 +96,7 @@ public final class Craftmen extends JavaPlugin {
         kitEditorMenu = new KitEditorMenu(kitManager);
         armorTrimManager = new ArmorTrimManager(new ArmorTrimStorage(this));
         armorTrimMenu = new ArmorTrimMenu(armorTrimManager);
+        customKitManager = new CustomKitManager(this);
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -117,6 +120,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PlayerListener(), this);
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
         getServer().getPluginManager().registerEvents(hubManager, this);
+        getServer().getPluginManager().registerEvents(customKitManager, this);
         getServer().getPluginManager().registerEvents(new MovementLockListener(), this);
         getServer().getPluginManager().registerEvents(new RegenListener(), this);
         getServer().getPluginManager().registerEvents(new HungerListener(), this);
@@ -185,6 +189,7 @@ public final class Craftmen extends JavaPlugin {
     public KitEditorMenu getKitEditorMenu() { return kitEditorMenu; }
     public ArmorTrimManager getArmorTrimManager() { return armorTrimManager; }
     public ArmorTrimMenu getArmorTrimMenu() { return armorTrimMenu; }
+    public CustomKitManager getCustomKitManager() { return customKitManager; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {

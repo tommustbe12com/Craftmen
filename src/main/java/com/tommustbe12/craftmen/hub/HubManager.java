@@ -25,6 +25,7 @@ import java.util.function.Consumer;
 public class HubManager implements Listener {
 
     private static final String GUI_TITLE_PREFIX = "§8Select a Kit";
+    private static final String GUI_PLAYER_KITS_NAME = "§bPlayer Kits";
 
     private static final String HUB_ITEM_GAME_SELECTOR = ChatColor.GOLD + "Game Selector";
     private static final String HUB_ITEM_KIT_EDITOR = ChatColor.AQUA + "Kit Editor";
@@ -48,6 +49,7 @@ public class HubManager implements Listener {
     private static final int SLOT_PREV = 46;
     private static final int SLOT_CLOSE = 49;
     private static final int SLOT_NEXT = 52;
+    private static final int SLOT_PLAYER_KITS = 50;
 
     private static final int CRYSTAL_SLOT = 22;
 
@@ -167,6 +169,14 @@ public class HubManager implements Listener {
 
         int slot = e.getRawSlot();
 
+        if (slot == SLOT_PLAYER_KITS) {
+            player.closeInventory();
+            playerPage.remove(player.getUniqueId());
+            gameCallbacks.remove(player.getUniqueId());
+            Craftmen.get().getCustomKitManager().openBrowser(player);
+            return;
+        }
+
         // Navigation buttons
         if (slot == SLOT_PREV) {
             int page = playerPage.getOrDefault(player.getUniqueId(), 0);
@@ -227,6 +237,7 @@ public class HubManager implements Listener {
         if (page > 0) inv.setItem(SLOT_PREV, makeArrow(true));
         if (page < totalPages - 1) inv.setItem(SLOT_NEXT, makeArrow(false));
         inv.setItem(SLOT_CLOSE, makeBarrier());
+        inv.setItem(SLOT_PLAYER_KITS, makePlayerKitsButton());
 
         if (page == 0) {
             // Page 1: ordered kits in row 1 (slots 10-16), Crystal centered in row 2 (slot 22)
@@ -250,6 +261,18 @@ public class HubManager implements Listener {
         }
 
         player.openInventory(inv);
+    }
+
+    private ItemStack makePlayerKitsButton() {
+        ItemStack item = new ItemStack(Material.CHEST);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(GUI_PLAYER_KITS_NAME);
+        meta.setLore(Arrays.asList(
+                "§7Browse & queue player-made kits.",
+                "§7Hub-only. Kits expire after 7d inactivity."
+        ));
+        item.setItemMeta(meta);
+        return item;
     }
 
     // ── Sorting helpers ──────────────────────────────────────────────────────
