@@ -69,6 +69,11 @@ commands:
   badgeadmin:
     description: Admin badge editor
     usage: /badgeadmin
+  party:
+    aliases:
+      - p
+    description: Party commands + private FFA
+    usage: /party
 permissions:
   craftmen.admin:
     default: op

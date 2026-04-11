@@ -13,6 +13,7 @@ import com.sk89q.worldedit.session.ClipboardHolder;
 import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.customkit.CustomKit;
 import com.tommustbe12.craftmen.game.Game;
+import com.tommustbe12.craftmen.player.PlayerReset;
 import com.tommustbe12.craftmen.profile.PlayerState;
 import com.tommustbe12.craftmen.profile.Profile;
 import org.bukkit.Bukkit;
@@ -37,16 +38,23 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class FfaManager implements Listener {
 
     private static final long RESET_EVERY_MILLIS = 15L * 60L * 1000L;
+    private static final int MAX_PLAYERS_PER_INSTANCE = 10;
 
     private final Craftmen plugin;
     private final File ffaFolder = new File("plugins/Craftmen/arenas/FFA");
     private final File ffaCustomKitFolder = new File("plugins/Craftmen/arenas/FFA_CustomKits");
 
-    private final Map<String, FfaInstance> instances = new HashMap<>();
+    // Public FFA instances per game name (Sword, Axe, ...)
+    private final Map<String, List<FfaInstance>> publicInstances = new HashMap<>();
+
+    // Custom kit instances are 1-per-kit (existing behavior)
+    private final Map<UUID, FfaInstance> customKitInstances = new HashMap<>(); // kitId -> instance
+
+    // Private party instances (1 active per party)
+    private final Map<UUID, FfaInstance> privatePartyInstances = new HashMap<>(); // partyId -> instance
+
     private final Map<UUID, UUID> playerInstance = new HashMap<>(); // player -> instanceId
     private final Map<UUID, FfaInstance> instancesById = new HashMap<>();
-
-    private final Map<UUID, FfaInstance> customKitInstances = new HashMap<>(); // kitId -> instance
 
     public FfaManager(Craftmen plugin) {
         this.plugin = plugin;
@@ -62,9 +70,9 @@ public final class FfaManager implements Listener {
     }
 
     public int getPlayersInFfa(Game game) {
-        FfaInstance inst = instances.get(game.getName());
-        if (inst == null) return 0;
-        return inst.players.size();
+        List<FfaInstance> list = publicInstances.get(game.getName());
+        if (list == null) return 0;
+        return list.stream().mapToInt(inst -> inst.players.size()).sum();
     }
 
     public boolean isInFfa(Player player) {
@@ -75,8 +83,12 @@ public final class FfaManager implements Listener {
         UUID i1 = playerInstance.get(damager.getUniqueId());
         if (i1 == null) return false;
         UUID i2 = playerInstance.get(damaged.getUniqueId());
-        return i1.equals(i2);
+        return i1 != null && i1.equals(i2);
     }
+
+    // --------------------
+    // Joining
+    // --------------------
 
     public void join(Player player, Game game) {
         if (player == null || game == null) return;
@@ -87,29 +99,29 @@ public final class FfaManager implements Listener {
             return;
         }
 
+        // Ensure match-end flight/invulnerability never leaks into FFA.
+        PlayerReset.clearTransientState(player);
+
         leave(player, false);
 
-        FfaInstance instance = instances.get(game.getName());
+        FfaInstance instance = pickOrCreatePublicInstance(game);
         if (instance == null) {
-            instance = createInstance(game);
-            if (instance == null) {
-                player.sendMessage(ChatColor.RED + "No FFA schematics found in arenas/FFA/.");
-                return;
-            }
-            instances.put(game.getName(), instance);
-            instancesById.put(instance.id, instance);
+            player.sendMessage(ChatColor.RED + "No FFA schematics found in arenas/FFA/.");
+            return;
         }
 
-        instance.players.add(player.getUniqueId());
-        playerInstance.put(player.getUniqueId(), instance.id);
+        if (instance.players.size() >= MAX_PLAYERS_PER_INSTANCE) {
+            // should never happen because pickOrCreate enforces it, but keep safe
+            player.sendMessage(ChatColor.RED + "That FFA is full. Try again.");
+            return;
+        }
 
-        profile.setState(PlayerState.FFA_FIGHTING);
+        joinIntoInstance(player, instance);
 
-        teleportToSafeSpawn(player, instance);
         game.applyLoadout(player);
         player.updateInventory();
 
-        broadcast(instance, ChatColor.GREEN + player.getName() + " joined FFA (" + instance.players.size() + " players).");
+        broadcast(instance, ChatColor.GREEN + player.getName() + " joined FFA (" + instance.players.size() + "/" + MAX_PLAYERS_PER_INSTANCE + ").");
     }
 
     public void joinCustomKit(Player player, CustomKit kit) {
@@ -120,6 +132,8 @@ public final class FfaManager implements Listener {
             player.sendMessage(ChatColor.RED + "You can only join FFA from the hub.");
             return;
         }
+
+        PlayerReset.clearTransientState(player);
 
         leave(player, false);
 
@@ -134,52 +148,154 @@ public final class FfaManager implements Listener {
             instancesById.put(instance.id, instance);
         }
 
-        instance.players.add(player.getUniqueId());
-        playerInstance.put(player.getUniqueId(), instance.id);
-        profile.setState(PlayerState.FFA_FIGHTING);
+        if (instance.players.size() >= MAX_PLAYERS_PER_INSTANCE) {
+            player.sendMessage(ChatColor.RED + "This Custom Kit FFA is full (10).");
+            return;
+        }
 
-        teleportToSafeSpawn(player, instance);
+        joinIntoInstance(player, instance);
+
         kit.getKit().apply(player);
         Craftmen.get().getArmorTrimManager().apply(player);
         player.updateInventory();
 
-        broadcast(instance, ChatColor.GREEN + player.getName() + " joined Custom Kit FFA (" + instance.players.size() + " players).");
+        broadcast(instance, ChatColor.GREEN + player.getName() + " joined Custom Kit FFA (" + instance.players.size() + "/" + MAX_PLAYERS_PER_INSTANCE + ").");
     }
 
+    /**
+     * Creates (or reuses) a private FFA instance for a party and moves all online members into it.
+     */
+    public void joinPrivateParty(UUID partyId, Collection<UUID> partyMembers, Game game) {
+        if (partyId == null || partyMembers == null || game == null) return;
+
+        // Reuse existing private instance if present; otherwise create a new one.
+        FfaInstance instance = privatePartyInstances.get(partyId);
+        if (instance == null) {
+            instance = createInstance(game);
+            if (instance == null) return;
+            instance.isPrivate = true;
+            instance.ownerPartyId = partyId;
+            instance.allowedPlayers = new HashSet<>(partyMembers);
+            privatePartyInstances.put(partyId, instance);
+            instancesById.put(instance.id, instance);
+        } else {
+            // Keep allow-list synced to current party membership.
+            instance.allowedPlayers = new HashSet<>(partyMembers);
+        }
+
+        // Move online members; enforce 10-player cap.
+        int allowedToJoin = MAX_PLAYERS_PER_INSTANCE - instance.players.size();
+        for (UUID memberId : partyMembers) {
+            if (allowedToJoin <= 0) break;
+            Player member = Bukkit.getPlayer(memberId);
+            if (member == null) continue;
+
+            Profile profile = Craftmen.get().getProfileManager().getProfile(member);
+            if (profile == null || profile.getState() != PlayerState.LOBBY) continue;
+
+            PlayerReset.clearTransientState(member);
+            leave(member, false);
+
+            if (instance.players.contains(memberId)) continue;
+            if (instance.allowedPlayers != null && !instance.allowedPlayers.contains(memberId)) continue;
+
+            joinIntoInstance(member, instance);
+            game.applyLoadout(member);
+            member.updateInventory();
+            allowedToJoin--;
+        }
+
+        broadcast(instance, ChatColor.YELLOW + "Private FFA started for your party (" + instance.players.size() + "/" + MAX_PLAYERS_PER_INSTANCE + ").");
+    }
+
+    private void joinIntoInstance(Player player, FfaInstance instance) {
+        instance.players.add(player.getUniqueId());
+        playerInstance.put(player.getUniqueId(), instance.id);
+
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        if (profile != null) profile.setState(PlayerState.FFA_FIGHTING);
+
+        teleportToSafeSpawn(player, instance);
+    }
+
+    private FfaInstance pickOrCreatePublicInstance(Game game) {
+        List<FfaInstance> list = publicInstances.computeIfAbsent(game.getName(), k -> new ArrayList<>());
+
+        for (FfaInstance inst : list) {
+            if (inst.isPrivate) continue;
+            if (inst.players.size() < MAX_PLAYERS_PER_INSTANCE) return inst;
+        }
+
+        FfaInstance created = createInstance(game);
+        if (created == null) return null;
+        list.add(created);
+        instancesById.put(created.id, created);
+        return created;
+    }
+
+    // --------------------
+    // Leaving
+    // --------------------
+
     public void leave(Player player, boolean message) {
+        if (player == null) return;
+
         UUID instId = playerInstance.remove(player.getUniqueId());
         if (instId == null) return;
 
         FfaInstance inst = instancesById.get(instId);
         if (inst != null) {
             inst.players.remove(player.getUniqueId());
-            broadcast(inst, ChatColor.RED + player.getName() + " left FFA (" + inst.players.size() + " players).");
+            broadcast(inst, ChatColor.RED + player.getName() + " left FFA (" + inst.players.size() + "/" + MAX_PLAYERS_PER_INSTANCE + ").");
         }
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         if (profile != null) profile.setState(PlayerState.LOBBY);
 
-        Craftmen.get().getHubManager().giveHubItems(player);
-        player.teleport(Craftmen.get().getHubLocation());
+        PlayerReset.resetToHub(player);
         if (message) player.sendMessage(ChatColor.RED + "Left FFA.");
 
         if (inst != null && inst.players.isEmpty()) {
             destroyInstance(inst);
-            instances.remove(inst.game.getName());
-            customKitInstances.values().removeIf(v -> v.id.equals(inst.id));
             instancesById.remove(inst.id);
+
+            if (inst.isPrivate && inst.ownerPartyId != null) {
+                privatePartyInstances.remove(inst.ownerPartyId);
+            } else {
+                List<FfaInstance> list = publicInstances.get(inst.game.getName());
+                if (list != null) {
+                    list.removeIf(v -> v.id.equals(inst.id));
+                    if (list.isEmpty()) publicInstances.remove(inst.game.getName());
+                }
+                customKitInstances.values().removeIf(v -> v.id.equals(inst.id));
+            }
         }
     }
 
+    // --------------------
+    // Maintenance
+    // --------------------
+
     private void tick() {
         long now = System.currentTimeMillis();
-        for (FfaInstance inst : new ArrayList<>(instances.values())) {
+
+        for (List<FfaInstance> list : new ArrayList<>(publicInstances.values())) {
+            for (FfaInstance inst : new ArrayList<>(list)) {
+                if (inst.players.isEmpty()) continue;
+                if (now - inst.lastResetAtMillis >= RESET_EVERY_MILLIS) {
+                    resetInstance(inst);
+                }
+            }
+        }
+
+        for (FfaInstance inst : new ArrayList<>(customKitInstances.values())) {
             if (inst.players.isEmpty()) continue;
             if (now - inst.lastResetAtMillis >= RESET_EVERY_MILLIS) {
                 resetInstance(inst);
             }
         }
-        for (FfaInstance inst : new ArrayList<>(customKitInstances.values())) {
+
+        for (FfaInstance inst : new ArrayList<>(privatePartyInstances.values())) {
             if (inst.players.isEmpty()) continue;
             if (now - inst.lastResetAtMillis >= RESET_EVERY_MILLIS) {
                 resetInstance(inst);
@@ -219,9 +335,12 @@ public final class FfaManager implements Listener {
         int length = Math.max(1, dims[2]);
 
         Location origin = computePasteOrigin(world, schem, width, length);
-        // Use a dummy "game" for spacing logic; game is only used for messages/bounds.
         Game dummy = Craftmen.get().getGameManager().getGame("Sword");
-        if (dummy == null) dummy = Craftmen.get().getGameManager().getGames().iterator().next();
+        if (dummy == null && !Craftmen.get().getGameManager().getGames().isEmpty()) {
+            dummy = Craftmen.get().getGameManager().getGames().iterator().next();
+        }
+        if (dummy == null) return null;
+
         FfaInstance inst = new FfaInstance(UUID.randomUUID(), dummy, schem, origin, width, height, length);
         paste(inst);
         inst.lastResetAtMillis = System.currentTimeMillis();
@@ -229,39 +348,33 @@ public final class FfaManager implements Listener {
     }
 
     private void resetInstance(FfaInstance inst) {
-        // clear old, paste new random, respawn everyone
         clear(inst);
+
         File next = pickRandomSchematic(inst.game);
-        if (next != null) {
-            inst.lastResetAtMillis = System.currentTimeMillis();
-            inst.minCorner = null;
-            inst.maxCorner = null;
-            inst.players.removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
-            int[] dims = readSchematicDims(next);
-            int width = Math.max(1, dims[0]);
-            int height = Math.max(1, dims[1]);
-            int length = Math.max(1, dims[2]);
+        if (next == null) return;
 
-            // New random origin each refresh, away from anything else
-            Location origin = computePasteOrigin(inst.pasteOrigin.getWorld(), next, width, length);
-            FfaInstance replacement = new FfaInstance(inst.id, inst.game, next, origin, width, height, length);
-            replacement.players.addAll(inst.players);
-            paste(replacement);
+        inst.lastResetAtMillis = System.currentTimeMillis();
+        inst.minCorner = null;
+        inst.maxCorner = null;
+        inst.players.removeIf(uuid -> Bukkit.getPlayer(uuid) == null);
 
-            // carry bounds + file + timestamp + origin
-            inst.minCorner = replacement.minCorner;
-            inst.maxCorner = replacement.maxCorner;
-            inst.lastResetAtMillis = replacement.lastResetAtMillis;
-            // NOTE: pasteOrigin is final; we keep origin for spawn bounds via min/max.
+        int[] dims = readSchematicDims(next);
+        inst.width = Math.max(1, dims[0]);
+        inst.height = Math.max(1, dims[1]);
+        inst.length = Math.max(1, dims[2]);
 
-            for (UUID uuid : inst.players) {
-                Player p = Bukkit.getPlayer(uuid);
-                if (p == null) continue;
-                teleportToSafeSpawn(p, inst);
-                inst.game.applyLoadout(p);
-                p.updateInventory();
-                p.sendMessage(ChatColor.YELLOW + "FFA arena refreshed.");
-            }
+        inst.pasteOrigin = computePasteOrigin(inst.pasteOrigin.getWorld(), next, inst.width, inst.length);
+        inst.schematicFile = next;
+
+        paste(inst);
+
+        for (UUID uuid : inst.players) {
+            Player p = Bukkit.getPlayer(uuid);
+            if (p == null) continue;
+            teleportToSafeSpawn(p, inst);
+            inst.game.applyLoadout(p);
+            p.updateInventory();
+            p.sendMessage(ChatColor.YELLOW + "FFA arena refreshed.");
         }
     }
 
@@ -276,8 +389,11 @@ public final class FfaManager implements Listener {
         }
     }
 
+    // --------------------
+    // WorldEdit helpers
+    // --------------------
+
     private File pickRandomSchematic(Game game) {
-        // Always random from arenas/FFA/ (no other sources).
         return pickRandomSchematicFrom(ffaFolder);
     }
 
@@ -293,7 +409,6 @@ public final class FfaManager implements Listener {
     }
 
     private Location computePasteOrigin(World world, File schematicFile, int width, int length) {
-        // Random across the world, far from hub and other FFA instances, and empty for the schematic footprint.
         var wb = world.getWorldBorder();
         Location center = wb.getCenter();
         int half = (int) Math.floor(wb.getSize() / 2.0);
@@ -319,13 +434,11 @@ public final class FfaManager implements Listener {
             }
 
             if (!Craftmen.get().getArenaManager().isAreaEmpty(candidate, width, length, world)) continue;
-
             if (overlapsExisting(candidate, width, length, buffer)) continue;
 
             return candidate;
         }
 
-        // fallback: still pick something far-ish
         int x = maxX;
         int z = maxZ;
         int y = Math.max(world.getMinHeight() + 5, world.getHighestBlockYAt(x, z) + 5);
@@ -338,7 +451,31 @@ public final class FfaManager implements Listener {
         int ox2 = origin.getBlockX() + width + buffer;
         int oz2 = origin.getBlockZ() + length + buffer;
 
-        for (FfaInstance inst : instances.values()) {
+        for (List<FfaInstance> list : publicInstances.values()) {
+            for (FfaInstance inst : list) {
+                if (inst.minCorner == null || inst.maxCorner == null) continue;
+                int ix1 = Math.min(inst.minCorner.getBlockX(), inst.maxCorner.getBlockX()) - buffer;
+                int iz1 = Math.min(inst.minCorner.getBlockZ(), inst.maxCorner.getBlockZ()) - buffer;
+                int ix2 = Math.max(inst.minCorner.getBlockX(), inst.maxCorner.getBlockX()) + buffer;
+                int iz2 = Math.max(inst.minCorner.getBlockZ(), inst.maxCorner.getBlockZ()) + buffer;
+
+                boolean overlapX = ox1 <= ix2 && ox2 >= ix1;
+                boolean overlapZ = oz1 <= iz2 && oz2 >= iz1;
+                if (overlapX && overlapZ) return true;
+            }
+        }
+        for (FfaInstance inst : customKitInstances.values()) {
+            if (inst.minCorner == null || inst.maxCorner == null) continue;
+            int ix1 = Math.min(inst.minCorner.getBlockX(), inst.maxCorner.getBlockX()) - buffer;
+            int iz1 = Math.min(inst.minCorner.getBlockZ(), inst.maxCorner.getBlockZ()) - buffer;
+            int ix2 = Math.max(inst.minCorner.getBlockX(), inst.maxCorner.getBlockX()) + buffer;
+            int iz2 = Math.max(inst.minCorner.getBlockZ(), inst.maxCorner.getBlockZ()) + buffer;
+
+            boolean overlapX = ox1 <= ix2 && ox2 >= ix1;
+            boolean overlapZ = oz1 <= iz2 && oz2 >= iz1;
+            if (overlapX && overlapZ) return true;
+        }
+        for (FfaInstance inst : privatePartyInstances.values()) {
             if (inst.minCorner == null || inst.maxCorner == null) continue;
             int ix1 = Math.min(inst.minCorner.getBlockX(), inst.maxCorner.getBlockX()) - buffer;
             int iz1 = Math.min(inst.minCorner.getBlockZ(), inst.maxCorner.getBlockZ()) - buffer;
@@ -373,13 +510,15 @@ public final class FfaManager implements Listener {
         try {
             ClipboardFormat format = ClipboardFormats.findByFile(inst.schematicFile);
             if (format == null) return;
+
+            Clipboard clipboard;
             try (ClipboardReader reader = format.getReader(new FileInputStream(inst.schematicFile))) {
-                Clipboard clipboard = reader.read();
+                clipboard = reader.read();
+            }
 
+            com.sk89q.worldedit.world.World weWorld = BukkitAdapter.adapt(inst.pasteOrigin.getWorld());
+            try (EditSession session = WorldEdit.getInstance().newEditSession(weWorld)) {
                 ClipboardHolder holder = new ClipboardHolder(clipboard);
-                EditSession session = WorldEdit.getInstance()
-                        .newEditSession(BukkitAdapter.adapt(inst.pasteOrigin.getWorld()));
-
                 BlockVector3 to = BlockVector3.at(
                         inst.pasteOrigin.getX(),
                         inst.pasteOrigin.getY(),
@@ -503,8 +642,8 @@ public final class FfaManager implements Listener {
             }
             broadcast(inst, msg);
 
-            // Ensure the player is out of the FFA instance and back in the hub.
             leave(dead, true);
         });
     }
 }
+

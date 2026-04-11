@@ -3,6 +3,7 @@ package com.tommustbe12.craftmen.command;
 import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.match.Match;
 import com.tommustbe12.craftmen.match.MatchManager;
+import com.tommustbe12.craftmen.player.PlayerReset;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -50,8 +51,7 @@ public class HubCommand implements CommandExecutor {
 
 
 
-        player.teleport(hubLocation);
-        Craftmen.get().getHubManager().giveHubItems(player);
+        PlayerReset.resetToHub(player);
         return true;
     }
 }

@@ -26,6 +26,8 @@ import com.tommustbe12.craftmen.listener.*;
 import com.tommustbe12.craftmen.match.MatchManager;
 import com.tommustbe12.craftmen.profile.Profile;
 import com.tommustbe12.craftmen.profile.ProfileManager;
+import com.tommustbe12.craftmen.party.PartyManager;
+import com.tommustbe12.craftmen.party.command.PartyCommand;
 import com.tommustbe12.craftmen.queue.QueueManager;
 import com.tommustbe12.craftmen.scoreboard.ScoreboardManager;
 import com.tommustbe12.craftmen.web.ExposeData;
@@ -65,6 +67,7 @@ public final class Craftmen extends JavaPlugin {
     private CustomKitManager customKitManager;
     private FfaManager ffaManager;
     private BadgeManager badgeManager;
+    private PartyManager partyManager;
 
     @Override
     public void onEnable() {
@@ -106,6 +109,7 @@ public final class Craftmen extends JavaPlugin {
         customKitManager = new CustomKitManager(this);
         ffaManager = new FfaManager(this);
         badgeManager = new BadgeManager(this);
+        partyManager = new PartyManager();
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -162,6 +166,7 @@ public final class Craftmen extends JavaPlugin {
         getCommand("ffa").setExecutor(new FfaCommand());
         getCommand("badges").setExecutor(new BadgesCommand());
         getCommand("badgeadmin").setExecutor(new BadgeAdminCommand());
+        getCommand("party").setExecutor(new PartyCommand());
 
         getCommand("stat").setTabCompleter(new StatCommand());
 
@@ -207,6 +212,7 @@ public final class Craftmen extends JavaPlugin {
     public CustomKitManager getCustomKitManager() { return customKitManager; }
     public FfaManager getFfaManager() { return ffaManager; }
     public BadgeManager getBadgeManager() { return badgeManager; }
+    public PartyManager getPartyManager() { return partyManager; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {

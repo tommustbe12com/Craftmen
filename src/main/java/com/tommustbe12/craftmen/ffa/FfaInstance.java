@@ -11,15 +11,19 @@ import java.util.UUID;
 final class FfaInstance {
     final UUID id;
     final Game game;
-    final File schematicFile;
-    final Location pasteOrigin;
+    File schematicFile;
+    Location pasteOrigin;
     Location minCorner;
     Location maxCorner;
     long lastResetAtMillis;
-    final int width;
-    final int height;
-    final int length;
+    int width;
+    int height;
+    int length;
     final Set<UUID> players = new HashSet<>();
+
+    boolean isPrivate;
+    UUID ownerPartyId;
+    Set<UUID> allowedPlayers;
 
     FfaInstance(UUID id, Game game, File schematicFile, Location pasteOrigin, int width, int height, int length) {
         this.id = id;
