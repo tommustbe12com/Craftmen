@@ -28,11 +28,15 @@ public final class BadgeStorage {
             String name = cfg.getString(base + ".name");
             String icon = cfg.getString(base + ".icon");
             String req = cfg.getString(base + ".requirement");
-            String rank = cfg.getString(base + ".rank", "");
+            String color = cfg.getString(base + ".color", null);
+            if (color == null) {
+                // Backwards-compat: if older badges used "rank" to store the badge token/icon.
+                color = cfg.getString(base + ".rank", "&7");
+            }
             if (name == null || icon == null || req == null) continue;
             try {
                 UUID id = UUID.fromString(key);
-                out.add(new BadgeDefinition(id, name, icon, req, rank == null ? "" : rank));
+                out.add(new BadgeDefinition(id, name, icon, req, color == null ? "&7" : color));
             } catch (IllegalArgumentException ignored) {
             }
         }
@@ -46,7 +50,7 @@ public final class BadgeStorage {
             cfg.set(base + ".name", badge.getName());
             cfg.set(base + ".icon", badge.getIcon());
             cfg.set(base + ".requirement", badge.getRequirement());
-            cfg.set(base + ".rank", badge.getRank());
+            cfg.set(base + ".color", badge.getColor());
         }
         try {
             if (!file.getParentFile().exists()) file.getParentFile().mkdirs();

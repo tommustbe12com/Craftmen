@@ -6,7 +6,6 @@ import com.tommustbe12.craftmen.profile.Profile;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.command.ConsoleCommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -30,6 +29,7 @@ public final class BadgeManager implements Listener {
     private final Craftmen plugin;
     private final BadgeStorage storage;
     private final Map<UUID, BadgeDefinition> badges = new HashMap<>();
+    private final BadgeDisplay display;
 
     private final NamespacedKey badgeIdKey = new NamespacedKey("craftmen", "badge_id");
 
@@ -38,13 +38,15 @@ public final class BadgeManager implements Listener {
     private final Set<UUID> awaitingCreateIcon = ConcurrentHashMap.newKeySet();
     private final Map<UUID, String> draftIcon = new ConcurrentHashMap<>();
     private final Set<UUID> awaitingCreateReq = ConcurrentHashMap.newKeySet();
-    private final Set<UUID> awaitingCreateRank = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> awaitingCreateColor = ConcurrentHashMap.newKeySet();
     private final Map<UUID, String> draftReq = new ConcurrentHashMap<>();
 
     public BadgeManager(Craftmen plugin) {
         this.plugin = plugin;
         this.storage = new BadgeStorage(plugin);
+        this.display = new BadgeDisplay();
         reload();
+        this.display.startAutoRefresh();
     }
 
     public void reload() {
@@ -56,6 +58,10 @@ public final class BadgeManager implements Listener {
 
     public Collection<BadgeDefinition> getBadges() {
         return Collections.unmodifiableCollection(badges.values());
+    }
+
+    public BadgeDisplay getDisplay() {
+        return display;
     }
 
     public void openPlayer(Player player) {
@@ -136,9 +142,7 @@ public final class BadgeManager implements Listener {
             lore.add(ChatColor.GRAY + "Progress:");
             for (String line : progress.split("\n")) lore.add(line);
         }
-        if (badge.getRank() != null && !badge.getRank().isBlank()) {
-            lore.add(ChatColor.GRAY + "Rank: " + ChatColor.WHITE + badge.getRank());
-        }
+        lore.add(ChatColor.GRAY + "Color: " + ChatColor.WHITE + (badge.getColor() == null ? "&7" : badge.getColor()));
         if (!parsedOk) lore.add(ChatColor.RED + "Invalid requirement string.");
         lore.add(available ? (ChatColor.GREEN + "Unlocked") : (ChatColor.RED + "Locked"));
         if (selected != null && selected.equals(badge.getId())) lore.add(ChatColor.YELLOW + "Selected");
@@ -155,6 +159,7 @@ public final class BadgeManager implements Listener {
         meta.setDisplayName(ChatColor.YELLOW + badge.getIcon() + " " + badge.getName());
         meta.setLore(List.of(
                 ChatColor.GRAY + "Req: " + ChatColor.WHITE + badge.getRequirement(),
+                ChatColor.GRAY + "Color: " + ChatColor.WHITE + (badge.getColor() == null ? "&7" : badge.getColor()),
                 ChatColor.GRAY + "Left-click: edit (recreate)",
                 ChatColor.GRAY + "Shift-right: delete"
         ));
@@ -227,6 +232,8 @@ public final class BadgeManager implements Listener {
                 ChatColor.WHITE + "wins>=10&losses<5",
                 ChatColor.WHITE + "ffa_kills>=20&ffa_deaths<10",
                 ChatColor.WHITE + "game.crystalWins>=300",
+                ChatColor.GRAY + "Color example:",
+                ChatColor.WHITE + "&b (brackets + icon color)",
                 ChatColor.GRAY + "Ops: create via chat prompts."
         ));
         item.setItemMeta(meta);
@@ -283,8 +290,8 @@ public final class BadgeManager implements Listener {
             return;
         }
         draftReq.put(uuid, msg.trim());
-        awaitingCreateRank.add(uuid);
-        player.sendMessage(ChatColor.YELLOW + "Type rank name to give on select (used for /rank give <player> <rank>). Type 'none' for no rank.");
+        awaitingCreateColor.add(uuid);
+        player.sendMessage(ChatColor.YELLOW + "Type badge color using & codes (e.g. &b). Type 'default' for &7.");
     }
 
     private static String sanitize(String s) {
@@ -292,7 +299,7 @@ public final class BadgeManager implements Listener {
         return ChatColor.stripColor(s).replaceAll("[\\r\\n\\t]", " ").trim();
     }
 
-    private void handleCreateRank(Player player, String msg) {
+    private void handleCreateColor(Player player, String msg) {
         UUID uuid = player.getUniqueId();
         if (msg.equalsIgnoreCase("cancel")) return;
 
@@ -301,18 +308,13 @@ public final class BadgeManager implements Listener {
         String req = draftReq.get(uuid);
         if (name == null || icon == null || req == null) return;
 
-        String rank = msg.equalsIgnoreCase("none") ? "" : sanitize(msg);
-        // Allow unicode (badge-like ranks), but keep it safe for command parsing:
-        // - no whitespace (most command parsers split args on spaces)
-        // - no control characters
-        if (!rank.isBlank() && (rank.length() > 64 || rank.chars().anyMatch(Character::isISOControl) || rank.chars().anyMatch(Character::isWhitespace))) {
-            player.sendMessage(ChatColor.RED + "Rank must be 1-64 chars, no spaces/newlines. Unicode is allowed. Try again or type 'none'.");
-            awaitingCreateRank.add(uuid);
-            return;
-        }
+        String color = msg.equalsIgnoreCase("default") ? "&7" : sanitize(msg);
+        if (color.isBlank()) color = "&7";
+        // Very loose validation: must contain '&' followed by a legacy color code somewhere, else default.
+        if (!color.contains("&")) color = "&7";
 
         UUID id = UUID.randomUUID();
-        BadgeDefinition badge = new BadgeDefinition(id, sanitize(name), sanitize(icon), req, rank);
+        BadgeDefinition badge = new BadgeDefinition(id, sanitize(name), sanitize(icon), req, color);
         badges.put(id, badge);
         storage.saveAll(badges.values());
 
@@ -348,7 +350,7 @@ public final class BadgeManager implements Listener {
         awaitingCreateName.remove(u);
         awaitingCreateIcon.remove(u);
         awaitingCreateReq.remove(u);
-        awaitingCreateRank.remove(u);
+        awaitingCreateColor.remove(u);
         draftName.remove(u);
         draftIcon.remove(u);
         draftReq.remove(u);
@@ -375,10 +377,10 @@ public final class BadgeManager implements Listener {
             Bukkit.getScheduler().runTask(plugin, () -> handleCreateReq(e.getPlayer(), msg));
             return;
         }
-        if (awaitingCreateRank.remove(u)) {
+        if (awaitingCreateColor.remove(u)) {
             e.setCancelled(true);
             String msg = e.getMessage();
-            Bukkit.getScheduler().runTask(plugin, () -> handleCreateRank(e.getPlayer(), msg));
+            Bukkit.getScheduler().runTask(plugin, () -> handleCreateColor(e.getPlayer(), msg));
         }
     }
 
@@ -406,6 +408,7 @@ public final class BadgeManager implements Listener {
             if (slot == 45) {
                 profile.setSelectedBadgeId(null);
                 player.sendMessage(ChatColor.RED + "Badge cleared.");
+                display.apply(player);
                 player.openInventory(buildPlayerMenu(player));
                 return;
             }
@@ -421,13 +424,7 @@ public final class BadgeManager implements Listener {
             }
             profile.setSelectedBadgeId(id);
             player.sendMessage(ChatColor.GREEN + "Selected badge: " + ChatColor.YELLOW + badge.getIcon() + " " + badge.getName());
-
-            String rank = badge.getRank();
-            if (rank != null && !rank.isBlank()) {
-                ConsoleCommandSender console = Bukkit.getServer().getConsoleSender();
-                Bukkit.dispatchCommand(console, "rank give " + player.getName() + " " + rank);
-            }
-
+            display.apply(player);
             player.openInventory(buildPlayerMenu(player));
             return;
         }

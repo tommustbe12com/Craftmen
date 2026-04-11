@@ -7,14 +7,14 @@ public final class BadgeDefinition {
     private final String name;
     private final String icon; // unicode emoji / character
     private final String requirement; // expression string
-    private final String rank;
+    private final String color; // &-codes allowed, e.g. "&b"
 
-    public BadgeDefinition(UUID id, String name, String icon, String requirement, String rank) {
+    public BadgeDefinition(UUID id, String name, String icon, String requirement, String color) {
         this.id = id;
         this.name = name;
         this.icon = icon;
         this.requirement = requirement;
-        this.rank = rank;
+        this.color = color;
     }
 
     public UUID getId() {
@@ -33,7 +33,7 @@ public final class BadgeDefinition {
         return requirement;
     }
 
-    public String getRank() {
-        return rank;
+    public String getColor() {
+        return color;
     }
 }
