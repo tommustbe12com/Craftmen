@@ -47,6 +47,7 @@ public abstract class Game {
         if (player == null) return;
         Kit kit = Craftmen.get().getKitManager().getEffectiveKit(player, this);
         kit.apply(player);
+        Craftmen.get().getArmorTrimManager().apply(player);
         afterLoadoutApplied(player);
     }
 

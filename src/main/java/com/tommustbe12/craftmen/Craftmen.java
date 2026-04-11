@@ -12,6 +12,10 @@ import com.tommustbe12.craftmen.kit.KitStorage;
 import com.tommustbe12.craftmen.kit.command.KitCommand;
 import com.tommustbe12.craftmen.kit.gui.KitEditorMenu;
 import com.tommustbe12.craftmen.kit.gui.KitEditorShortcutListener;
+import com.tommustbe12.craftmen.trim.ArmorTrimManager;
+import com.tommustbe12.craftmen.trim.ArmorTrimStorage;
+import com.tommustbe12.craftmen.trim.command.TrimsCommand;
+import com.tommustbe12.craftmen.trim.gui.ArmorTrimMenu;
 import com.tommustbe12.craftmen.listener.*;
 import com.tommustbe12.craftmen.match.MatchManager;
 import com.tommustbe12.craftmen.profile.Profile;
@@ -50,6 +54,8 @@ public final class Craftmen extends JavaPlugin {
     private EndFightManager endFightManager;
     private KitManager kitManager;
     private KitEditorMenu kitEditorMenu;
+    private ArmorTrimManager armorTrimManager;
+    private ArmorTrimMenu armorTrimMenu;
 
     @Override
     public void onEnable() {
@@ -86,6 +92,8 @@ public final class Craftmen extends JavaPlugin {
         endFightManager = new EndFightManager(this);
         kitManager = new KitManager(new KitStorage(this));
         kitEditorMenu = new KitEditorMenu(kitManager);
+        armorTrimManager = new ArmorTrimManager(new ArmorTrimStorage(this));
+        armorTrimMenu = new ArmorTrimMenu(armorTrimManager);
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -119,6 +127,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SnowballHitListener(), this);
         getServer().getPluginManager().registerEvents(kitEditorMenu, this);
         getServer().getPluginManager().registerEvents(new KitEditorShortcutListener(), this);
+        getServer().getPluginManager().registerEvents(armorTrimMenu, this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
@@ -133,6 +142,7 @@ public final class Craftmen extends JavaPlugin {
         KitCommand kitCommand = new KitCommand(kitEditorMenu);
         getCommand("kit").setExecutor(kitCommand);
         getCommand("kit").setTabCompleter(kitCommand);
+        getCommand("trims").setExecutor(new TrimsCommand());
 
         getCommand("stat").setTabCompleter(new StatCommand());
 
@@ -153,6 +163,7 @@ public final class Craftmen extends JavaPlugin {
     public void onDisable() {
         saveProfiles();
         if (kitManager != null) kitManager.flushAll();
+        if (armorTrimManager != null) armorTrimManager.flushAll();
         if (webServer != null) webServer.stop();
     }
 
@@ -172,6 +183,8 @@ public final class Craftmen extends JavaPlugin {
     public EndFightManager getEndFightManager() { return endFightManager; }
     public KitManager getKitManager() { return kitManager; }
     public KitEditorMenu getKitEditorMenu() { return kitEditorMenu; }
+    public ArmorTrimManager getArmorTrimManager() { return armorTrimManager; }
+    public ArmorTrimMenu getArmorTrimMenu() { return armorTrimMenu; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {

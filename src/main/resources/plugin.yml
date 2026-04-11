@@ -54,6 +54,12 @@ commands:
       - kiteditor
     description: Open the kit editor
     usage: /kit [game]
+  trims:
+    aliases:
+      - trim
+      - armortrims
+    description: Customize armor trims (hub only)
+    usage: /trims
 permissions:
   craftmen.admin:
     default: op

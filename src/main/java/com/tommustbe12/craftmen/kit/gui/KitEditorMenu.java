@@ -211,7 +211,6 @@ public final class KitEditorMenu implements Listener {
 
         if (e.getAction() == InventoryAction.HOTBAR_SWAP
                 || e.getAction() == InventoryAction.HOTBAR_MOVE_AND_READD
-                || e.getAction() == InventoryAction.SWAP_WITH_CURSOR
                 || e.getAction() == InventoryAction.COLLECT_TO_CURSOR) {
             // These can introduce items from the player's inventory/hotbar.
             e.setCancelled(true);
@@ -259,7 +258,8 @@ public final class KitEditorMenu implements Listener {
             if (cursorHasItem && !fromEditor) {
                 // Allow picking up from editor (cursor was empty).
                 InventoryAction action = e.getAction();
-                if (action == InventoryAction.PLACE_ALL
+                if (action == InventoryAction.SWAP_WITH_CURSOR
+                        || action == InventoryAction.PLACE_ALL
                         || action == InventoryAction.PLACE_ONE
                         || action == InventoryAction.PLACE_SOME) {
                     e.setCancelled(true);
@@ -277,6 +277,16 @@ public final class KitEditorMenu implements Listener {
                         || action == InventoryAction.PICKUP_ONE
                         || action == InventoryAction.PICKUP_SOME) {
                     cursorFromEditor.put(player.getUniqueId(), true);
+                }
+            }
+
+            // Allow swap rearranging even when the kit is full (no empty slots).
+            // This is safe because bottom-inventory clicks are already blocked above, and we only allow swaps when the
+            // cursor item came from the editor itself.
+            if (e.getAction() == InventoryAction.SWAP_WITH_CURSOR) {
+                if (!cursorHasItem || !fromEditor) {
+                    e.setCancelled(true);
+                    return;
                 }
             }
 

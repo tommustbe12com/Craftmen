@@ -28,6 +28,7 @@ public class HubManager implements Listener {
 
     private static final String HUB_ITEM_GAME_SELECTOR = ChatColor.GOLD + "Game Selector";
     private static final String HUB_ITEM_KIT_EDITOR = ChatColor.AQUA + "Kit Editor";
+    private static final String HUB_ITEM_ARMOR_TRIMS = ChatColor.LIGHT_PURPLE + "Armor Trims";
     private static final String HUB_ITEM_PLAY_AGAIN = ChatColor.GOLD + "Play Again";
     private static final String HUB_ITEM_LEAVE_QUEUE = ChatColor.RED + "Leave Queue";
 
@@ -68,6 +69,12 @@ public class HubManager implements Listener {
         kitMeta.setDisplayName(HUB_ITEM_KIT_EDITOR);
         kitEditor.setItemMeta(kitMeta);
         player.getInventory().setItem(8, kitEditor);
+
+        ItemStack trims = new ItemStack(Material.SMITHING_TABLE);
+        ItemMeta trimsMeta = trims.getItemMeta();
+        trimsMeta.setDisplayName(HUB_ITEM_ARMOR_TRIMS);
+        trims.setItemMeta(trimsMeta);
+        player.getInventory().setItem(7, trims);
 
         if(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame().equals("None")) return;
         ItemStack again = new ItemStack(Craftmen.get().getGameManager().getGame(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame()).getIcon()); // complicated lol
@@ -125,6 +132,14 @@ public class HubManager implements Listener {
                 return;
             }
             Craftmen.get().getKitEditorMenu().openSelect(player);
+
+        } else if (name.equals(HUB_ITEM_ARMOR_TRIMS)) {
+            e.setCancelled(true);
+            if (Craftmen.get().getProfileManager().getProfile(player).getState() != PlayerState.LOBBY) {
+                player.sendMessage(ChatColor.RED + "You can only edit armor trims in the hub.");
+                return;
+            }
+            Craftmen.get().getArmorTrimMenu().openMain(player);
 
         } else if (name.equals(HUB_ITEM_LEAVE_QUEUE)) {
             e.setCancelled(true);
