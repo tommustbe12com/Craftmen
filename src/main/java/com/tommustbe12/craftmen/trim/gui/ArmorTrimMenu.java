@@ -17,6 +17,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.trim.ArmorTrim;
 import org.bukkit.inventory.meta.trim.TrimMaterial;
 import org.bukkit.inventory.meta.trim.TrimPattern;
 
@@ -86,6 +87,7 @@ public final class ArmorTrimMenu implements Listener {
             lore.add(ChatColor.GRAY + "Current: " + ChatColor.RED + "None");
         } else {
             lore.add(ChatColor.GRAY + "Current: " + ChatColor.GREEN + stripNamespace(sel.patternKey()) + ChatColor.DARK_GRAY + " / " + ChatColor.GREEN + stripNamespace(sel.materialKey()));
+            applyTrimPreview(item, sel);
         }
         lore.add(ChatColor.YELLOW + "Click to set");
         meta.setLore(lore);
@@ -95,7 +97,8 @@ public final class ArmorTrimMenu implements Listener {
 
     private void openPattern(Player player, ArmorSlot slot, int page) {
         if (!canUse(player)) return;
-        List<TrimPattern> patterns = new ArrayList<>(Registry.TRIM_PATTERN);
+        List<TrimPattern> patterns = new ArrayList<>();
+        for (TrimPattern p : Registry.TRIM_PATTERN) patterns.add(p);
         patterns.sort(Comparator.comparing(p -> keyOf(p).toString()));
 
         int maxPage = (int) Math.max(0, Math.ceil(patterns.size() / (double) ITEMS_PER_PAGE) - 1);
@@ -124,7 +127,8 @@ public final class ArmorTrimMenu implements Listener {
 
     private void openMaterial(Player player, ArmorSlot slot, String patternKey, int page) {
         if (!canUse(player)) return;
-        List<TrimMaterial> materials = new ArrayList<>(Registry.TRIM_MATERIAL);
+        List<TrimMaterial> materials = new ArrayList<>();
+        for (TrimMaterial m : Registry.TRIM_MATERIAL) materials.add(m);
         materials.sort(Comparator.comparing(m -> keyOf(m).toString()));
 
         int maxPage = (int) Math.max(0, Math.ceil(materials.size() / (double) ITEMS_PER_PAGE) - 1);
@@ -259,7 +263,7 @@ public final class ArmorTrimMenu implements Listener {
     }
 
     private static ItemStack patternItem(TrimPattern pattern) {
-        ItemStack item = new ItemStack(Material.SMITHING_TEMPLATE);
+        ItemStack item = new ItemStack(patternTemplateMaterial(pattern));
         ItemMeta meta = item.getItemMeta();
         NamespacedKey key = keyOf(pattern);
         meta.setDisplayName(ChatColor.GREEN + stripNamespace(key.toString()));
@@ -356,6 +360,33 @@ public final class ArmorTrimMenu implements Listener {
         if (key == null) return "unknown";
         int idx = key.indexOf(':');
         return idx == -1 ? key : key.substring(idx + 1);
+    }
+
+    private static Material patternTemplateMaterial(TrimPattern pattern) {
+        NamespacedKey k = keyOf(pattern);
+        String path = k.getKey(); // e.g. "wild"
+        String matName = (path + "_armor_trim_smithing_template").toUpperCase(Locale.ROOT);
+        try {
+            return Material.valueOf(matName);
+        } catch (IllegalArgumentException ignored) {
+            return Material.SENTRY_ARMOR_TRIM_SMITHING_TEMPLATE;
+        }
+    }
+
+    private static void applyTrimPreview(ItemStack armorItem, ArmorTrimSelection selection) {
+        if (armorItem == null || selection == null) return;
+        if (!(armorItem.getItemMeta() instanceof org.bukkit.inventory.meta.ArmorMeta meta)) return;
+
+        NamespacedKey pKey = NamespacedKey.fromString(selection.patternKey());
+        NamespacedKey mKey = NamespacedKey.fromString(selection.materialKey());
+        if (pKey == null || mKey == null) return;
+
+        TrimPattern pattern = Registry.TRIM_PATTERN.get(pKey);
+        TrimMaterial material = Registry.TRIM_MATERIAL.get(mKey);
+        if (pattern == null || material == null) return;
+
+        meta.setTrim(new ArmorTrim(material, pattern));
+        armorItem.setItemMeta(meta);
     }
 
     private ItemStack patternItemWithKey(TrimPattern pattern) {
