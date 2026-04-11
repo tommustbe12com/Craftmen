@@ -18,8 +18,10 @@ public final class BadgeDisplay {
     private final LegacyComponentSerializer legacy = LegacyComponentSerializer.legacySection();
 
     // Track what we injected so we can preserve other plugins' prefixes.
-    private final Map<UUID, String> lastInjectedTeamPrefix = new HashMap<>();
+    // viewer|target -> injected prefix
+    private final Map<String, String> lastInjectedTeamPrefix = new HashMap<>();
     private final Map<UUID, String> lastInjectedDisplayPrefix = new HashMap<>();
+    private final Map<UUID, String> lastInjectedTabPrefix = new HashMap<>();
 
     public void apply(Player player) {
         if (player == null) return;
@@ -46,12 +48,11 @@ public final class BadgeDisplay {
     }
 
     private void applyDisplayNames(Player player, String badgePrefix) {
-        String injected = lastInjectedDisplayPrefix.getOrDefault(player.getUniqueId(), "");
-
         // display name (often used by chat plugins)
         Component currentDisplay = player.displayName();
         String currentLegacy = legacy.serialize(currentDisplay);
-        String baseLegacy = stripLeading(currentLegacy, injected);
+        String injectedDisplay = lastInjectedDisplayPrefix.getOrDefault(player.getUniqueId(), "");
+        String baseLegacy = stripLeading(currentLegacy, injectedDisplay);
         String nextLegacy = badgePrefix + baseLegacy;
         player.displayName(legacy.deserialize(nextLegacy));
         lastInjectedDisplayPrefix.put(player.getUniqueId(), badgePrefix);
@@ -59,31 +60,57 @@ public final class BadgeDisplay {
         // tab list name
         Component currentTab = player.playerListName();
         String currentTabLegacy = legacy.serialize(currentTab);
-        String baseTabLegacy = stripLeading(currentTabLegacy, injected);
+        String injectedTab = lastInjectedTabPrefix.getOrDefault(player.getUniqueId(), "");
+        String baseTabLegacy = stripLeading(currentTabLegacy, injectedTab);
         String nextTabLegacy = badgePrefix + baseTabLegacy;
         player.playerListName(legacy.deserialize(nextTabLegacy));
+        lastInjectedTabPrefix.put(player.getUniqueId(), badgePrefix);
     }
 
     private void applyTeamPrefix(Player player, String badgePrefix) {
-        Team team = player.getScoreboard().getEntryTeam(player.getName());
-        if (team == null) return;
+        // Nametag visibility is based on the VIEWER's scoreboard, not the target player's scoreboard.
+        // Inject into whatever team other plugins already assigned the target to, for every online viewer.
+        for (Player viewer : Bukkit.getOnlinePlayers()) {
+            var board = viewer.getScoreboard();
+            if (board == null) continue;
 
-        String injected = lastInjectedTeamPrefix.getOrDefault(player.getUniqueId(), "");
-        String currentPrefix = team.getPrefix();
-        String basePrefix = stripLeading(currentPrefix, injected);
-        String nextPrefix = badgePrefix + basePrefix;
+            Team team = board.getEntryTeam(player.getName());
+            if (team == null) continue;
 
-        // Avoid extra writes
-        if (!nextPrefix.equals(currentPrefix)) {
-            team.setPrefix(nextPrefix);
+            String key = viewer.getUniqueId() + "|" + player.getUniqueId();
+            String injected = lastInjectedTeamPrefix.getOrDefault(key, "");
+
+            String currentPrefix = team.getPrefix();
+            String basePrefix = stripLeading(currentPrefix, injected);
+            String nextPrefix = badgePrefix + basePrefix;
+
+            if (!nextPrefix.equals(currentPrefix)) {
+                team.setPrefix(nextPrefix);
+            }
+
+            lastInjectedTeamPrefix.put(key, badgePrefix);
         }
-        lastInjectedTeamPrefix.put(player.getUniqueId(), badgePrefix);
     }
 
     private static String stripLeading(String value, String leading) {
         if (value == null) return "";
         if (leading == null || leading.isEmpty()) return value;
         return value.startsWith(leading) ? value.substring(leading.length()) : value;
+    }
+
+    public String getBadgePrefix(Player player) {
+        if (player == null) return "";
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        if (profile == null) return "";
+        UUID badgeId = profile.getSelectedBadgeId();
+        if (badgeId == null) return "";
+
+        BadgeDefinition badge = Craftmen.get().getBadgeManager().getBadges().stream()
+                .filter(b -> b.getId().equals(badgeId))
+                .findFirst()
+                .orElse(null);
+        if (badge == null) return "";
+        return renderBadgePrefix(badge);
     }
 
     private static String renderBadgePrefix(BadgeDefinition badge) {
@@ -101,4 +128,3 @@ public final class BadgeDisplay {
         }, 20L, 20L);
     }
 }
-

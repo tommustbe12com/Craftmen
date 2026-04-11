@@ -2,6 +2,7 @@ package com.tommustbe12.craftmen;
 
 import com.tommustbe12.craftmen.arena.ArenaManager;
 import com.tommustbe12.craftmen.badge.BadgeManager;
+import com.tommustbe12.craftmen.badge.listener.BadgeChatListener;
 import com.tommustbe12.craftmen.badge.command.BadgeAdminCommand;
 import com.tommustbe12.craftmen.badge.command.BadgesCommand;
 import com.tommustbe12.craftmen.command.*;
@@ -147,6 +148,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(customKitManager, this);
         getServer().getPluginManager().registerEvents(ffaManager, this);
         getServer().getPluginManager().registerEvents(badgeManager, this);
+        getServer().getPluginManager().registerEvents(new BadgeChatListener(), this);
         getServer().getPluginManager().registerEvents(new MovementLockListener(), this);
         getServer().getPluginManager().registerEvents(new RegenListener(), this);
         getServer().getPluginManager().registerEvents(new HungerListener(), this);
