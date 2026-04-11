@@ -38,6 +38,13 @@ public class CombatListener implements Listener {
             return;
         }
 
+        // Allow FFA fights inside the same FFA instance
+        if (damagedState == PlayerState.FFA_FIGHTING && damagerState == PlayerState.FFA_FIGHTING) {
+            if (Craftmen.get().getFfaManager().allowDamage(damager, damaged)) return;
+            e.setCancelled(true);
+            return;
+        }
+
         if (damagedState != PlayerState.IN_MATCH || damagerState != PlayerState.IN_MATCH) {
             e.setCancelled(true);
         }

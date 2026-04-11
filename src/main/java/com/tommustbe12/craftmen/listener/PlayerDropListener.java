@@ -19,7 +19,9 @@ public class PlayerDropListener implements Listener {
             return;
         }
 
-        if (profile.getState() != PlayerState.IN_MATCH && profile.getState() != PlayerState.CUSTOM_KIT_PLAYING) {
+        if (profile.getState() != PlayerState.IN_MATCH
+                && profile.getState() != PlayerState.CUSTOM_KIT_PLAYING
+                && profile.getState() != PlayerState.FFA_FIGHTING) {
             event.setCancelled(true);
         }
     }

@@ -1,1 +1,8 @@
 arenas: {}
+
+# FFA arena pasting region (far away from normal arenas)
+ffa:
+  baseX: 12000
+  baseZ: 12000
+  pasteY: 120
+  spacing: 600

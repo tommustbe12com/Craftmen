@@ -25,7 +25,9 @@ import java.util.function.Consumer;
 public class HubManager implements Listener {
 
     private static final String GUI_TITLE_PREFIX = "§8Select a Kit";
+    private static final String GUI_FFA_TITLE_PREFIX = "§8FFA: Select a Kit";
     private static final String GUI_PLAYER_KITS_NAME = "§bPlayer Kits";
+    private static final String GUI_FFA_NAME = "§cFFA";
 
     private static final String HUB_ITEM_GAME_SELECTOR = ChatColor.GOLD + "Game Selector";
     private static final String HUB_ITEM_KIT_EDITOR = ChatColor.AQUA + "Kit Editor";
@@ -50,11 +52,13 @@ public class HubManager implements Listener {
     private static final int SLOT_CLOSE = 49;
     private static final int SLOT_NEXT = 52;
     private static final int SLOT_PLAYER_KITS = 50;
+    private static final int SLOT_FFA = 48;
 
     private static final int CRYSTAL_SLOT = 22;
 
     private final Map<UUID, Integer> playerPage = new HashMap<>();
     private final Map<UUID, Consumer<Game>> gameCallbacks = new HashMap<>();
+    private final Map<UUID, Integer> ffaPage = new HashMap<>();
 
     // ── Hub item helpers ─────────────────────────────────────────────────────
 
@@ -157,7 +161,9 @@ public class HubManager implements Listener {
 
     @EventHandler
     public void onGUIClick(InventoryClickEvent e) {
-        if (!e.getView().getTitle().startsWith(GUI_TITLE_PREFIX)) return;
+        boolean isNormal = e.getView().getTitle().startsWith(GUI_TITLE_PREFIX);
+        boolean isFfa = e.getView().getTitle().startsWith(GUI_FFA_TITLE_PREFIX);
+        if (!isNormal && !isFfa) return;
         e.setCancelled(true);
 
         if (!(e.getWhoClicked() instanceof Player)) return;
@@ -169,6 +175,12 @@ public class HubManager implements Listener {
 
         int slot = e.getRawSlot();
 
+        if (isNormal && slot == SLOT_FFA) {
+            player.closeInventory();
+            openFfaSelector(player, 0);
+            return;
+        }
+
         if (slot == SLOT_PLAYER_KITS) {
             player.closeInventory();
             playerPage.remove(player.getUniqueId());
@@ -179,18 +191,23 @@ public class HubManager implements Listener {
 
         // Navigation buttons
         if (slot == SLOT_PREV) {
-            int page = playerPage.getOrDefault(player.getUniqueId(), 0);
-            if (page > 0) openPage(player, page - 1);
+            int page = (isFfa ? ffaPage : playerPage).getOrDefault(player.getUniqueId(), 0);
+            if (page > 0) {
+                if (isFfa) openFfaSelector(player, page - 1);
+                else openPage(player, page - 1);
+            }
             return;
         }
         if (slot == SLOT_NEXT) {
-            int page = playerPage.getOrDefault(player.getUniqueId(), 0);
-            openPage(player, page + 1);
+            int page = (isFfa ? ffaPage : playerPage).getOrDefault(player.getUniqueId(), 0);
+            if (isFfa) openFfaSelector(player, page + 1);
+            else openPage(player, page + 1);
             return;
         }
         if (slot == SLOT_CLOSE) {
             player.closeInventory();
             playerPage.remove(player.getUniqueId());
+            ffaPage.remove(player.getUniqueId());
             gameCallbacks.remove(player.getUniqueId());
             return;
         }
@@ -199,15 +216,30 @@ public class HubManager implements Listener {
         String rawName = clicked.getItemMeta().getDisplayName();
         // Strip colour codes
         String gameName = ChatColor.stripColor(rawName);
+        if (isFfa && gameName != null) {
+            // "FFA - Sword" -> "Sword"
+            int dash = gameName.indexOf('-');
+            if (dash >= 0 && dash + 1 < gameName.length()) {
+                gameName = gameName.substring(dash + 1).trim();
+            }
+            if (gameName.toLowerCase(Locale.ROOT).startsWith("ffa")) {
+                gameName = gameName.substring(3).trim();
+            }
+        }
 
         Game game = Craftmen.get().getGameManager().getGame(gameName);
         if (game == null) return;
 
-        Consumer<Game> callback = gameCallbacks.remove(player.getUniqueId());
-        playerPage.remove(player.getUniqueId());
-        player.closeInventory();
-
-        if (callback != null) callback.accept(game);
+        if (isFfa) {
+            ffaPage.remove(player.getUniqueId());
+            player.closeInventory();
+            Craftmen.get().getFfaManager().join(player, game);
+        } else {
+            Consumer<Game> callback = gameCallbacks.remove(player.getUniqueId());
+            playerPage.remove(player.getUniqueId());
+            player.closeInventory();
+            if (callback != null) callback.accept(game);
+        }
     }
 
     // ── GUI construction ─────────────────────────────────────────────────────
@@ -215,6 +247,10 @@ public class HubManager implements Listener {
     public void openGameSelector(Player player, Consumer<Game> onSelect) {
         gameCallbacks.put(player.getUniqueId(), onSelect);
         openPage(player, 0);
+    }
+
+    public void openFfaSelector(Player player, int page) {
+        openFfaSelector(player, page, true);
     }
 
     private void openPage(Player player, int page) {
@@ -238,6 +274,7 @@ public class HubManager implements Listener {
         if (page < totalPages - 1) inv.setItem(SLOT_NEXT, makeArrow(false));
         inv.setItem(SLOT_CLOSE, makeBarrier());
         inv.setItem(SLOT_PLAYER_KITS, makePlayerKitsButton());
+        inv.setItem(SLOT_FFA, makeFfaButton());
 
         if (page == 0) {
             // Page 1: ordered kits in row 1 (slots 10-16), Crystal centered in row 2 (slot 22)
@@ -263,6 +300,46 @@ public class HubManager implements Listener {
         player.openInventory(inv);
     }
 
+    private void openFfaSelector(Player player, int page, boolean teleportToHub) {
+        if (teleportToHub) player.teleport(Craftmen.get().getHubLocation());
+
+        Collection<Game> allGames = Craftmen.get().getGameManager().getGames();
+        List<Game> page1Games = getPage1Games(allGames);
+        Game crystalGame = getCrystalGame(allGames);
+        List<Game> extraGames = getExtraGames(allGames);
+
+        int totalPages = 1 + (int) Math.ceil(extraGames.size() / (double) ITEMS_PER_PAGE);
+        page = Math.max(0, Math.min(page, totalPages - 1));
+        ffaPage.put(player.getUniqueId(), page);
+
+        String title = GUI_FFA_TITLE_PREFIX + " §7(Page " + (page + 1) + "/" + totalPages + ")";
+        Inventory inv = Bukkit.createInventory(null, INV_SIZE, title);
+        fillBorder(inv);
+
+        if (page > 0) inv.setItem(SLOT_PREV, makeArrow(true));
+        if (page < totalPages - 1) inv.setItem(SLOT_NEXT, makeArrow(false));
+        inv.setItem(SLOT_CLOSE, makeBarrier());
+
+        if (page == 0) {
+            int col = 0;
+            for (Game g : page1Games) {
+                if (col >= 7) break;
+                inv.setItem(CONTENT_SLOTS[col], makeFfaGameItem(g));
+                col++;
+            }
+            if (crystalGame != null) inv.setItem(CRYSTAL_SLOT, makeFfaGameItem(crystalGame));
+        } else {
+            int startIndex = (page - 1) * ITEMS_PER_PAGE;
+            for (int i = 0; i < ITEMS_PER_PAGE; i++) {
+                int gameIndex = startIndex + i;
+                if (gameIndex >= extraGames.size()) break;
+                inv.setItem(CONTENT_SLOTS[i], makeFfaGameItem(extraGames.get(gameIndex)));
+            }
+        }
+
+        player.openInventory(inv);
+    }
+
     private ItemStack makePlayerKitsButton() {
         ItemStack item = new ItemStack(Material.CHEST);
         ItemMeta meta = item.getItemMeta();
@@ -271,6 +348,30 @@ public class HubManager implements Listener {
                 "§7Browse & queue player-made kits.",
                 "§7Hub-only. Kits expire after 7d inactivity."
         ));
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack makeFfaButton() {
+        ItemStack item = new ItemStack(Material.TNT);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(GUI_FFA_NAME);
+        meta.setLore(Arrays.asList(
+                "§7Free-for-all in a huge arena.",
+                "§7Hub-only. Resets every 15 minutes."
+        ));
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack makeFfaGameItem(Game game) {
+        ItemStack item = game.getIcon().clone();
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName("§cFFA §7- §a" + game.getName());
+
+        int players = Craftmen.get().getFfaManager().getPlayersInFfa(game);
+        item.setAmount(Math.max(1, Math.min(players, 99)));
+        meta.setLore(Arrays.asList("§7Players: §a" + players, "§7Click to join"));
         item.setItemMeta(meta);
         return item;
     }

@@ -60,6 +60,9 @@ commands:
       - armortrims
     description: Customize armor trims (hub only)
     usage: /trims
+  ffa:
+    description: Open FFA menu (or leave if already in FFA)
+    usage: /ffa
 permissions:
   craftmen.admin:
     default: op

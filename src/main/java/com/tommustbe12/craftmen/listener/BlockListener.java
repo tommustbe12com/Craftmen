@@ -27,7 +27,7 @@ public class BlockListener implements Listener {
 
         PlayerState state = Craftmen.get().getProfileManager().getProfile(player).getState();
 
-        if (state != PlayerState.IN_MATCH) {
+        if (state != PlayerState.IN_MATCH && state != PlayerState.FFA_FIGHTING) {
             e.setCancelled(true);
             player.sendMessage("§cYou can't break this here!");
             return;
@@ -64,7 +64,7 @@ public class BlockListener implements Listener {
                 .getProfile(player)
                 .getState();
 
-        if (state != PlayerState.IN_MATCH) {
+        if (state != PlayerState.IN_MATCH && state != PlayerState.FFA_FIGHTING) {
             e.setCancelled(true);
             player.sendMessage("§cYou can't place this here!");
         }

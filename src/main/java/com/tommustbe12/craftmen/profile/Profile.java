@@ -12,6 +12,9 @@ public class Profile {
     private int wins;
     private int losses;
 
+    private int ffaKills;
+    private int ffaDeaths;
+
     private final Map<String, Integer> gameWins = new HashMap<>();
     private final Map<String, Integer> gameLosses = new HashMap<>();
 
@@ -39,6 +42,14 @@ public class Profile {
         gameLosses.merge(gameName, 1, Integer::sum);
     }
 
+    public int getFfaKills() { return ffaKills; }
+    public void addFfaKill() { this.ffaKills++; }
+    public void setFfaKills(int ffaKills) { this.ffaKills = ffaKills; }
+
+    public int getFfaDeaths() { return ffaDeaths; }
+    public void addFfaDeath() { this.ffaDeaths++; }
+    public void setFfaDeaths(int ffaDeaths) { this.ffaDeaths = ffaDeaths; }
+
     public Map<String, Integer> getGameWins() { return gameWins; }
     public Map<String, Integer> getGameLosses() { return gameLosses; }
 
@@ -54,6 +65,8 @@ public class Profile {
         switch (stat.toLowerCase()) {
             case "wins" -> this.wins += amount;
             case "losses" -> this.losses += amount;
+            case "ffa_kill", "ffa_kills" -> this.ffaKills += amount;
+            case "ffa_death", "ffa_deaths" -> this.ffaDeaths += amount;
         }
     }
 
@@ -61,6 +74,8 @@ public class Profile {
         switch (stat.toLowerCase()) {
             case "wins" -> this.wins = value;
             case "losses" -> this.losses = value;
+            case "ffa_kill", "ffa_kills" -> this.ffaKills = value;
+            case "ffa_death", "ffa_deaths" -> this.ffaDeaths = value;
         }
     }
 
