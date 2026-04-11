@@ -87,11 +87,11 @@ public final class ArmorTrimMenu implements Listener {
             lore.add(ChatColor.GRAY + "Current: " + ChatColor.RED + "None");
         } else {
             lore.add(ChatColor.GRAY + "Current: " + ChatColor.GREEN + stripNamespace(sel.patternKey()) + ChatColor.DARK_GRAY + " / " + ChatColor.GREEN + stripNamespace(sel.materialKey()));
-            applyTrimPreview(item, sel);
         }
         lore.add(ChatColor.YELLOW + "Click to set");
         meta.setLore(lore);
         item.setItemMeta(meta);
+        if (sel != null) applyTrimPreview(item, sel);
         return item;
     }
 
