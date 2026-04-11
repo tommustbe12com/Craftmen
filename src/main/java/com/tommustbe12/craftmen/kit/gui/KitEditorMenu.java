@@ -39,7 +39,6 @@ public final class KitEditorMenu implements Listener {
     };
     private static final int ITEMS_PER_PAGE = CONTENT_SLOTS.length; // 28
     private static final int SLOT_PREV = 46;
-    private static final int SLOT_CLOSE = 49;
     private static final int SLOT_NEXT = 52;
     private static final int CRYSTAL_SLOT = 22;
 
