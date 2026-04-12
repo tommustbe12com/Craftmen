@@ -24,6 +24,19 @@ public final class CosmeticsApplier {
         applyDeathEffect(deadProfile, location);
         playKillSound(killerProfile, killer);
         playDeathSound(deadProfile, dead);
+
+        // Streak tracking and gem rewards (per kill).
+        killerProfile.setKillsInARow(Math.min(100, killerProfile.getKillsInARow() + 1));
+        killerProfile.setLossesInARow(0);
+        deadProfile.setLossesInARow(deadProfile.getLossesInARow() + 1);
+        deadProfile.setKillsInARow(0);
+
+        int streak = killerProfile.getKillsInARow();
+        int bonus = Craftmen.get().getGemManager().getKillStreakBonus(streak);
+        int gems = 1 + bonus;
+        killerProfile.addGems(gems);
+        Craftmen.get().saveProfile(killerProfile);
+        Craftmen.get().saveProfile(deadProfile);
     }
 
     private static void applyKillEffect(Profile profile, Location loc) {
@@ -85,4 +98,3 @@ public final class CosmeticsApplier {
         org.bukkit.Bukkit.getScheduler().runTaskLater(Craftmen.get(), fw::detonate, 1L);
     }
 }
-

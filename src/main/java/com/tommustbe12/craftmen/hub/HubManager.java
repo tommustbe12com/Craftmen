@@ -34,6 +34,7 @@ public class HubManager implements Listener {
 
     private static final String HUB_ITEM_GAME_SELECTOR = ChatColor.GOLD + "Game Selector";
     private static final String HUB_ITEM_KIT_EDITOR = ChatColor.AQUA + "Kit Editor";
+    // Armor trims moved into the cosmetics shop.
     private static final String HUB_ITEM_ARMOR_TRIMS = ChatColor.LIGHT_PURPLE + "Armor Trims";
     private static final String HUB_ITEM_SHOP = ChatColor.AQUA + "Cosmetics Shop";
     private static final String HUB_ITEM_LAUNCH_FEATHER = ChatColor.GREEN + "Launch Feather";
@@ -84,11 +85,7 @@ public class HubManager implements Listener {
         kitEditor.setItemMeta(kitMeta);
         player.getInventory().setItem(8, kitEditor);
 
-        ItemStack trims = new ItemStack(Material.SMITHING_TABLE);
-        ItemMeta trimsMeta = trims.getItemMeta();
-        trimsMeta.setDisplayName(HUB_ITEM_ARMOR_TRIMS);
-        trims.setItemMeta(trimsMeta);
-        player.getInventory().setItem(7, trims);
+        // (Armor trims item removed; use Cosmetics Shop)
 
         ItemStack shop = new ItemStack(Material.EMERALD);
         ItemMeta shopMeta = shop.getItemMeta();
@@ -125,7 +122,7 @@ public class HubManager implements Listener {
                     em.addEnchant(Enchantment.UNBREAKING, 1, true);
                     elytra.setItemMeta(em);
                 }
-                player.getInventory().setItem(2, elytra);
+                player.getInventory().setChestplate(elytra);
             }
             if (profile.hasCosmetic("gadget.windcharge")) {
                 ItemStack wc = new ItemStack(Material.WIND_CHARGE, 16);
@@ -165,9 +162,10 @@ public class HubManager implements Listener {
 
     @EventHandler
     public void onRespawn(PlayerRespawnEvent e) {
-        if (!Craftmen.get().getEndFightManager().isInGame(e.getPlayer())) {
-            Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> giveHubItems(e.getPlayer()), 1L);
-        }
+        if (Craftmen.get().getEndFightManager().isInGame(e.getPlayer())) return;
+        // Only give hub items when actually respawning into hub state.
+        if (Craftmen.get().getProfileManager().getProfile(e.getPlayer()).getState() != PlayerState.LOBBY) return;
+        Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> giveHubItems(e.getPlayer()), 1L);
     }
 
     @EventHandler
@@ -195,13 +193,6 @@ public class HubManager implements Listener {
             }
             Craftmen.get().getKitEditorMenu().openSelect(player);
 
-        } else if (name.equals(HUB_ITEM_ARMOR_TRIMS)) {
-            e.setCancelled(true);
-            if (Craftmen.get().getProfileManager().getProfile(player).getState() != PlayerState.LOBBY) {
-                player.sendMessage(ChatColor.RED + "You can only edit armor trims in the hub.");
-                return;
-            }
-            Craftmen.get().getArmorTrimMenu().openMain(player);
         } else if (name.equals(HUB_ITEM_SHOP)) {
             e.setCancelled(true);
             if (Craftmen.get().getProfileManager().getProfile(player).getState() != PlayerState.LOBBY) {

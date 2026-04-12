@@ -31,7 +31,9 @@ public final class ShopMenu implements Listener {
         Inventory inv = Bukkit.createInventory(null, 27, TITLE);
         fill(inv);
         inv.setItem(11, item(Material.NAME_TAG, "§b§lChat Color", List.of("§7Purchase and select a chat color.", "§8Click to view")));
-        inv.setItem(13, item(Material.FIREWORK_ROCKET, "§d§lKill/Death Effects", List.of("§7Kill effects + sounds.", "§8Click to view")));
+        inv.setItem(12, item(Material.FIREWORK_ROCKET, "§d§lKill/Death Effects", List.of("§7Kill effects + sounds.", "§8Click to view")));
+        // 13 intentionally left as border fill
+        inv.setItem(14, item(Material.SMITHING_TEMPLATE, "§d§lArmor Trims", List.of("§7Purchase trim patterns + ores.", "§810 gems each", "§8Click to customize")));
         inv.setItem(15, item(Material.ELYTRA, "§a§lSpawn Gadgets", List.of("§7Permanent hub gadgets.", "§8Click to view")));
         player.openInventory(inv);
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
@@ -121,7 +123,8 @@ public final class ShopMenu implements Listener {
         int slot = e.getRawSlot();
         if (isShop) {
             if (slot == 11) openChat(player);
-            else if (slot == 13) openKillDeath(player);
+            else if (slot == 12) openKillDeath(player);
+            else if (slot == 14) Craftmen.get().getArmorTrimMenu().openMain(player);
             else if (slot == 15) openGadgets(player);
             else player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 0.8f);
             return;

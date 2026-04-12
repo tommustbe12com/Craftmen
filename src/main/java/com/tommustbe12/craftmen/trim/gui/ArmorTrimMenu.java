@@ -5,6 +5,8 @@ import com.tommustbe12.craftmen.profile.PlayerState;
 import com.tommustbe12.craftmen.trim.ArmorSlot;
 import com.tommustbe12.craftmen.trim.ArmorTrimManager;
 import com.tommustbe12.craftmen.trim.ArmorTrimSelection;
+import com.tommustbe12.craftmen.cosmetics.CosmeticsShop;
+import com.tommustbe12.craftmen.profile.Profile;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -140,6 +142,7 @@ public final class ArmorTrimMenu implements Listener {
         fillBorder(inv);
 
         inv.setItem(SLOT_BACK, backItem());
+        inv.setItem(SLOT_CLEAR, clearItem());
         inv.setItem(SLOT_PREV, arrowItem(true, clamped > 0));
         inv.setItem(SLOT_NEXT, arrowItem(false, clamped < maxPage));
         inv.setItem(SLOT_CLOSE, closeItem());
@@ -224,6 +227,12 @@ public final class ArmorTrimMenu implements Listener {
             if (clicked == null || !clicked.hasItemMeta()) return;
             String key = clicked.getItemMeta().getPersistentDataContainer().get(keyPattern, org.bukkit.persistence.PersistentDataType.STRING);
             if (key == null) return;
+            // Buy pattern (10 gems) if not owned
+            Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+            String cosmeticId = "trim.pattern." + key;
+            if (!profile.hasCosmetic(cosmeticId)) {
+                if (!CosmeticsShop.purchase(player, cosmeticId, 10)) return;
+            }
             openMaterial(player, holder.getSlot(), key, 0);
             return;
         }
@@ -242,6 +251,12 @@ public final class ArmorTrimMenu implements Listener {
             if (matKey == null) return;
 
             String patternKey = holder.getPatternKey();
+            // Buy material (10 gems) if not owned
+            Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+            String cosmeticId = "trim.material." + matKey;
+            if (!profile.hasCosmetic(cosmeticId)) {
+                if (!CosmeticsShop.purchase(player, cosmeticId, 10)) return;
+            }
             ArmorTrimSelection sel = new ArmorTrimSelection(patternKey, matKey);
             trims.setSelection(player.getUniqueId(), holder.getSlot(), sel);
             player.sendMessage(ChatColor.GREEN + "Saved trim for " + nice(holder.getSlot()) + ".");

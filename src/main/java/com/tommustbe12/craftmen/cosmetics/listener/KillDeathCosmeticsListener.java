@@ -18,6 +18,10 @@ public final class KillDeathCosmeticsListener implements Listener {
         Player killer = dead.getKiller();
         if (killer == null) return;
 
+        // These modes have custom death flows and call CosmeticsApplier themselves.
+        if (Craftmen.get().getMatchManager().getMatch(dead) != null) return;
+        if (Craftmen.get().getFfaManager().isInFfa(dead)) return;
+
         Location loc = dead.getLocation();
 
         // Covers vanilla death flows (e.g. End Fight). For matches/FFA where death is custom-handled,

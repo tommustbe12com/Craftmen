@@ -23,6 +23,7 @@ import com.tommustbe12.craftmen.help.HelpMenu;
 import com.tommustbe12.craftmen.help.command.HelpCommand;
 import com.tommustbe12.craftmen.hub.HubManager;
 import com.tommustbe12.craftmen.hub.SpawnProtectionListener;
+import com.tommustbe12.craftmen.hub.HubInventoryLockListener;
 import com.tommustbe12.craftmen.kit.KitManager;
 import com.tommustbe12.craftmen.kit.KitStorage;
 import com.tommustbe12.craftmen.kit.command.KitCommand;
@@ -174,6 +175,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CountdownBlockListener(), this);
         getServer().getPluginManager().registerEvents(new SnowballHitListener(), this);
         getServer().getPluginManager().registerEvents(new SpawnProtectionListener(), this);
+        getServer().getPluginManager().registerEvents(new HubInventoryLockListener(), this);
         getServer().getPluginManager().registerEvents(kitEditorMenu, this);
         getServer().getPluginManager().registerEvents(new KitEditorShortcutListener(), this);
         getServer().getPluginManager().registerEvents(armorTrimMenu, this);

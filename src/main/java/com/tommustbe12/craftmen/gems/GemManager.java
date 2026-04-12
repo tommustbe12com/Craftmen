@@ -39,5 +39,25 @@ public final class GemManager {
             Craftmen.get().saveProfile(profile);
         }
     }
-}
 
+    public int getKillStreakBonus(int streak) {
+        int s = Math.min(100, Math.max(0, streak));
+        if (s >= 100) return 25;
+        if (s >= 50) return 10;
+        if (s >= 20) return 5;
+        if (s >= 10) return 3;
+        if (s >= 5) return 2;
+        return 0;
+    }
+
+    public void awardWinGems(Profile winnerProfile) {
+        if (winnerProfile == null) return;
+        winnerProfile.addGems(1);
+        Craftmen.get().saveProfile(winnerProfile);
+        var p = winnerProfile.getPlayer();
+        if (p != null && p.isOnline()) {
+            p.sendMessage(ChatColor.AQUA + "+1 Gems " + ChatColor.GRAY + "(win)");
+            p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.3f);
+        }
+    }
+}

@@ -31,6 +31,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.File;
@@ -59,6 +60,8 @@ public final class FfaManager implements Listener {
 
     private final Map<UUID, UUID> playerInstance = new HashMap<>(); // player -> instanceId
     private final Map<UUID, FfaInstance> instancesById = new HashMap<>();
+    private final Map<UUID, Location> privateRespawnLocation = new HashMap<>();
+    private final Map<UUID, UUID> privateSpectateTarget = new HashMap<>();
 
     public FfaManager(Craftmen plugin) {
         this.plugin = plugin;
@@ -348,7 +351,7 @@ public final class FfaManager implements Listener {
         UUID id = dead.getUniqueId();
         session.alive.remove(id);
         setSpectator(dead, session);
-        teleportToSafeSpawn(dead, inst);
+        privateRespawnLocation.put(id, dead.getLocation());
 
         if (session.alive.size() > 1) return;
 
@@ -476,12 +479,7 @@ public final class FfaManager implements Listener {
             }
         }
 
-        for (FfaInstance inst : new ArrayList<>(privatePartyInstances.values())) {
-            if (inst.players.isEmpty()) continue;
-            if (now - inst.lastResetAtMillis >= RESET_EVERY_MILLIS) {
-                resetInstance(inst);
-            }
-        }
+        // Never auto-refresh private party FFAs.
     }
 
     private FfaInstance createInstance(Game game) {
@@ -844,6 +842,8 @@ public final class FfaManager implements Listener {
                     if (dead.isOnline()) dead.spigot().respawn();
                 }, 1L);
 
+                if (killer != null) privateSpectateTarget.put(dead.getUniqueId(), killer.getUniqueId());
+
                 String msg;
                 if (killer != null && allowDamage(killer, dead)) {
                     msg = ChatColor.RED + dead.getName() + ChatColor.GRAY + " was killed by " + ChatColor.GREEN + killer.getName();
@@ -879,5 +879,28 @@ public final class FfaManager implements Listener {
 
             leave(dead, true);
         });
+    }
+
+    @EventHandler
+    public void onRespawn(PlayerRespawnEvent e) {
+        Player player = e.getPlayer();
+        UUID instId = playerInstance.get(player.getUniqueId());
+        if (instId == null) return;
+        FfaInstance inst = instancesById.get(instId);
+        if (inst == null || !inst.isPrivate) return;
+
+        Location loc = privateRespawnLocation.remove(player.getUniqueId());
+        if (loc == null) loc = inst.pasteOrigin.clone().add(0, 5, 0);
+        e.setRespawnLocation(loc);
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            PartyFfaSession session = getSession(inst);
+            if (session != null) setSpectator(player, session);
+            UUID targetId = privateSpectateTarget.remove(player.getUniqueId());
+            if (targetId != null) {
+                Player target = Bukkit.getPlayer(targetId);
+                if (target != null) player.setSpectatorTarget(target);
+            }
+        }, 1L);
     }
 }
