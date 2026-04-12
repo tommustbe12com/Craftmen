@@ -13,6 +13,7 @@ import com.tommustbe12.craftmen.endfight.EndFightListener;
 import com.tommustbe12.craftmen.endfight.EndFightManager;
 import com.tommustbe12.craftmen.game.GameManager;
 import com.tommustbe12.craftmen.game.impl.*;
+import com.tommustbe12.craftmen.gems.GemManager;
 import com.tommustbe12.craftmen.hub.HubManager;
 import com.tommustbe12.craftmen.kit.KitManager;
 import com.tommustbe12.craftmen.kit.KitStorage;
@@ -78,6 +79,7 @@ public final class Craftmen extends JavaPlugin {
     private PartyManager partyManager;
     private PartyChatManager partyChatManager;
     private PartyFfaMenu partyFfaMenu;
+    private GemManager gemManager;
 
     @Override
     public void onEnable() {
@@ -122,6 +124,7 @@ public final class Craftmen extends JavaPlugin {
         partyManager = new PartyManager();
         partyChatManager = new PartyChatManager();
         partyFfaMenu = new PartyFfaMenu();
+        gemManager = new GemManager();
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -234,6 +237,7 @@ public final class Craftmen extends JavaPlugin {
     public PartyManager getPartyManager() { return partyManager; }
     public PartyChatManager getPartyChatManager() { return partyChatManager; }
     public PartyFfaMenu getPartyFfaMenu() { return partyFfaMenu; }
+    public GemManager getGemManager() { return gemManager; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {
@@ -246,6 +250,12 @@ public final class Craftmen extends JavaPlugin {
             getConfig().set(path + ".ffa_kills", profile.getFfaKills());
             getConfig().set(path + ".ffa_deaths", profile.getFfaDeaths());
             getConfig().set(path + ".badge", profile.getSelectedBadgeId() == null ? null : profile.getSelectedBadgeId().toString());
+            getConfig().set(path + ".gems", profile.getGems());
+            getConfig().set(path + ".end_wins", profile.getEndWins());
+            getConfig().set(path + ".kills_in_a_row", profile.getKillsInARow());
+            getConfig().set(path + ".losses_in_a_row", profile.getLossesInARow());
+            getConfig().set(path + ".claimed_badge_rewards", profile.getClaimedBadgeRewards().stream().map(UUID::toString).toList());
+            getConfig().set(path + ".claimed_win_streak_rewards", profile.getClaimedWinStreakRewards().stream().toList());
 
             // save per-game wins/losses
             for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
@@ -274,12 +284,31 @@ public final class Craftmen extends JavaPlugin {
             profile.setLastPlayedGame(getConfig().getString(path + ".last"));
             profile.setFfaKills(getConfig().getInt(path + ".ffa_kills", 0));
             profile.setFfaDeaths(getConfig().getInt(path + ".ffa_deaths", 0));
+            profile.setGems(getConfig().getInt(path + ".gems", 0));
+            profile.setEndWins(getConfig().getInt(path + ".end_wins", 0));
+            profile.setKillsInARow(getConfig().getInt(path + ".kills_in_a_row", 0));
+            profile.setLossesInARow(getConfig().getInt(path + ".losses_in_a_row", 0));
             String badgeRaw = getConfig().getString(path + ".badge");
             if (badgeRaw != null) {
                 try {
                     profile.setSelectedBadgeId(UUID.fromString(badgeRaw));
                 } catch (IllegalArgumentException ignored) {
                     profile.setSelectedBadgeId(null);
+                }
+            }
+
+            // claimed badge rewards
+            profile.getClaimedBadgeRewards().clear();
+            for (String idRaw : getConfig().getStringList(path + ".claimed_badge_rewards")) {
+                try {
+                    profile.getClaimedBadgeRewards().add(UUID.fromString(idRaw));
+                } catch (IllegalArgumentException ignored) {}
+            }
+            profile.getClaimedWinStreakRewards().clear();
+            for (Object o : getConfig().getList(path + ".claimed_win_streak_rewards", java.util.List.of())) {
+                if (o instanceof Integer i) profile.getClaimedWinStreakRewards().add(i);
+                else if (o instanceof String s) {
+                    try { profile.getClaimedWinStreakRewards().add(Integer.parseInt(s)); } catch (NumberFormatException ignored) {}
                 }
             }
 
@@ -307,6 +336,12 @@ public final class Craftmen extends JavaPlugin {
         getConfig().set(path + ".ffa_kills", profile.getFfaKills());
         getConfig().set(path + ".ffa_deaths", profile.getFfaDeaths());
         getConfig().set(path + ".badge", profile.getSelectedBadgeId() == null ? null : profile.getSelectedBadgeId().toString());
+        getConfig().set(path + ".gems", profile.getGems());
+        getConfig().set(path + ".end_wins", profile.getEndWins());
+        getConfig().set(path + ".kills_in_a_row", profile.getKillsInARow());
+        getConfig().set(path + ".losses_in_a_row", profile.getLossesInARow());
+        getConfig().set(path + ".claimed_badge_rewards", profile.getClaimedBadgeRewards().stream().map(UUID::toString).toList());
+        getConfig().set(path + ".claimed_win_streak_rewards", profile.getClaimedWinStreakRewards().stream().toList());
 
         for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
             getConfig().set(path + ".gameWins." + entry.getKey().replace(" ", "_"), entry.getValue());

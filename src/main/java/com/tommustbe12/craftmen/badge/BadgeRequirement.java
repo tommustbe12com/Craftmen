@@ -111,6 +111,17 @@ final class BadgeRequirement {
         if (k.equals("losses")) return profile.getLosses();
         if (k.equals("ffa_kills") || k.equals("ffa_kill")) return profile.getFfaKills();
         if (k.equals("ffa_deaths") || k.equals("ffa_death")) return profile.getFfaDeaths();
+        if (k.equals("endwins") || k.equals("end_wins")) return profile.getEndWins();
+        if (k.equals("killsinarow") || k.equals("kills_in_a_row")) return profile.getKillsInARow();
+        if (k.equals("lossinarow") || k.equals("lossesinarow") || k.equals("losses_in_a_row")) return profile.getLossesInARow();
+
+        if (k.equals("mostkills")) {
+            int max = 0;
+            for (Profile p : Craftmen.get().getProfileManager().getProfiles().values()) {
+                if (p.getFfaKills() > max) max = p.getFfaKills();
+            }
+            return profile.getFfaKills() >= 1 && profile.getFfaKills() == max ? 1 : 0;
+        }
 
         if (k.startsWith("game.")) {
             String rest = key.substring(5);

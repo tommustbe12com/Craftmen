@@ -93,9 +93,9 @@ public final class BadgeManager implements Listener {
                 if (aSel != bSel) return aSel ? -1 : 1;
             }
 
-            boolean aUnlocked = profile != null && BadgeRequirement.parse(a.getRequirement()).map(r -> r.matches(profile)).orElse(false);
-            boolean bUnlocked = profile != null && BadgeRequirement.parse(b.getRequirement()).map(r -> r.matches(profile)).orElse(false);
-            if (aUnlocked != bUnlocked) return aUnlocked ? -1 : 1;
+            int aDiff = difficultyScore(a.getRequirement());
+            int bDiff = difficultyScore(b.getRequirement());
+            if (aDiff != bDiff) return Integer.compare(aDiff, bDiff);
 
             return String.CASE_INSENSITIVE_ORDER.compare(a.getName(), b.getName());
         });
@@ -415,6 +415,51 @@ public final class BadgeManager implements Listener {
         return sb.toString();
     }
 
+    private static int difficultyScore(String requirementRaw) {
+        Optional<BadgeRequirement> parsed = BadgeRequirement.parse(requirementRaw);
+        if (parsed.isEmpty()) return Integer.MAX_VALUE;
+        int score = 0;
+        for (BadgeRequirement.Clause c : parsed.get().getClauses()) {
+            score += clauseDifficultyScore(c);
+        }
+        return score;
+    }
+
+    private static int clauseDifficultyScore(BadgeRequirement.Clause c) {
+        String key = c.key() == null ? "" : c.key().toLowerCase(java.util.Locale.ROOT).trim();
+        int base = Math.max(1, c.value());
+
+        int weight;
+        if (key.startsWith("game.")) weight = 1;
+        else if (key.equals("wins") || key.equals("losses")) weight = 1;
+        else if (key.startsWith("ffa_")) weight = 1;
+        else if (key.equals("endwins") || key.equals("end_wins")) weight = 2;
+        else if (key.equals("killsinarow") || key.equals("kills_in_a_row")) weight = 2;
+        else if (key.contains("mostkills")) weight = 50; // essentially "hard"
+        else weight = 3;
+
+        double opFactor = switch (c.op()) {
+            case GT -> 1.1;
+            case GTE -> 1.0;
+            case EQ -> 1.0;
+            case LT -> 0.9;
+            case LTE -> 0.9;
+        };
+
+        long scaled = Math.round(base * weight * opFactor);
+        if (scaled > Integer.MAX_VALUE) return Integer.MAX_VALUE;
+        return (int) scaled;
+    }
+
+    private static int gemsForBadge(String requirementRaw) {
+        int diff = difficultyScore(requirementRaw);
+        if (diff == Integer.MAX_VALUE) return 0;
+        int gems = Math.max(5, Math.min(250, (int) Math.round(Math.sqrt(diff) * 1.5)));
+        gems = (gems / 5) * 5;
+        if (gems < 5) gems = 5;
+        return gems;
+    }
+
     private static String opString(BadgeRequirement.Op op) {
         return switch (op) {
             case EQ -> "=";
@@ -506,6 +551,17 @@ public final class BadgeManager implements Listener {
             profile.setSelectedBadgeId(id);
             player.sendMessage(ChatColor.GREEN + "Selected badge: " + ChatColor.YELLOW + badge.getIcon() + " " + badge.getName());
             display.apply(player);
+
+            // Gems reward (one-time) for unlocking/selecting a badge.
+            if (!profile.hasClaimedBadgeReward(id)) {
+                int gems = gemsForBadge(badge.getRequirement());
+                profile.addGems(gems);
+                profile.claimBadgeReward(id);
+                player.sendMessage(ChatColor.AQUA + "+" + gems + " Gems " + ChatColor.GRAY + "(badge reward)");
+                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.3f);
+                Craftmen.get().saveProfile(profile);
+            }
+
             player.openInventory(buildPlayerMenu(player));
             return;
         }

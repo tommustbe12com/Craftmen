@@ -3,6 +3,8 @@ package com.tommustbe12.craftmen.profile;
 import org.bukkit.entity.Player;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 public class Profile {
 
@@ -16,6 +18,17 @@ public class Profile {
     private int ffaDeaths;
 
     private java.util.UUID selectedBadgeId;
+
+    private int gems;
+    private int endWins;
+
+    // streaks (duels/matches)
+    private int killsInARow;
+    private int lossesInARow;
+
+    // one-time claim tracking
+    private final Set<java.util.UUID> claimedBadgeRewards = new HashSet<>();
+    private final Set<Integer> claimedWinStreakRewards = new HashSet<>();
 
     private final Map<String, Integer> gameWins = new HashMap<>();
     private final Map<String, Integer> gameLosses = new HashMap<>();
@@ -36,12 +49,18 @@ public class Profile {
     public void addWin(String gameName) {
         this.wins++;
         gameWins.merge(gameName, 1, Integer::sum);
+        // win streak
+        this.killsInARow++;
+        this.lossesInARow = 0;
     }
 
     public int getLosses() { return losses; }
     public void addLoss(String gameName) {
         this.losses++;
         gameLosses.merge(gameName, 1, Integer::sum);
+        // loss streak
+        this.lossesInARow++;
+        this.killsInARow = 0;
     }
 
     public int getFfaKills() { return ffaKills; }
@@ -54,6 +73,28 @@ public class Profile {
 
     public java.util.UUID getSelectedBadgeId() { return selectedBadgeId; }
     public void setSelectedBadgeId(java.util.UUID selectedBadgeId) { this.selectedBadgeId = selectedBadgeId; }
+
+    public int getGems() { return gems; }
+    public void addGems(int amount) { this.gems += Math.max(0, amount); }
+    public void setGems(int gems) { this.gems = Math.max(0, gems); }
+
+    public int getEndWins() { return endWins; }
+    public void addEndWin() { this.endWins++; }
+    public void setEndWins(int endWins) { this.endWins = Math.max(0, endWins); }
+
+    public int getKillsInARow() { return killsInARow; }
+    public void setKillsInARow(int killsInARow) { this.killsInARow = Math.max(0, killsInARow); }
+
+    public int getLossesInARow() { return lossesInARow; }
+    public void setLossesInARow(int lossesInARow) { this.lossesInARow = Math.max(0, lossesInARow); }
+
+    public Set<java.util.UUID> getClaimedBadgeRewards() { return claimedBadgeRewards; }
+    public boolean hasClaimedBadgeReward(java.util.UUID badgeId) { return claimedBadgeRewards.contains(badgeId); }
+    public void claimBadgeReward(java.util.UUID badgeId) { if (badgeId != null) claimedBadgeRewards.add(badgeId); }
+
+    public Set<Integer> getClaimedWinStreakRewards() { return claimedWinStreakRewards; }
+    public boolean hasClaimedWinStreakReward(int streak) { return claimedWinStreakRewards.contains(streak); }
+    public void claimWinStreakReward(int streak) { claimedWinStreakRewards.add(streak); }
 
     public Map<String, Integer> getGameWins() { return gameWins; }
     public Map<String, Integer> getGameLosses() { return gameLosses; }
@@ -72,6 +113,8 @@ public class Profile {
             case "losses" -> this.losses += amount;
             case "ffa_kill", "ffa_kills" -> this.ffaKills += amount;
             case "ffa_death", "ffa_deaths" -> this.ffaDeaths += amount;
+            case "gems" -> this.gems += amount;
+            case "endwins", "end_wins" -> this.endWins += amount;
         }
     }
 
@@ -81,6 +124,8 @@ public class Profile {
             case "losses" -> this.losses = value;
             case "ffa_kill", "ffa_kills" -> this.ffaKills = value;
             case "ffa_death", "ffa_deaths" -> this.ffaDeaths = value;
+            case "gems" -> this.gems = Math.max(0, value);
+            case "endwins", "end_wins" -> this.endWins = Math.max(0, value);
         }
     }
 

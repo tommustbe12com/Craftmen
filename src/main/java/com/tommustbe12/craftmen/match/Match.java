@@ -139,6 +139,9 @@ public class Match {
         Profile loserProfile = Craftmen.get().getProfileManager().getProfile(loser);
         loserProfile.addLoss(game.getName());
 
+        // Win-streak gem rewards (one-time per threshold).
+        Craftmen.get().getGemManager().handleWinStreakRewards(winnerProfile);
+
         winnerProfile.setLastPlayedGame(game.getName());
         loserProfile.setLastPlayedGame(game.getName());
 

@@ -17,6 +17,7 @@ import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.scheduler.BukkitRunnable;
+import com.tommustbe12.craftmen.profile.Profile;
 
 public class EndFightListener implements Listener {
 
@@ -95,6 +96,13 @@ public class EndFightListener implements Listener {
 
         // Give the egg to the player
         p.getInventory().addItem(new ItemStack(Material.DRAGON_EGG));
+
+        // End Fight "win" stat (egg pickup = win)
+        Profile profile = Craftmen.get().getProfileManager().getProfile(p);
+        if (profile != null) {
+            profile.addEndWin();
+            Craftmen.get().saveProfile(profile);
+        }
 
         for (Player pl : manager.getPlayers()) {
             pl.setGameMode(GameMode.SPECTATOR);
