@@ -18,17 +18,10 @@ public final class ChatColorListener implements Listener {
         if (code == null || code.isBlank()) return;
 
         String color = ChatColor.translateAlternateColorCodes('&', code);
-        String format = e.getFormat();
-        if (format == null) return;
-
-        // If the format contains a message placeholder, color only the message part.
-        if (format.contains("%2$s")) {
-            // Don't rewrap if already wrapped.
-            if (!format.contains(color + "%2$s")) {
-                e.setFormat(format.replace("%2$s", color + "%2$s" + ChatColor.RESET));
-            }
-            return;
-        }
+        // Most chat plugins replace the message later; the most compatible approach is to color the message itself.
+        String msg = e.getMessage();
+        if (msg == null) return;
+        if (msg.startsWith(color)) return;
+        e.setMessage(color + msg + ChatColor.RESET);
     }
 }
-

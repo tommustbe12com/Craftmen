@@ -14,6 +14,7 @@ import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.customkit.CustomKit;
 import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.party.ffa.PartyFfaSession;
+import com.tommustbe12.craftmen.cosmetics.CosmeticsApplier;
 import com.tommustbe12.craftmen.player.PlayerReset;
 import com.tommustbe12.craftmen.profile.PlayerState;
 import com.tommustbe12.craftmen.profile.Profile;
@@ -829,6 +830,10 @@ public final class FfaManager implements Listener {
         Player killer = dead.getKiller();
         FfaInstance inst = instancesById.get(instId);
         if (inst == null) return;
+
+        if (killer != null) {
+            CosmeticsApplier.applyKillDeath(killer, dead, dead.getLocation());
+        }
 
         // Party private FFA: keep players in-instance as spectators; no stats.
         if (inst.isPrivate) {

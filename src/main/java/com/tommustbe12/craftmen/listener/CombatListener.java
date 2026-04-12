@@ -1,6 +1,7 @@
 package com.tommustbe12.craftmen.listener;
 
 import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.cosmetics.CosmeticsApplier;
 import com.tommustbe12.craftmen.match.Match;
 import com.tommustbe12.craftmen.profile.PlayerState;
 import org.bukkit.Material;
@@ -86,6 +87,10 @@ public class CombatListener implements Listener {
                 return;
             }
 
+            if (e instanceof EntityDamageByEntityEvent edbe && edbe.getDamager() instanceof Player killer) {
+                CosmeticsApplier.applyKillDeath(killer, player, player.getLocation());
+            }
+
             e.setCancelled(true);
             handleCustomDeath(player);
         }
@@ -113,6 +118,7 @@ public class CombatListener implements Listener {
         e.setDroppedExp(0);
 
         Player winner = match.getP1().equals(dead) ? match.getP2() : match.getP1();
+        if (winner != null) CosmeticsApplier.applyKillDeath(winner, dead, dead.getLocation());
         Craftmen.get().getMatchManager().endMatch(match, winner);
     }
 
@@ -127,6 +133,7 @@ public class CombatListener implements Listener {
         }
 
         Player winner = match.getP1().equals(dead) ? match.getP2() : match.getP1();
+        if (winner != null) CosmeticsApplier.applyKillDeath(winner, dead, dead.getLocation());
         Craftmen.get().getMatchManager().endMatch(match, winner);
     }
 

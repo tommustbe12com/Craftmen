@@ -1,0 +1,88 @@
+package com.tommustbe12.craftmen.cosmetics;
+
+import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.profile.Profile;
+import org.bukkit.Color;
+import org.bukkit.FireworkEffect;
+import org.bukkit.Location;
+import org.bukkit.Sound;
+import org.bukkit.entity.Firework;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.meta.FireworkMeta;
+
+public final class CosmeticsApplier {
+
+    private CosmeticsApplier() {}
+
+    public static void applyKillDeath(Player killer, Player dead, Location location) {
+        if (killer == null || dead == null || location == null) return;
+        Profile killerProfile = Craftmen.get().getProfileManager().getProfile(killer);
+        Profile deadProfile = Craftmen.get().getProfileManager().getProfile(dead);
+        if (killerProfile == null || deadProfile == null) return;
+
+        applyKillEffect(killerProfile, location);
+        applyDeathEffect(deadProfile, location);
+        playKillSound(killerProfile, killer);
+        playDeathSound(deadProfile, dead);
+    }
+
+    private static void applyKillEffect(Profile profile, Location loc) {
+        String id = profile.getSelectedKillEffect();
+        if (id == null) return;
+        switch (id) {
+            case "kill.lightning" -> loc.getWorld().strikeLightningEffect(loc);
+            case "kill.firework" -> spawnFirework(loc, Color.AQUA);
+        }
+    }
+
+    private static void applyDeathEffect(Profile profile, Location loc) {
+        String id = profile.getSelectedDeathEffect();
+        if (id == null) return;
+        switch (id) {
+            case "death.lightning" -> loc.getWorld().strikeLightningEffect(loc);
+            case "death.firework" -> spawnFirework(loc, Color.RED);
+        }
+    }
+
+    private static void playKillSound(Profile profile, Player player) {
+        String raw = profile.getSelectedKillSound();
+        if (raw == null) return;
+        Sound sound = parseSound(raw);
+        if (sound == null) return;
+        player.playSound(player.getLocation(), sound, 1.0f, 1.2f);
+    }
+
+    private static void playDeathSound(Profile profile, Player player) {
+        String raw = profile.getSelectedDeathSound();
+        if (raw == null) return;
+        Sound sound = parseSound(raw);
+        if (sound == null) return;
+        player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
+    }
+
+    private static Sound parseSound(String raw) {
+        try {
+            return Sound.valueOf(raw);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private static void spawnFirework(Location loc, Color color) {
+        if (loc.getWorld() == null) return;
+        Firework fw = loc.getWorld().spawn(loc.clone().add(0, 0.2, 0), Firework.class, firework -> {
+            FireworkMeta meta = firework.getFireworkMeta();
+            meta.clearEffects();
+            meta.addEffect(FireworkEffect.builder()
+                    .withColor(color)
+                    .with(FireworkEffect.Type.BALL_LARGE)
+                    .flicker(true)
+                    .trail(true)
+                    .build());
+            meta.setPower(0);
+            firework.setFireworkMeta(meta);
+        });
+        org.bukkit.Bukkit.getScheduler().runTaskLater(Craftmen.get(), fw::detonate, 1L);
+    }
+}
+
