@@ -65,11 +65,13 @@ public class HubManager implements Listener {
     private final Map<UUID, Integer> playerPage = new HashMap<>();
     private final Map<UUID, Consumer<Game>> gameCallbacks = new HashMap<>();
     private final Map<UUID, Integer> ffaPage = new HashMap<>();
+    private final Map<String, Long> gadgetCooldowns = new HashMap<>(); // playerUuid:gadgetKey -> lastUseMillis
 
     // ── Hub item helpers ─────────────────────────────────────────────────────
 
     public void giveHubItems(Player player) {
         player.getInventory().clear();
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         ItemStack selector = new ItemStack(Material.IRON_SWORD);
         ItemMeta meta = selector.getItemMeta();
         meta.setDisplayName(HUB_ITEM_GAME_SELECTOR);
@@ -94,22 +96,26 @@ public class HubManager implements Listener {
         shop.setItemMeta(shopMeta);
         player.getInventory().setItem(6, shop);
 
-        ItemStack feather = new ItemStack(Material.FEATHER);
-        ItemMeta fMeta = feather.getItemMeta();
-        fMeta.setDisplayName(HUB_ITEM_LAUNCH_FEATHER);
-        fMeta.setLore(Arrays.asList(ChatColor.GRAY + "Right-click to launch up.", ChatColor.DARK_GRAY + "Hub only."));
-        feather.setItemMeta(fMeta);
-        player.getInventory().setItem(4, feather);
+        // Harmless gadgets are purchasable in /shop now.
+        if (profile != null && profile.hasCosmetic("gadget.launchfeather")) {
+            ItemStack feather = new ItemStack(Material.FEATHER);
+            ItemMeta fMeta = feather.getItemMeta();
+            fMeta.setDisplayName(HUB_ITEM_LAUNCH_FEATHER);
+            fMeta.setLore(Arrays.asList(ChatColor.GRAY + "Right-click to launch up.", ChatColor.DARK_GRAY + "Cooldown: 5s"));
+            feather.setItemMeta(fMeta);
+            player.getInventory().setItem(4, feather);
+        }
 
-        ItemStack rocket = new ItemStack(Material.FIREWORK_ROCKET, 3);
-        ItemMeta rMeta = rocket.getItemMeta();
-        rMeta.setDisplayName(HUB_ITEM_FUN_FIREWORK);
-        rMeta.setLore(Arrays.asList(ChatColor.GRAY + "Right-click for fireworks.", ChatColor.DARK_GRAY + "Hub only."));
-        rocket.setItemMeta(rMeta);
-        player.getInventory().setItem(5, rocket);
+        if (profile != null && profile.hasCosmetic("gadget.funfirework")) {
+            ItemStack rocket = new ItemStack(Material.FIREWORK_ROCKET, 3);
+            ItemMeta rMeta = rocket.getItemMeta();
+            rMeta.setDisplayName(HUB_ITEM_FUN_FIREWORK);
+            rMeta.setLore(Arrays.asList(ChatColor.GRAY + "Right-click for fireworks.", ChatColor.DARK_GRAY + "Cooldown: 8s"));
+            rocket.setItemMeta(rMeta);
+            player.getInventory().setItem(5, rocket);
+        }
 
         // Permanent gadgets purchased with gems.
-        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         if (profile != null) {
             if (profile.hasCosmetic("gadget.elytra")) {
                 ItemStack elytra = new ItemStack(Material.ELYTRA);
@@ -206,11 +212,13 @@ public class HubManager implements Listener {
         } else if (name.equals(HUB_ITEM_LAUNCH_FEATHER)) {
             e.setCancelled(true);
             if (Craftmen.get().getProfileManager().getProfile(player).getState() != PlayerState.LOBBY) return;
+            if (!useCooldown(player, "launchfeather", 5000L)) return;
             player.setVelocity(player.getVelocity().setY(1.0));
             player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.8f, 1.3f);
         } else if (name.equals(HUB_ITEM_FUN_FIREWORK)) {
             e.setCancelled(true);
             if (Craftmen.get().getProfileManager().getProfile(player).getState() != PlayerState.LOBBY) return;
+            if (!useCooldown(player, "funfirework", 8000L)) return;
             // Launch a harmless firework.
             var loc = player.getLocation();
             var fw = player.getWorld().spawn(loc, org.bukkit.entity.Firework.class);
@@ -318,6 +326,22 @@ public class HubManager implements Listener {
             player.closeInventory();
             if (callback != null) callback.accept(game);
         }
+    }
+
+    private boolean useCooldown(Player player, String key, long cooldownMillis) {
+        if (player == null) return false;
+        long now = System.currentTimeMillis();
+        String mapKey = player.getUniqueId() + ":" + key;
+        long last = gadgetCooldowns.getOrDefault(mapKey, 0L);
+        long remaining = (last + cooldownMillis) - now;
+        if (remaining > 0) {
+            long sec = Math.max(1, (long) Math.ceil(remaining / 1000.0));
+            player.sendMessage(ChatColor.RED + "Cooldown: " + sec + "s");
+            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 0.6f);
+            return false;
+        }
+        gadgetCooldowns.put(mapKey, now);
+        return true;
     }
 
     // ── GUI construction ─────────────────────────────────────────────────────

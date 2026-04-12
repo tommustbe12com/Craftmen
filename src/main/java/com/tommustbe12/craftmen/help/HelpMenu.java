@@ -25,14 +25,14 @@ public final class HelpMenu implements Listener {
     private static final String TITLE_COMMANDS = "§8Commands";
     private static final String TITLE_CREDITS = "§8Credits";
 
-    private static final int SIZE = 54;
+    private static final int SIZE = 27;
 
     public void openMain(Player player) {
         Inventory inv = Bukkit.createInventory(null, SIZE, TITLE_MAIN);
         fillBorder(inv);
 
-        // Center content (row 3-ish)
-        inv.setItem(22, item(Material.BOOK,
+        // Middle row holds all 9 items (top/bottom are black panes).
+        inv.setItem(9, item(Material.BOOK,
                 "§b§lCraftmen",
                 List.of(
                         "§7A PvP match-making server",
@@ -40,15 +40,15 @@ public final class HelpMenu implements Listener {
                         "§7and player experience."
                 )));
 
-        inv.setItem(20, item(Material.LANTERN,
+        inv.setItem(10, item(Material.LANTERN,
                 "§e§lCommands",
                 List.of("§7Click to view commands", "§8(with aliases)")));
 
-        inv.setItem(24, item(Material.PLAYER_HEAD,
+        inv.setItem(11, item(Material.PLAYER_HEAD,
                 "§d§lCredits",
                 List.of("§7Click to view the team", "§7and contributors")));
 
-        inv.setItem(30, item(Material.LEAD,
+        inv.setItem(12, item(Material.LEAD,
                 "§6§lParties",
                 List.of(
                         "§7/party create, invite, accept",
@@ -57,7 +57,7 @@ public final class HelpMenu implements Listener {
                         "§7/pc toggles party chat"
                 )));
 
-        inv.setItem(31, item(Material.CHEST,
+        inv.setItem(13, item(Material.CHEST,
                 "§a§lCustom Kits",
                 List.of(
                         "§7Create and edit kits in hub",
@@ -65,7 +65,7 @@ public final class HelpMenu implements Listener {
                         "§7(see Player Kits menu)"
                 )));
 
-        inv.setItem(32, item(Material.NAME_TAG,
+        inv.setItem(14, item(Material.NAME_TAG,
                 "§b§lBadges",
                 List.of(
                         "§7Unlock badges by progress",
@@ -73,7 +73,7 @@ public final class HelpMenu implements Listener {
                         "§7and show off skill"
                 )));
 
-        inv.setItem(33, item(Material.EMERALD,
+        inv.setItem(15, item(Material.EMERALD,
                 "§b§lGems",
                 List.of(
                         "§7Earn gems from badges",
@@ -81,7 +81,8 @@ public final class HelpMenu implements Listener {
                         "§7Use gems in /shop"
                 )));
 
-        inv.setItem(49, item(Material.BARRIER, "§cClose", List.of("§7Close this menu")));
+        inv.setItem(16, item(Material.ENDER_CHEST, "§d§lShop", List.of("§7Open the cosmetics shop", "§8Use gems to buy cosmetics")));
+        inv.setItem(17, item(Material.BARRIER, "§cClose", List.of("§7Close this menu")));
 
         player.openInventory(inv);
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
@@ -91,10 +92,10 @@ public final class HelpMenu implements Listener {
         Inventory inv = Bukkit.createInventory(null, SIZE, TITLE_COMMANDS);
         fillBorder(inv);
 
-        inv.setItem(49, item(Material.ARROW, "§eBack", List.of("§7Return to help")));
+        inv.setItem(17, item(Material.ARROW, "§eBack", List.of("§7Return to help")));
 
         // A clean list of common commands
-        inv.setItem(20, item(Material.IRON_SWORD, "§6Queue / Duel",
+        inv.setItem(9, item(Material.IRON_SWORD, "§6Queue / Duel",
                 List.of(
                         "§7/queue §8(aliases: /q)",
                         "§7/duel <player>",
@@ -102,33 +103,36 @@ public final class HelpMenu implements Listener {
                         "§7/forfeit §8(aliases: /f)"
                 )));
 
-        inv.setItem(21, item(Material.TNT, "§cFFA",
+        inv.setItem(10, item(Material.TNT, "§cFFA",
                 List.of(
                         "§7/ffa",
                         "§7/hub §8(leaves FFA too)"
                 )));
 
-        inv.setItem(22, item(Material.LEAD, "§6Parties",
+        inv.setItem(11, item(Material.LEAD, "§6Parties",
                 List.of(
                         "§7/party §8(aliases: /p)",
                         "§7/pc [msg] §8(party chat)",
                         "§7/party ffa §8(leader)"
                 )));
 
-        inv.setItem(23, item(Material.NAME_TAG, "§bBadges",
+        inv.setItem(12, item(Material.NAME_TAG, "§bBadges",
                 List.of(
                         "§7/badges",
                         "§7/badgeadmin §8(op only)"
                 )));
 
-        inv.setItem(24, item(Material.EMERALD, "§bGems / Shop",
+        inv.setItem(13, item(Material.EMERALD, "§bGems / Shop",
                 List.of(
                         "§7/gems",
                         "§7/shop",
                         "§7/gems add|sub|set ... §8(op only)"
                 )));
 
-        inv.setItem(25, item(Material.END_PORTAL_FRAME, "§5End Fight",
+        inv.setItem(14, item(Material.ENDER_EYE, "§5Spectate",
+                List.of("§7/spectate <player>", "§8(aliases: /spec, /s)")));
+
+        inv.setItem(15, item(Material.END_PORTAL_FRAME, "§5End Fight",
                 List.of("§7/endfight §8(aliases: /ef, /end)")));
 
         player.openInventory(inv);
@@ -138,17 +142,18 @@ public final class HelpMenu implements Listener {
     private void openCredits(Player player) {
         Inventory inv = Bukkit.createInventory(null, SIZE, TITLE_CREDITS);
         fillBorder(inv);
-        inv.setItem(49, item(Material.ARROW, "§eBack", List.of("§7Return to help")));
+        inv.setItem(17, item(Material.ARROW, "§eBack", List.of("§7Return to help")));
 
         // Ordered list
-        inv.setItem(10, head("TomMustBe12", "§6TomMustBe12", List.of("§7Owner / Developer")));
-        inv.setItem(12, head("BionicleBlaster", "§eBionicleBlaster", List.of("§7Manager")));
-        inv.setItem(14, head("Zembiii", "§dZembiii", List.of("§7Staff / Creative Team")));
-        inv.setItem(16, head("mecringe", "§dmecringe", List.of("§7Staff / Creative Team")));
-        inv.setItem(28, head("nytsom", "§bnytsom", List.of("§7Staff")));
-        inv.setItem(30, head("Rysterio", "§aRysterio", List.of("§7Map Builder")));
+        inv.setItem(9, head("TomMustBe12", "§6TomMustBe12", List.of("§7Owner / Developer")));
+        inv.setItem(10, head("BionicleBlaster", "§eBionicleBlaster", List.of("§7Manager")));
+        inv.setItem(11, head("Zembiii", "§dZembiii", List.of("§7Staff / Creative Team")));
+        inv.setItem(12, head("mecringe", "§dmecringe", List.of("§7Staff / Creative Team")));
+        inv.setItem(13, head("Warden_Charlie", "§dWarden_Charlie", List.of("§7Creative Team")));
+        inv.setItem(14, head("nytsom", "§bnytsom", List.of("§7Staff")));
+        inv.setItem(15, head("Rysterio", "§aRysterio", List.of("§7Map Builder")));
 
-        inv.setItem(32, item(Material.PAPER, "§f§lNote",
+        inv.setItem(16, item(Material.PAPER, "§f§lNote",
                 List.of("§7Thank you to all beta testers!", "§8We appreciate you.")));
 
         player.openInventory(inv);
@@ -176,22 +181,27 @@ public final class HelpMenu implements Listener {
         int slot = e.getRawSlot();
 
         if (main) {
-            if (slot == 20) {
+            if (slot == 10) {
                 openCommands(player);
                 return;
             }
-            if (slot == 24) {
+            if (slot == 11) {
                 openCredits(player);
                 return;
             }
-            if (slot == 49) {
+            if (slot == 16) {
+                player.closeInventory();
+                Craftmen.get().getShopMenu().open(player);
+                return;
+            }
+            if (slot == 17) {
                 player.closeInventory();
                 player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 0.8f);
                 return;
             }
         }
 
-        if ((cmds || credits) && slot == 49) {
+        if ((cmds || credits) && slot == 17) {
             openMain(player);
         }
     }
@@ -216,14 +226,9 @@ public final class HelpMenu implements Listener {
             pane.setItemMeta(meta);
         }
 
-        // top + bottom
+        // 3x9: top row + bottom row are the border. Middle row is content.
         for (int i = 0; i < 9; i++) inv.setItem(i, pane);
-        for (int i = 45; i < 54; i++) inv.setItem(i, pane);
-        // left + right
-        for (int row = 1; row <= 4; row++) {
-            inv.setItem(row * 9, pane);
-            inv.setItem(row * 9 + 8, pane);
-        }
+        for (int i = 18; i < 27; i++) inv.setItem(i, pane);
     }
 
     private ItemStack item(Material mat, String name, List<String> lore) {
@@ -252,4 +257,3 @@ public final class HelpMenu implements Listener {
         return skull;
     }
 }
-

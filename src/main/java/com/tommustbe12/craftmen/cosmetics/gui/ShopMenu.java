@@ -90,6 +90,11 @@ public final class ShopMenu implements Listener {
         inv.setItem(24, gadgetItem("gadget.windcharge", Material.WIND_CHARGE, "§aPermanent Wind Charges", 150, profile,
                 List.of("§7Get Wind Charges gadget in spawn.")));
 
+        inv.setItem(22, gadgetItem("gadget.launchfeather", Material.FEATHER, "§aLaunch Feather", 25, profile,
+                List.of("§7Harmless hub launch gadget.", "§8Cooldown based.")));
+        inv.setItem(23, gadgetItem("gadget.funfirework", Material.FIREWORK_ROCKET, "§aFun Firework", 25, profile,
+                List.of("§7Harmless hub fireworks.", "§8Cooldown based.")));
+
         player.openInventory(inv);
     }
 
