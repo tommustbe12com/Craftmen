@@ -73,9 +73,10 @@ public class ScoreboardManager {
 
         int ping = player.getPing();
 
-        setLine(board, sidebar, "line1", " ", 6);
-        setLine(board, sidebar, "wins", "\u00A77Wins: \u00A7f" + profile.getWins(), 5);
-        setLine(board, sidebar, "losses", "\u00A77Losses: \u00A7f" + profile.getLosses(), 4);
+        setLine(board, sidebar, "line1", " ", 7);
+        setLine(board, sidebar, "wins", "\u00A77Wins: \u00A7f" + profile.getWins(), 6);
+        setLine(board, sidebar, "losses", "\u00A77Losses: \u00A7f" + profile.getLosses(), 5);
+        setLine(board, sidebar, "gems", "\u00A7bGems: \u00A7f" + profile.getGems(), 4);
         setLine(board, sidebar, "ping", "\u00A77Ping: \u00A7f" + ping + "ms", 3);
         setLine(board, sidebar, "line2", "  ", 2);
         setLine(board, sidebar, "footer", "\u00A7bplay.craftmen.net", 1);

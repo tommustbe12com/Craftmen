@@ -123,6 +123,16 @@ final class BadgeRequirement {
             return profile.getFfaKills() >= 1 && profile.getFfaKills() == max ? 1 : 0;
         }
 
+        if (k.equals("winsallgm") || k.equals("wins_all_gm")) {
+            // For ">= X wins in EVERY normal queued gamemode", use the minimum wins across all registered games.
+            int min = Integer.MAX_VALUE;
+            for (var g : Craftmen.get().getGameManager().getGames()) {
+                int w = profile.getGameWins(g.getName());
+                if (w < min) min = w;
+            }
+            return min == Integer.MAX_VALUE ? 0 : min;
+        }
+
         if (k.startsWith("game.")) {
             String rest = key.substring(5);
             // supports: game.crystalWins, game.crystalLosses (case-insensitive)

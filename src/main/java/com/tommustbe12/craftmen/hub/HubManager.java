@@ -4,9 +4,11 @@ import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.game.Game;
 import com.tommustbe12.craftmen.profile.PlayerState;
 import com.tommustbe12.craftmen.queue.QueueManager;
+import com.tommustbe12.craftmen.profile.Profile;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -18,6 +20,7 @@ import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.event.inventory.InventoryType;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -81,6 +84,30 @@ public class HubManager implements Listener {
         trimsMeta.setDisplayName(HUB_ITEM_ARMOR_TRIMS);
         trims.setItemMeta(trimsMeta);
         player.getInventory().setItem(7, trims);
+
+        // Permanent gadgets purchased with gems.
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        if (profile != null) {
+            if (profile.hasCosmetic("gadget.elytra")) {
+                ItemStack elytra = new ItemStack(Material.ELYTRA);
+                ItemMeta em = elytra.getItemMeta();
+                if (em != null) {
+                    em.setDisplayName("§aSpawn Elytra");
+                    em.addEnchant(Enchantment.UNBREAKING, 1, true);
+                    elytra.setItemMeta(em);
+                }
+                player.getInventory().setItem(2, elytra);
+            }
+            if (profile.hasCosmetic("gadget.windcharge")) {
+                ItemStack wc = new ItemStack(Material.WIND_CHARGE, 16);
+                ItemMeta wm = wc.getItemMeta();
+                if (wm != null) {
+                    wm.setDisplayName("§aSpawn Wind Charges");
+                    wc.setItemMeta(wm);
+                }
+                player.getInventory().setItem(3, wc);
+            }
+        }
 
         if(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame().equals("None")) return;
         ItemStack again = new ItemStack(Craftmen.get().getGameManager().getGame(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame()).getIcon()); // complicated lol

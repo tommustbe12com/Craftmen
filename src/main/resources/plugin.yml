@@ -77,6 +77,12 @@ commands:
   pc:
     description: Party chat
     usage: /pc [message]
+  gems:
+    description: View or manage gems
+    usage: /gems [player] | /gems add <player> <amount>
+  shop:
+    description: Open cosmetics shop
+    usage: /shop
 permissions:
   craftmen.admin:
     default: op

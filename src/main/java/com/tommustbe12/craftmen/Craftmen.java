@@ -14,6 +14,10 @@ import com.tommustbe12.craftmen.endfight.EndFightManager;
 import com.tommustbe12.craftmen.game.GameManager;
 import com.tommustbe12.craftmen.game.impl.*;
 import com.tommustbe12.craftmen.gems.GemManager;
+import com.tommustbe12.craftmen.gems.command.GemsCommand;
+import com.tommustbe12.craftmen.cosmetics.command.ShopCommand;
+import com.tommustbe12.craftmen.cosmetics.gui.ShopMenu;
+import com.tommustbe12.craftmen.cosmetics.listener.ChatColorListener;
 import com.tommustbe12.craftmen.hub.HubManager;
 import com.tommustbe12.craftmen.kit.KitManager;
 import com.tommustbe12.craftmen.kit.KitStorage;
@@ -80,6 +84,7 @@ public final class Craftmen extends JavaPlugin {
     private PartyChatManager partyChatManager;
     private PartyFfaMenu partyFfaMenu;
     private GemManager gemManager;
+    private ShopMenu shopMenu;
 
     @Override
     public void onEnable() {
@@ -125,6 +130,7 @@ public final class Craftmen extends JavaPlugin {
         partyChatManager = new PartyChatManager();
         partyFfaMenu = new PartyFfaMenu();
         gemManager = new GemManager();
+        shopMenu = new ShopMenu();
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -167,6 +173,8 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PartyChatListener(), this);
         getServer().getPluginManager().registerEvents(new PartyPlayerListener(), this);
         getServer().getPluginManager().registerEvents(partyFfaMenu, this);
+        getServer().getPluginManager().registerEvents(shopMenu, this);
+        getServer().getPluginManager().registerEvents(new ChatColorListener(), this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
@@ -189,6 +197,8 @@ public final class Craftmen extends JavaPlugin {
         getCommand("party").setTabCompleter(new PartyTabCompleter());
         getCommand("pc").setExecutor(new PartyChatCommand());
         getCommand("pc").setTabCompleter(new PartyChatTabCompleter());
+        getCommand("gems").setExecutor(new GemsCommand());
+        getCommand("shop").setExecutor(new ShopCommand());
 
         getCommand("stat").setTabCompleter(new StatCommand());
 
@@ -238,6 +248,7 @@ public final class Craftmen extends JavaPlugin {
     public PartyChatManager getPartyChatManager() { return partyChatManager; }
     public PartyFfaMenu getPartyFfaMenu() { return partyFfaMenu; }
     public GemManager getGemManager() { return gemManager; }
+    public ShopMenu getShopMenu() { return shopMenu; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {
@@ -256,6 +267,8 @@ public final class Craftmen extends JavaPlugin {
             getConfig().set(path + ".losses_in_a_row", profile.getLossesInARow());
             getConfig().set(path + ".claimed_badge_rewards", profile.getClaimedBadgeRewards().stream().map(UUID::toString).toList());
             getConfig().set(path + ".claimed_win_streak_rewards", profile.getClaimedWinStreakRewards().stream().toList());
+            getConfig().set(path + ".purchased_cosmetics", profile.getPurchasedCosmetics().stream().toList());
+            getConfig().set(path + ".selected_chat_color", profile.getSelectedChatColor());
 
             // save per-game wins/losses
             for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
@@ -312,6 +325,10 @@ public final class Craftmen extends JavaPlugin {
                 }
             }
 
+            profile.getPurchasedCosmetics().clear();
+            profile.getPurchasedCosmetics().addAll(getConfig().getStringList(path + ".purchased_cosmetics"));
+            profile.setSelectedChatColor(getConfig().getString(path + ".selected_chat_color"));
+
             // load per-game wins/losses
             if (getConfig().contains(path + ".gameWins")) {
                 for (String game : getConfig().getConfigurationSection(path + ".gameWins").getKeys(false)) {
@@ -342,6 +359,8 @@ public final class Craftmen extends JavaPlugin {
         getConfig().set(path + ".losses_in_a_row", profile.getLossesInARow());
         getConfig().set(path + ".claimed_badge_rewards", profile.getClaimedBadgeRewards().stream().map(UUID::toString).toList());
         getConfig().set(path + ".claimed_win_streak_rewards", profile.getClaimedWinStreakRewards().stream().toList());
+        getConfig().set(path + ".purchased_cosmetics", profile.getPurchasedCosmetics().stream().toList());
+        getConfig().set(path + ".selected_chat_color", profile.getSelectedChatColor());
 
         for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
             getConfig().set(path + ".gameWins." + entry.getKey().replace(" ", "_"), entry.getValue());

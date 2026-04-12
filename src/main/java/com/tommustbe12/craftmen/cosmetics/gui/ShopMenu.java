@@ -1,0 +1,208 @@
+package com.tommustbe12.craftmen.cosmetics.gui;
+
+import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.cosmetics.CosmeticsShop;
+import com.tommustbe12.craftmen.profile.Profile;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
+import org.bukkit.Material;
+import org.bukkit.Sound;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemFlag;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import java.util.List;
+
+public final class ShopMenu implements Listener {
+
+    private static final String TITLE = "§8Cosmetics Shop";
+    private static final String TITLE_CHAT = "§8Chat Colors";
+    private static final String TITLE_GADGETS = "§8Spawn Gadgets";
+
+    public void open(Player player) {
+        if (player == null) return;
+        Inventory inv = Bukkit.createInventory(null, 27, TITLE);
+        fill(inv);
+        inv.setItem(11, item(Material.NAME_TAG, "§b§lChat Color", List.of("§7Purchase and select a chat color.", "§8Click to view")));
+        inv.setItem(13, item(Material.FIREWORK_ROCKET, "§d§lKill/Death Effects", List.of("§7Coming soon.")));
+        inv.setItem(15, item(Material.ELYTRA, "§a§lSpawn Gadgets", List.of("§7Permanent hub gadgets.", "§8Click to view")));
+        player.openInventory(inv);
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+    }
+
+    private void openChat(Player player) {
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_CHAT);
+        fill(inv);
+        inv.setItem(49, item(Material.BARRIER, "§cBack", List.of("§7Return to shop")));
+
+        inv.setItem(10, chatColorItem("&b", "§bAqua", 75, profile));
+        inv.setItem(11, chatColorItem("&d", "§dPink", 75, profile));
+        inv.setItem(12, chatColorItem("&e", "§eYellow", 75, profile));
+        inv.setItem(13, chatColorItem("&a", "§aGreen", 75, profile));
+        inv.setItem(14, chatColorItem("&c", "§cRed", 75, profile));
+        inv.setItem(15, chatColorItem("&6", "§6Gold", 75, profile));
+        inv.setItem(16, chatColorItem("&f", "§fWhite", 50, profile));
+
+        player.openInventory(inv);
+    }
+
+    private void openGadgets(Player player) {
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_GADGETS);
+        fill(inv);
+        inv.setItem(49, item(Material.BARRIER, "§cBack", List.of("§7Return to shop")));
+
+        inv.setItem(20, gadgetItem("gadget.elytra", Material.ELYTRA, "§aPermanent Elytra", 150, profile,
+                List.of("§7Get an Elytra gadget in spawn.")));
+        inv.setItem(24, gadgetItem("gadget.windcharge", Material.WIND_CHARGE, "§aPermanent Wind Charges", 150, profile,
+                List.of("§7Get Wind Charges gadget in spawn.")));
+
+        player.openInventory(inv);
+    }
+
+    @EventHandler
+    public void onClick(InventoryClickEvent e) {
+        if (!(e.getWhoClicked() instanceof Player player)) return;
+        if (e.getView() == null || e.getView().getTitle() == null) return;
+
+        String title = e.getView().getTitle();
+        if (!title.equals(TITLE) && !title.equals(TITLE_CHAT) && !title.equals(TITLE_GADGETS)) return;
+
+        if (e.getClickedInventory() == null || !e.getClickedInventory().equals(e.getView().getTopInventory())) return;
+        e.setCancelled(true);
+
+        ItemStack clicked = e.getCurrentItem();
+        if (clicked == null || clicked.getType() == Material.AIR) return;
+
+        int slot = e.getRawSlot();
+        if (title.equals(TITLE)) {
+            if (slot == 11) openChat(player);
+            else if (slot == 15) openGadgets(player);
+            else player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 0.8f);
+            return;
+        }
+
+        if (slot == 49) {
+            open(player);
+            return;
+        }
+
+        if (title.equals(TITLE_CHAT)) {
+            handleChatColorClick(player, clicked);
+            return;
+        }
+
+        if (title.equals(TITLE_GADGETS)) {
+            handleGadgetClick(player, clicked);
+        }
+    }
+
+    private void handleChatColorClick(Player player, ItemStack clicked) {
+        ItemMeta meta = clicked.getItemMeta();
+        if (meta == null || meta.getLore() == null) return;
+        String lore0 = ChatColor.stripColor(meta.getLore().get(0));
+        if (lore0 == null) return;
+
+        // Lore format: "Color: &b"
+        String code = lore0.replace("Color: ", "").trim();
+        int cost = parseCost(meta.getLore());
+        String cosmeticId = "chatcolor." + code;
+
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        if (!profile.hasCosmetic(cosmeticId)) {
+            if (!CosmeticsShop.purchase(player, cosmeticId, cost)) return;
+        }
+
+        profile.setSelectedChatColor(code);
+        Craftmen.get().saveProfile(profile);
+        player.sendMessage(ChatColor.AQUA + "Selected chat color: " + ChatColor.translateAlternateColorCodes('&', code) + "Preview");
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.3f);
+        openChat(player);
+    }
+
+    private void handleGadgetClick(Player player, ItemStack clicked) {
+        ItemMeta meta = clicked.getItemMeta();
+        if (meta == null || meta.getLore() == null) return;
+        String idLine = ChatColor.stripColor(meta.getLore().get(0));
+        if (idLine == null) return;
+
+        // Lore format: "ID: gadget.elytra"
+        String cosmeticId = idLine.replace("ID: ", "").trim();
+        int cost = parseCost(meta.getLore());
+        CosmeticsShop.purchase(player, cosmeticId, cost);
+        openGadgets(player);
+    }
+
+    private int parseCost(List<String> lore) {
+        for (String l : lore) {
+            String s = ChatColor.stripColor(l);
+            if (s == null) continue;
+            if (s.startsWith("Cost: ")) {
+                try {
+                    return Integer.parseInt(s.replace("Cost: ", "").replace(" gems", "").trim());
+                } catch (NumberFormatException ignored) {
+                    return 0;
+                }
+            }
+        }
+        return 0;
+    }
+
+    private ItemStack chatColorItem(String code, String display, int cost, Profile profile) {
+        String id = "chatcolor." + code;
+        boolean owned = profile != null && profile.hasCosmetic(id);
+        boolean selected = profile != null && code.equalsIgnoreCase(profile.getSelectedChatColor());
+
+        Material mat = owned ? Material.LIME_DYE : Material.GRAY_DYE;
+        String name = display + (selected ? " §6(Selected)" : "");
+        List<String> lore = owned
+                ? List.of("§7Color: §f" + code, "§aOwned", "§eClick to select")
+                : List.of("§7Color: §f" + code, "§7Cost: §b" + cost + " gems", "§eClick to purchase");
+        return item(mat, name, lore);
+    }
+
+    private ItemStack gadgetItem(String id, Material mat, String name, int cost, Profile profile, List<String> extra) {
+        boolean owned = profile != null && profile.hasCosmetic(id);
+        List<String> lore = new java.util.ArrayList<>();
+        lore.add("§7ID: §f" + id);
+        lore.addAll(extra);
+        if (owned) {
+            lore.add("§aOwned");
+        } else {
+            lore.add("§7Cost: §b" + cost + " gems");
+            lore.add("§eClick to purchase");
+        }
+        return item(owned ? Material.LIME_DYE : mat, name, lore);
+    }
+
+    private ItemStack item(Material mat, String name, List<String> lore) {
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(name);
+            if (lore != null) meta.setLore(lore);
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    private void fill(Inventory inv) {
+        ItemStack glass = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
+        ItemMeta meta = glass.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(" ");
+            glass.setItemMeta(meta);
+        }
+        for (int i = 0; i < inv.getSize(); i++) {
+            if (inv.getItem(i) == null) inv.setItem(i, glass);
+        }
+    }
+}
+

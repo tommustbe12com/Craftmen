@@ -30,6 +30,9 @@ public class Profile {
     private final Set<java.util.UUID> claimedBadgeRewards = new HashSet<>();
     private final Set<Integer> claimedWinStreakRewards = new HashSet<>();
 
+    private final Set<String> purchasedCosmetics = new HashSet<>();
+    private String selectedChatColor; // legacy & code like "&b"
+
     private final Map<String, Integer> gameWins = new HashMap<>();
     private final Map<String, Integer> gameLosses = new HashMap<>();
 
@@ -95,6 +98,13 @@ public class Profile {
     public Set<Integer> getClaimedWinStreakRewards() { return claimedWinStreakRewards; }
     public boolean hasClaimedWinStreakReward(int streak) { return claimedWinStreakRewards.contains(streak); }
     public void claimWinStreakReward(int streak) { claimedWinStreakRewards.add(streak); }
+
+    public Set<String> getPurchasedCosmetics() { return purchasedCosmetics; }
+    public boolean hasCosmetic(String id) { return id != null && purchasedCosmetics.contains(id); }
+    public void addCosmetic(String id) { if (id != null) purchasedCosmetics.add(id); }
+
+    public String getSelectedChatColor() { return selectedChatColor; }
+    public void setSelectedChatColor(String selectedChatColor) { this.selectedChatColor = selectedChatColor; }
 
     public Map<String, Integer> getGameWins() { return gameWins; }
     public Map<String, Integer> getGameLosses() { return gameLosses; }
