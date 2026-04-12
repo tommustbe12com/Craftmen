@@ -252,6 +252,7 @@ public final class FfaManager implements Listener {
             joinIntoInstance(member, instance);
             if (!startingNow) {
                 setSpectator(member, session);
+                session.alive.remove(memberId); // never count mid-round joiners as alive
                 member.sendMessage(ChatColor.YELLOW + "You joined mid-FFA and are spectating until the round ends.");
             }
         }
@@ -319,6 +320,12 @@ public final class FfaManager implements Listener {
             if (p == null) continue;
 
             session.alive.add(uuid);
+            // Full round reset
+            PlayerReset.clearTransientState(p);
+            p.setHealth(20.0);
+            p.setFoodLevel(20);
+            p.setSaturation(20f);
+            p.getInventory().clear();
             setParticipant(p);
             inst.game.applyLoadout(p);
             p.updateInventory();
@@ -351,7 +358,10 @@ public final class FfaManager implements Listener {
         UUID id = dead.getUniqueId();
         session.alive.remove(id);
         setSpectator(dead, session);
-        privateRespawnLocation.put(id, dead.getLocation());
+        // Respawn them near the killer if known, otherwise at their death location.
+        UUID killerId = privateSpectateTarget.get(id);
+        Player killer = killerId == null ? null : Bukkit.getPlayer(killerId);
+        privateRespawnLocation.put(id, killer != null ? killer.getLocation() : dead.getLocation());
 
         if (session.alive.size() > 1) return;
 
@@ -436,8 +446,11 @@ public final class FfaManager implements Listener {
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         if (profile != null) profile.setState(PlayerState.LOBBY);
 
-        PlayerReset.resetToHub(player);
-        if (message) player.sendMessage(ChatColor.RED + "Left FFA.");
+        // If the player is quitting, don't teleport/inventory reset.
+        if (player.isOnline()) {
+            PlayerReset.resetToHub(player);
+            if (message) player.sendMessage(ChatColor.RED + "Left FFA.");
+        }
 
         if (inst != null && inst.players.isEmpty()) {
             destroyInstance(inst);

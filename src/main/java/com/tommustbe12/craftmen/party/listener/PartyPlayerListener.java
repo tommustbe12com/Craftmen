@@ -17,6 +17,11 @@ public final class PartyPlayerListener implements Listener {
         Party party = Craftmen.get().getPartyManager().getParty(player);
         if (party == null) return;
 
+        // If they're in a party FFA instance, ensure we remove them so instances can delete properly.
+        if (Craftmen.get().getFfaManager().isInFfa(player)) {
+            Craftmen.get().getFfaManager().leave(player, false);
+        }
+
         Craftmen.get().getPartyChatManager().disable(player.getUniqueId());
         Craftmen.get().getPartyManager().leave(
                 player,

@@ -52,7 +52,12 @@ public class DuelCommand implements CommandExecutor {
         Craftmen.get().getHubManager().openGameSelector(p, (game) -> {
             // send duel request after selecting a game
             QueueManager queue = Craftmen.get().getQueueManager();
-            queue.addDuelRequest(p, target, game);
+            boolean sent = queue.addDuelRequest(p, target, game);
+            if (!sent) {
+                p.sendMessage("§cYou can duel-request that player again in 45 seconds.");
+                p.playSound(p.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                return;
+            }
 
             p.sendMessage("§aDuel request sent to §e" + target.getName());
             p.playSound(target.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_YES, 1.0f, 1.0f);

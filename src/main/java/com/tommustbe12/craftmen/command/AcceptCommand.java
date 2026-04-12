@@ -35,6 +35,11 @@ public class AcceptCommand implements CommandExecutor {
             p.sendMessage("§cNo duel request from this player!");
             return true;
         }
+        if (queue.isExpired(duelRequest)) {
+            queue.removeDuelRequest(p);
+            p.sendMessage("§cThat duel request expired.");
+            return true;
+        }
 
         // Remove the request
         queue.removeDuelRequest(p);

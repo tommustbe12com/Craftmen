@@ -15,9 +15,23 @@ public class QueueManager {
 
     private final Map<String, Queue> queues = new HashMap<>();
     private final Map<Player, DuelRequest> duelRequests = new HashMap<>();
+    private final Map<String, Long> duelRequestCooldowns = new HashMap<>(); // requester|target -> lastSentMillis
+    private static final long DUEL_REQUEST_COOLDOWN_MILLIS = 45_000L;
 
-    public void addDuelRequest(Player sender, Player target, Game game) {
-        duelRequests.put(target, new DuelRequest(sender, target, game));
+    public boolean addDuelRequest(Player sender, Player target, Game game) {
+        if (sender == null || target == null || game == null) return false;
+
+        String key = sender.getUniqueId() + "|" + target.getUniqueId();
+        long now = System.currentTimeMillis();
+        long last = duelRequestCooldowns.getOrDefault(key, 0L);
+        long remaining = (last + DUEL_REQUEST_COOLDOWN_MILLIS) - now;
+        if (remaining > 0) {
+            return false;
+        }
+
+        duelRequestCooldowns.put(key, now);
+        duelRequests.put(target, new DuelRequest(sender, target, game, now));
+        return true;
     }
 
     public void queueAgain(Player player) {
@@ -27,11 +41,22 @@ public class QueueManager {
     }
 
     public DuelRequest getDuelRequest(Player target) {
-        return duelRequests.get(target);
+        DuelRequest req = duelRequests.get(target);
+        if (req == null) return null;
+        if (isExpired(req)) {
+            duelRequests.remove(target);
+            return null;
+        }
+        return req;
     }
 
     public void removeDuelRequest(Player target) {
         duelRequests.remove(target);
+    }
+
+    public boolean isExpired(DuelRequest request) {
+        if (request == null) return true;
+        return (System.currentTimeMillis() - request.createdAtMillis) > DUEL_REQUEST_COOLDOWN_MILLIS;
     }
 
     public void addPlayer(Player player, Game game) {
@@ -98,15 +123,18 @@ public class QueueManager {
         private final Player requester;
         private final Player challenged;
         private final Game game;
+        private final long createdAtMillis;
 
-        public DuelRequest(Player requester, Player challenged, Game game) {
+        public DuelRequest(Player requester, Player challenged, Game game, long createdAtMillis) {
             this.requester = requester;
             this.challenged = challenged;
             this.game = game;
+            this.createdAtMillis = createdAtMillis;
         }
 
         public Player getRequester() { return requester; }
         public Player getChallenged() { return challenged; }
         public Game getGame() { return game; }
+        public long getCreatedAtMillis() { return createdAtMillis; }
     }
 }
