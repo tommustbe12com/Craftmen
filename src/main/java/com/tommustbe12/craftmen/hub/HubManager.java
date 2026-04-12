@@ -91,7 +91,7 @@ public class HubManager implements Listener {
         ItemMeta shopMeta = shop.getItemMeta();
         shopMeta.setDisplayName(HUB_ITEM_SHOP);
         shop.setItemMeta(shopMeta);
-        player.getInventory().setItem(6, shop);
+        player.getInventory().setItem(7, shop);
 
         // Harmless gadgets are purchasable in /shop now.
         if (profile != null && profile.hasCosmetic("gadget.launchfeather")) {

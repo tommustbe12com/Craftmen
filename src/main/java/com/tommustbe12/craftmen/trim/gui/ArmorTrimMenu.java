@@ -99,6 +99,7 @@ public final class ArmorTrimMenu implements Listener {
 
     private void openPattern(Player player, ArmorSlot slot, int page) {
         if (!canUse(player)) return;
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         List<TrimPattern> patterns = new ArrayList<>();
         for (TrimPattern p : Registry.TRIM_PATTERN) patterns.add(p);
         patterns.sort(Comparator.comparing(p -> keyOf(p).toString()));
@@ -121,7 +122,7 @@ public final class ArmorTrimMenu implements Listener {
             int idx = start + i;
             if (idx >= patterns.size()) break;
             TrimPattern p = patterns.get(idx);
-            inv.setItem(CONTENT_SLOTS[i], patternItemWithKey(p));
+            inv.setItem(CONTENT_SLOTS[i], patternItemWithKey(p, profile));
         }
 
         player.openInventory(inv);
@@ -129,6 +130,7 @@ public final class ArmorTrimMenu implements Listener {
 
     private void openMaterial(Player player, ArmorSlot slot, String patternKey, int page) {
         if (!canUse(player)) return;
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         List<TrimMaterial> materials = new ArrayList<>();
         for (TrimMaterial m : Registry.TRIM_MATERIAL) materials.add(m);
         materials.sort(Comparator.comparing(m -> keyOf(m).toString()));
@@ -142,7 +144,6 @@ public final class ArmorTrimMenu implements Listener {
         fillBorder(inv);
 
         inv.setItem(SLOT_BACK, backItem());
-        inv.setItem(SLOT_CLEAR, clearItem());
         inv.setItem(SLOT_PREV, arrowItem(true, clamped > 0));
         inv.setItem(SLOT_NEXT, arrowItem(false, clamped < maxPage));
         inv.setItem(SLOT_CLOSE, closeItem());
@@ -153,7 +154,7 @@ public final class ArmorTrimMenu implements Listener {
             int idx = start + i;
             if (idx >= materials.size()) break;
             TrimMaterial m = materials.get(idx);
-            inv.setItem(CONTENT_SLOTS[i], materialItemWithKey(m));
+            inv.setItem(CONTENT_SLOTS[i], materialItemWithKey(m, profile));
         }
 
         player.openInventory(inv);
@@ -405,21 +406,41 @@ public final class ArmorTrimMenu implements Listener {
         armorItem.setItemMeta(meta);
     }
 
-    private ItemStack patternItemWithKey(TrimPattern pattern) {
+    private ItemStack patternItemWithKey(TrimPattern pattern, Profile profile) {
         ItemStack item = patternItem(pattern);
         ItemMeta meta = item.getItemMeta();
         NamespacedKey key = keyOf(pattern);
+        String cosmeticId = "trim.pattern." + key;
+        boolean owned = profile != null && profile.hasCosmetic(cosmeticId);
+        meta.setLore(trimLore(owned, true));
         meta.getPersistentDataContainer().set(keyPattern, org.bukkit.persistence.PersistentDataType.STRING, key.toString());
         item.setItemMeta(meta);
         return item;
     }
 
-    private ItemStack materialItemWithKey(TrimMaterial material) {
+    private ItemStack materialItemWithKey(TrimMaterial material, Profile profile) {
         ItemStack item = materialItem(material);
         ItemMeta meta = item.getItemMeta();
         String key = keyOf(material).toString();
+        String cosmeticId = "trim.material." + key;
+        boolean owned = profile != null && profile.hasCosmetic(cosmeticId);
+        meta.setLore(trimLore(owned, false));
         meta.getPersistentDataContainer().set(keyMaterial, org.bukkit.persistence.PersistentDataType.STRING, key);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private static List<String> trimLore(boolean owned, boolean pattern) {
+        if (owned) {
+            return List.of(
+                    "§a§lPURCHASED",
+                    "§7Click to select"
+            );
+        }
+        return List.of(
+                "§c§lNOT PURCHASED",
+                "§7Cost: §b10 gems",
+                "§eClick to purchase " + (pattern ? "pattern" : "material")
+        );
     }
 }
