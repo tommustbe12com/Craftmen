@@ -33,6 +33,11 @@ public class Profile {
     private final Set<String> purchasedCosmetics = new HashSet<>();
     private String selectedChatColor; // legacy & code like "&b"
 
+    private String selectedKillEffect; // e.g. "kill.lightning"
+    private String selectedDeathEffect; // e.g. "death.explosion"
+    private String selectedKillSound; // e.g. "ENTITY_PLAYER_LEVELUP"
+    private String selectedDeathSound; // e.g. "ENTITY_WITHER_DEATH"
+
     private final Map<String, Integer> gameWins = new HashMap<>();
     private final Map<String, Integer> gameLosses = new HashMap<>();
 
@@ -105,6 +110,18 @@ public class Profile {
 
     public String getSelectedChatColor() { return selectedChatColor; }
     public void setSelectedChatColor(String selectedChatColor) { this.selectedChatColor = selectedChatColor; }
+
+    public String getSelectedKillEffect() { return selectedKillEffect; }
+    public void setSelectedKillEffect(String selectedKillEffect) { this.selectedKillEffect = selectedKillEffect; }
+
+    public String getSelectedDeathEffect() { return selectedDeathEffect; }
+    public void setSelectedDeathEffect(String selectedDeathEffect) { this.selectedDeathEffect = selectedDeathEffect; }
+
+    public String getSelectedKillSound() { return selectedKillSound; }
+    public void setSelectedKillSound(String selectedKillSound) { this.selectedKillSound = selectedKillSound; }
+
+    public String getSelectedDeathSound() { return selectedDeathSound; }
+    public void setSelectedDeathSound(String selectedDeathSound) { this.selectedDeathSound = selectedDeathSound; }
 
     public Map<String, Integer> getGameWins() { return gameWins; }
     public Map<String, Integer> getGameLosses() { return gameLosses; }

@@ -18,6 +18,7 @@ import com.tommustbe12.craftmen.gems.command.GemsCommand;
 import com.tommustbe12.craftmen.cosmetics.command.ShopCommand;
 import com.tommustbe12.craftmen.cosmetics.gui.ShopMenu;
 import com.tommustbe12.craftmen.cosmetics.listener.ChatColorListener;
+import com.tommustbe12.craftmen.cosmetics.listener.KillDeathCosmeticsListener;
 import com.tommustbe12.craftmen.hub.HubManager;
 import com.tommustbe12.craftmen.kit.KitManager;
 import com.tommustbe12.craftmen.kit.KitStorage;
@@ -175,6 +176,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(partyFfaMenu, this);
         getServer().getPluginManager().registerEvents(shopMenu, this);
         getServer().getPluginManager().registerEvents(new ChatColorListener(), this);
+        getServer().getPluginManager().registerEvents(new KillDeathCosmeticsListener(), this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
@@ -269,6 +271,10 @@ public final class Craftmen extends JavaPlugin {
             getConfig().set(path + ".claimed_win_streak_rewards", profile.getClaimedWinStreakRewards().stream().toList());
             getConfig().set(path + ".purchased_cosmetics", profile.getPurchasedCosmetics().stream().toList());
             getConfig().set(path + ".selected_chat_color", profile.getSelectedChatColor());
+            getConfig().set(path + ".selected_kill_effect", profile.getSelectedKillEffect());
+            getConfig().set(path + ".selected_death_effect", profile.getSelectedDeathEffect());
+            getConfig().set(path + ".selected_kill_sound", profile.getSelectedKillSound());
+            getConfig().set(path + ".selected_death_sound", profile.getSelectedDeathSound());
 
             // save per-game wins/losses
             for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
@@ -290,55 +296,68 @@ public final class Craftmen extends JavaPlugin {
             if (player == null) continue;
 
             Profile profile = getProfileManager().getProfile(player);
-            String path = "stats." + uuidString;
-
-            profile.setWins(getConfig().getInt(path + ".wins"));
-            profile.setLosses(getConfig().getInt(path + ".losses"));
-            profile.setLastPlayedGame(getConfig().getString(path + ".last"));
-            profile.setFfaKills(getConfig().getInt(path + ".ffa_kills", 0));
-            profile.setFfaDeaths(getConfig().getInt(path + ".ffa_deaths", 0));
-            profile.setGems(getConfig().getInt(path + ".gems", 0));
-            profile.setEndWins(getConfig().getInt(path + ".end_wins", 0));
-            profile.setKillsInARow(getConfig().getInt(path + ".kills_in_a_row", 0));
-            profile.setLossesInARow(getConfig().getInt(path + ".losses_in_a_row", 0));
-            String badgeRaw = getConfig().getString(path + ".badge");
-            if (badgeRaw != null) {
-                try {
-                    profile.setSelectedBadgeId(UUID.fromString(badgeRaw));
-                } catch (IllegalArgumentException ignored) {
-                    profile.setSelectedBadgeId(null);
-                }
-            }
-
-            // claimed badge rewards
-            profile.getClaimedBadgeRewards().clear();
-            for (String idRaw : getConfig().getStringList(path + ".claimed_badge_rewards")) {
-                try {
-                    profile.getClaimedBadgeRewards().add(UUID.fromString(idRaw));
-                } catch (IllegalArgumentException ignored) {}
-            }
-            profile.getClaimedWinStreakRewards().clear();
-            for (Object o : getConfig().getList(path + ".claimed_win_streak_rewards", java.util.List.of())) {
-                if (o instanceof Integer i) profile.getClaimedWinStreakRewards().add(i);
-                else if (o instanceof String s) {
-                    try { profile.getClaimedWinStreakRewards().add(Integer.parseInt(s)); } catch (NumberFormatException ignored) {}
-                }
-            }
-
-            profile.getPurchasedCosmetics().clear();
-            profile.getPurchasedCosmetics().addAll(getConfig().getStringList(path + ".purchased_cosmetics"));
-            profile.setSelectedChatColor(getConfig().getString(path + ".selected_chat_color"));
+            loadProfile(profile);
 
             // load per-game wins/losses
-            if (getConfig().contains(path + ".gameWins")) {
-                for (String game : getConfig().getConfigurationSection(path + ".gameWins").getKeys(false)) {
-                    profile.setGameWins(game, getConfig().getInt(path + ".gameWins." + game));
-                }
+            // (already handled by loadProfile)
+        }
+    }
+
+    public void loadProfile(Profile profile) {
+        if (profile == null || profile.getPlayer() == null) return;
+        String uuidString = profile.getPlayer().getUniqueId().toString();
+        String path = "stats." + uuidString;
+        if (!getConfig().contains(path)) return;
+
+        profile.setWins(getConfig().getInt(path + ".wins"));
+        profile.setLosses(getConfig().getInt(path + ".losses"));
+        profile.setLastPlayedGame(getConfig().getString(path + ".last"));
+        profile.setFfaKills(getConfig().getInt(path + ".ffa_kills", 0));
+        profile.setFfaDeaths(getConfig().getInt(path + ".ffa_deaths", 0));
+        profile.setGems(getConfig().getInt(path + ".gems", 0));
+        profile.setEndWins(getConfig().getInt(path + ".end_wins", 0));
+        profile.setKillsInARow(getConfig().getInt(path + ".kills_in_a_row", 0));
+        profile.setLossesInARow(getConfig().getInt(path + ".losses_in_a_row", 0));
+
+        String badgeRaw = getConfig().getString(path + ".badge");
+        if (badgeRaw != null) {
+            try {
+                profile.setSelectedBadgeId(UUID.fromString(badgeRaw));
+            } catch (IllegalArgumentException ignored) {
+                profile.setSelectedBadgeId(null);
             }
-            if (getConfig().contains(path + ".gameLosses")) {
-                for (String game : getConfig().getConfigurationSection(path + ".gameLosses").getKeys(false)) {
-                    profile.setGameLosses(game, getConfig().getInt(path + ".gameLosses." + game));
-                }
+        }
+
+        profile.getClaimedBadgeRewards().clear();
+        for (String idRaw : getConfig().getStringList(path + ".claimed_badge_rewards")) {
+            try { profile.getClaimedBadgeRewards().add(UUID.fromString(idRaw)); } catch (IllegalArgumentException ignored) {}
+        }
+
+        profile.getClaimedWinStreakRewards().clear();
+        for (Object o : getConfig().getList(path + ".claimed_win_streak_rewards", java.util.List.of())) {
+            if (o instanceof Integer i) profile.getClaimedWinStreakRewards().add(i);
+            else if (o instanceof String s) {
+                try { profile.getClaimedWinStreakRewards().add(Integer.parseInt(s)); } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        profile.getPurchasedCosmetics().clear();
+        profile.getPurchasedCosmetics().addAll(getConfig().getStringList(path + ".purchased_cosmetics"));
+        profile.setSelectedChatColor(getConfig().getString(path + ".selected_chat_color"));
+        profile.setSelectedKillEffect(getConfig().getString(path + ".selected_kill_effect"));
+        profile.setSelectedDeathEffect(getConfig().getString(path + ".selected_death_effect"));
+        profile.setSelectedKillSound(getConfig().getString(path + ".selected_kill_sound"));
+        profile.setSelectedDeathSound(getConfig().getString(path + ".selected_death_sound"));
+
+        // per-game wins/losses
+        if (getConfig().contains(path + ".gameWins")) {
+            for (String game : getConfig().getConfigurationSection(path + ".gameWins").getKeys(false)) {
+                profile.setGameWins(game.replace("_", " "), getConfig().getInt(path + ".gameWins." + game));
+            }
+        }
+        if (getConfig().contains(path + ".gameLosses")) {
+            for (String game : getConfig().getConfigurationSection(path + ".gameLosses").getKeys(false)) {
+                profile.setGameLosses(game.replace("_", " "), getConfig().getInt(path + ".gameLosses." + game));
             }
         }
     }
@@ -361,6 +380,10 @@ public final class Craftmen extends JavaPlugin {
         getConfig().set(path + ".claimed_win_streak_rewards", profile.getClaimedWinStreakRewards().stream().toList());
         getConfig().set(path + ".purchased_cosmetics", profile.getPurchasedCosmetics().stream().toList());
         getConfig().set(path + ".selected_chat_color", profile.getSelectedChatColor());
+        getConfig().set(path + ".selected_kill_effect", profile.getSelectedKillEffect());
+        getConfig().set(path + ".selected_death_effect", profile.getSelectedDeathEffect());
+        getConfig().set(path + ".selected_kill_sound", profile.getSelectedKillSound());
+        getConfig().set(path + ".selected_death_sound", profile.getSelectedDeathSound());
 
         for (Map.Entry<String, Integer> entry : profile.getGameWins().entrySet()) {
             getConfig().set(path + ".gameWins." + entry.getKey().replace(" ", "_"), entry.getValue());

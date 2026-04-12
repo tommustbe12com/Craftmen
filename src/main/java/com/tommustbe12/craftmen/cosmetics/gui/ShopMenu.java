@@ -23,16 +23,42 @@ public final class ShopMenu implements Listener {
     private static final String TITLE = "§8Cosmetics Shop";
     private static final String TITLE_CHAT = "§8Chat Colors";
     private static final String TITLE_GADGETS = "§8Spawn Gadgets";
+    private static final String TITLE_KD = "§8Kill/Death Cosmetics";
 
     public void open(Player player) {
         if (player == null) return;
         Inventory inv = Bukkit.createInventory(null, 27, TITLE);
         fill(inv);
         inv.setItem(11, item(Material.NAME_TAG, "§b§lChat Color", List.of("§7Purchase and select a chat color.", "§8Click to view")));
-        inv.setItem(13, item(Material.FIREWORK_ROCKET, "§d§lKill/Death Effects", List.of("§7Coming soon.")));
+        inv.setItem(13, item(Material.FIREWORK_ROCKET, "§d§lKill/Death Effects", List.of("§7Kill effects + sounds.", "§8Click to view")));
         inv.setItem(15, item(Material.ELYTRA, "§a§lSpawn Gadgets", List.of("§7Permanent hub gadgets.", "§8Click to view")));
         player.openInventory(inv);
         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+    }
+
+    private void openKillDeath(Player player) {
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_KD);
+        fill(inv);
+        inv.setItem(49, item(Material.BARRIER, "§cBack", List.of("§7Return to shop")));
+
+        inv.setItem(10, cosmeticSelectItem("kill.lightning", Material.TRIDENT, "§eKill Effect: Lightning", 125, profile,
+                profile != null && "kill.lightning".equals(profile.getSelectedKillEffect())));
+        inv.setItem(11, cosmeticSelectItem("kill.firework", Material.FIREWORK_ROCKET, "§eKill Effect: Firework", 100, profile,
+                profile != null && "kill.firework".equals(profile.getSelectedKillEffect())));
+
+        inv.setItem(13, cosmeticSelectItem("sound.kill.levelup", Material.NOTE_BLOCK, "§bKill Sound: Level Up", 75, profile,
+                profile != null && "ENTITY_PLAYER_LEVELUP".equals(profile.getSelectedKillSound())));
+
+        inv.setItem(15, cosmeticSelectItem("death.lightning", Material.LIGHTNING_ROD, "§cDeath Effect: Lightning", 125, profile,
+                profile != null && "death.lightning".equals(profile.getSelectedDeathEffect())));
+        inv.setItem(16, cosmeticSelectItem("death.firework", Material.FIREWORK_STAR, "§cDeath Effect: Firework", 100, profile,
+                profile != null && "death.firework".equals(profile.getSelectedDeathEffect())));
+
+        inv.setItem(22, cosmeticSelectItem("sound.death.wither", Material.WITHER_SKELETON_SKULL, "§dDeath Sound: Wither", 75, profile,
+                profile != null && "ENTITY_WITHER_DEATH".equals(profile.getSelectedDeathSound())));
+
+        player.openInventory(inv);
     }
 
     private void openChat(Player player) {
@@ -83,6 +109,7 @@ public final class ShopMenu implements Listener {
         int slot = e.getRawSlot();
         if (title.equals(TITLE)) {
             if (slot == 11) openChat(player);
+            else if (slot == 13) openKillDeath(player);
             else if (slot == 15) openGadgets(player);
             else player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 0.8f);
             return;
@@ -100,6 +127,11 @@ public final class ShopMenu implements Listener {
 
         if (title.equals(TITLE_GADGETS)) {
             handleGadgetClick(player, clicked);
+            return;
+        }
+
+        if (title.equals(TITLE_KD)) {
+            handleKillDeathClick(player, clicked);
         }
     }
 
@@ -137,6 +169,46 @@ public final class ShopMenu implements Listener {
         int cost = parseCost(meta.getLore());
         CosmeticsShop.purchase(player, cosmeticId, cost);
         openGadgets(player);
+    }
+
+    private void handleKillDeathClick(Player player, ItemStack clicked) {
+        ItemMeta meta = clicked.getItemMeta();
+        if (meta == null || meta.getLore() == null) return;
+        String idLine = ChatColor.stripColor(meta.getLore().get(0));
+        if (idLine == null) return;
+        String cosmeticId = idLine.replace("ID: ", "").trim();
+        int cost = parseCost(meta.getLore());
+
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        if (!profile.hasCosmetic(cosmeticId)) {
+            if (!CosmeticsShop.purchase(player, cosmeticId, cost)) return;
+        }
+
+        // Apply selection
+        switch (cosmeticId) {
+            case "kill.lightning", "kill.firework" -> profile.setSelectedKillEffect(cosmeticId);
+            case "death.lightning", "death.firework" -> profile.setSelectedDeathEffect(cosmeticId);
+            case "sound.kill.levelup" -> profile.setSelectedKillSound("ENTITY_PLAYER_LEVELUP");
+            case "sound.death.wither" -> profile.setSelectedDeathSound("ENTITY_WITHER_DEATH");
+        }
+
+        Craftmen.get().saveProfile(profile);
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+        openKillDeath(player);
+    }
+
+    private ItemStack cosmeticSelectItem(String id, Material mat, String name, int cost, Profile profile, boolean selected) {
+        boolean owned = profile != null && profile.hasCosmetic(id);
+        List<String> lore = new java.util.ArrayList<>();
+        lore.add("§7ID: §f" + id);
+        if (owned) {
+            lore.add("§aOwned" + (selected ? " §6(Selected)" : ""));
+            lore.add("§eClick to select");
+        } else {
+            lore.add("§7Cost: §b" + cost + " gems");
+            lore.add("§eClick to purchase");
+        }
+        return item(owned ? Material.LIME_DYE : mat, name + (selected ? " §6(Selected)" : ""), lore);
     }
 
     private int parseCost(List<String> lore) {
@@ -205,4 +277,3 @@ public final class ShopMenu implements Listener {
         }
     }
 }
-

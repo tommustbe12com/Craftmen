@@ -27,25 +27,7 @@ public class PlayerListener implements Listener {
         player.playSound(player.getLocation(), Sound.UI_TOAST_IN, 0.7f, 1.2f);
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
-
-        // load stats from config if they exist
-        String path = "stats." + player.getUniqueId();
-        if (Craftmen.get().getConfig().contains(path)) {
-            profile.setWins(Craftmen.get().getConfig().getInt(path + ".wins"));
-            profile.setLosses(Craftmen.get().getConfig().getInt(path + ".losses"));
-            profile.setLastPlayedGame(Craftmen.get().getConfig().getString(path + ".last"));
-
-            if (Craftmen.get().getConfig().contains(path + ".gameWins")) {
-                for (String game : Craftmen.get().getConfig().getConfigurationSection(path + ".gameWins").getKeys(false)) {
-                    profile.setGameWins(game.replace("_", " "), Craftmen.get().getConfig().getInt(path + ".gameWins." + game));
-                }
-            }
-            if (Craftmen.get().getConfig().contains(path + ".gameLosses")) {
-                for (String game : Craftmen.get().getConfig().getConfigurationSection(path + ".gameLosses").getKeys(false)) {
-                    profile.setGameLosses(game.replace("_", " "), Craftmen.get().getConfig().getInt(path + ".gameLosses." + game));
-                }
-            }
-        }
+        Craftmen.get().loadProfile(profile);
 
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
             if (player.isOnline()) {
@@ -60,6 +42,13 @@ public class PlayerListener implements Listener {
         player.setSaturation(20f);
         player.setHealth(20);
         player.teleport(Craftmen.get().getHubLocation());
+
+        Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+            if (!player.isOnline()) return;
+            Craftmen.get().getBadgeManager().getDisplay().apply(player);
+            Craftmen.get().getHubManager().giveHubItems(player);
+            Craftmen.get().getScoreboardManager().update(player);
+        }, 3L);
     }
 
     @EventHandler

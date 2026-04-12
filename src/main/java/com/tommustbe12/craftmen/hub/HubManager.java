@@ -35,6 +35,7 @@ public class HubManager implements Listener {
     private static final String HUB_ITEM_GAME_SELECTOR = ChatColor.GOLD + "Game Selector";
     private static final String HUB_ITEM_KIT_EDITOR = ChatColor.AQUA + "Kit Editor";
     private static final String HUB_ITEM_ARMOR_TRIMS = ChatColor.LIGHT_PURPLE + "Armor Trims";
+    private static final String HUB_ITEM_SHOP = ChatColor.AQUA + "Cosmetics Shop";
     private static final String HUB_ITEM_PLAY_AGAIN = ChatColor.GOLD + "Play Again";
     private static final String HUB_ITEM_LEAVE_QUEUE = ChatColor.RED + "Leave Queue";
 
@@ -84,6 +85,12 @@ public class HubManager implements Listener {
         trimsMeta.setDisplayName(HUB_ITEM_ARMOR_TRIMS);
         trims.setItemMeta(trimsMeta);
         player.getInventory().setItem(7, trims);
+
+        ItemStack shop = new ItemStack(Material.EMERALD);
+        ItemMeta shopMeta = shop.getItemMeta();
+        shopMeta.setDisplayName(HUB_ITEM_SHOP);
+        shop.setItemMeta(shopMeta);
+        player.getInventory().setItem(6, shop);
 
         // Permanent gadgets purchased with gems.
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
@@ -173,6 +180,13 @@ public class HubManager implements Listener {
                 return;
             }
             Craftmen.get().getArmorTrimMenu().openMain(player);
+        } else if (name.equals(HUB_ITEM_SHOP)) {
+            e.setCancelled(true);
+            if (Craftmen.get().getProfileManager().getProfile(player).getState() != PlayerState.LOBBY) {
+                player.sendMessage(ChatColor.RED + "You can only use the shop in the hub.");
+                return;
+            }
+            Craftmen.get().getShopMenu().open(player);
 
         } else if (name.equals(HUB_ITEM_LEAVE_QUEUE)) {
             e.setCancelled(true);
