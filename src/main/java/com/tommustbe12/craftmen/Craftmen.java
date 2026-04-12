@@ -19,6 +19,8 @@ import com.tommustbe12.craftmen.cosmetics.command.ShopCommand;
 import com.tommustbe12.craftmen.cosmetics.gui.ShopMenu;
 import com.tommustbe12.craftmen.cosmetics.listener.ChatColorListener;
 import com.tommustbe12.craftmen.cosmetics.listener.KillDeathCosmeticsListener;
+import com.tommustbe12.craftmen.help.HelpMenu;
+import com.tommustbe12.craftmen.help.command.HelpCommand;
 import com.tommustbe12.craftmen.hub.HubManager;
 import com.tommustbe12.craftmen.hub.SpawnProtectionListener;
 import com.tommustbe12.craftmen.kit.KitManager;
@@ -87,6 +89,7 @@ public final class Craftmen extends JavaPlugin {
     private PartyFfaMenu partyFfaMenu;
     private GemManager gemManager;
     private ShopMenu shopMenu;
+    private HelpMenu helpMenu;
 
     @Override
     public void onEnable() {
@@ -133,6 +136,7 @@ public final class Craftmen extends JavaPlugin {
         partyFfaMenu = new PartyFfaMenu();
         gemManager = new GemManager();
         shopMenu = new ShopMenu();
+        helpMenu = new HelpMenu();
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -179,6 +183,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(shopMenu, this);
         getServer().getPluginManager().registerEvents(new ChatColorListener(), this);
         getServer().getPluginManager().registerEvents(new KillDeathCosmeticsListener(), this);
+        getServer().getPluginManager().registerEvents(helpMenu, this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
@@ -203,6 +208,7 @@ public final class Craftmen extends JavaPlugin {
         getCommand("pc").setTabCompleter(new PartyChatTabCompleter());
         getCommand("gems").setExecutor(new GemsCommand());
         getCommand("shop").setExecutor(new ShopCommand());
+        getCommand("help").setExecutor(new HelpCommand());
 
         getCommand("stat").setTabCompleter(new StatCommand());
 
@@ -253,6 +259,7 @@ public final class Craftmen extends JavaPlugin {
     public PartyFfaMenu getPartyFfaMenu() { return partyFfaMenu; }
     public GemManager getGemManager() { return gemManager; }
     public ShopMenu getShopMenu() { return shopMenu; }
+    public HelpMenu getHelpMenu() { return helpMenu; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {

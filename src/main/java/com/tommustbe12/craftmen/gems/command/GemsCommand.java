@@ -82,7 +82,63 @@ public final class GemsCommand implements CommandExecutor {
             return true;
         }
 
-        sender.sendMessage(ChatColor.YELLOW + "Usage: /gems  OR  /gems <player>  OR  /gems add <player> <amount>");
+        if (args.length >= 2 && (args[0].equalsIgnoreCase("sub") || args[0].equalsIgnoreCase("set"))) {
+            if (!(sender instanceof Player p) || !p.isOp()) {
+                sender.sendMessage(ChatColor.RED + "No permission.");
+                return true;
+            }
+
+            Player target;
+            String amountRaw;
+            if (args.length == 2) {
+                target = p;
+                amountRaw = args[1];
+            } else {
+                target = Bukkit.getPlayer(args[1]);
+                if (target == null) {
+                    sender.sendMessage(ChatColor.RED + "Player not found.");
+                    return true;
+                }
+                amountRaw = args[2];
+            }
+
+            int amount;
+            try {
+                amount = Integer.parseInt(amountRaw);
+            } catch (NumberFormatException e) {
+                sender.sendMessage(ChatColor.RED + "Invalid amount.");
+                return true;
+            }
+            if (amount < 0) {
+                sender.sendMessage(ChatColor.RED + "Amount must be >= 0.");
+                return true;
+            }
+
+            Profile profile = Craftmen.get().getProfileManager().getProfile(target);
+            if (args[0].equalsIgnoreCase("set")) {
+                profile.setGems(amount);
+                Craftmen.get().saveProfile(profile);
+                sender.sendMessage(ChatColor.GREEN + "Set " + target.getName() + "'s gems to " + amount + ".");
+                if (!target.equals(p)) {
+                    target.sendMessage(ChatColor.AQUA + "An admin set your gems to " + ChatColor.WHITE + amount + ChatColor.AQUA + ".");
+                }
+                target.playSound(target.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+                return true;
+            }
+
+            // sub
+            int next = Math.max(0, profile.getGems() - amount);
+            profile.setGems(next);
+            Craftmen.get().saveProfile(profile);
+            sender.sendMessage(ChatColor.GREEN + "Subtracted " + amount + " gems from " + target.getName() + ".");
+            if (!target.equals(p)) {
+                target.sendMessage(ChatColor.RED + "An admin removed " + ChatColor.WHITE + amount + ChatColor.RED + " gems from you.");
+            }
+            target.playSound(target.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 0.8f);
+            return true;
+        }
+
+        sender.sendMessage(ChatColor.YELLOW + "Usage: /gems  OR  /gems <player>  OR  /gems add|sub|set <player> <amount>");
         return true;
     }
 }

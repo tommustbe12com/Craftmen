@@ -36,6 +36,8 @@ public class HubManager implements Listener {
     private static final String HUB_ITEM_KIT_EDITOR = ChatColor.AQUA + "Kit Editor";
     private static final String HUB_ITEM_ARMOR_TRIMS = ChatColor.LIGHT_PURPLE + "Armor Trims";
     private static final String HUB_ITEM_SHOP = ChatColor.AQUA + "Cosmetics Shop";
+    private static final String HUB_ITEM_LAUNCH_FEATHER = ChatColor.GREEN + "Launch Feather";
+    private static final String HUB_ITEM_FUN_FIREWORK = ChatColor.LIGHT_PURPLE + "Fun Firework";
     private static final String HUB_ITEM_PLAY_AGAIN = ChatColor.GOLD + "Play Again";
     private static final String HUB_ITEM_LEAVE_QUEUE = ChatColor.RED + "Leave Queue";
 
@@ -91,6 +93,20 @@ public class HubManager implements Listener {
         shopMeta.setDisplayName(HUB_ITEM_SHOP);
         shop.setItemMeta(shopMeta);
         player.getInventory().setItem(6, shop);
+
+        ItemStack feather = new ItemStack(Material.FEATHER);
+        ItemMeta fMeta = feather.getItemMeta();
+        fMeta.setDisplayName(HUB_ITEM_LAUNCH_FEATHER);
+        fMeta.setLore(Arrays.asList(ChatColor.GRAY + "Right-click to launch up.", ChatColor.DARK_GRAY + "Hub only."));
+        feather.setItemMeta(fMeta);
+        player.getInventory().setItem(4, feather);
+
+        ItemStack rocket = new ItemStack(Material.FIREWORK_ROCKET, 3);
+        ItemMeta rMeta = rocket.getItemMeta();
+        rMeta.setDisplayName(HUB_ITEM_FUN_FIREWORK);
+        rMeta.setLore(Arrays.asList(ChatColor.GRAY + "Right-click for fireworks.", ChatColor.DARK_GRAY + "Hub only."));
+        rocket.setItemMeta(rMeta);
+        player.getInventory().setItem(5, rocket);
 
         // Permanent gadgets purchased with gems.
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
@@ -187,6 +203,27 @@ public class HubManager implements Listener {
                 return;
             }
             Craftmen.get().getShopMenu().open(player);
+        } else if (name.equals(HUB_ITEM_LAUNCH_FEATHER)) {
+            e.setCancelled(true);
+            if (Craftmen.get().getProfileManager().getProfile(player).getState() != PlayerState.LOBBY) return;
+            player.setVelocity(player.getVelocity().setY(1.0));
+            player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.8f, 1.3f);
+        } else if (name.equals(HUB_ITEM_FUN_FIREWORK)) {
+            e.setCancelled(true);
+            if (Craftmen.get().getProfileManager().getProfile(player).getState() != PlayerState.LOBBY) return;
+            // Launch a harmless firework.
+            var loc = player.getLocation();
+            var fw = player.getWorld().spawn(loc, org.bukkit.entity.Firework.class);
+            var meta = fw.getFireworkMeta();
+            meta.setPower(1);
+            meta.addEffect(org.bukkit.FireworkEffect.builder()
+                    .withColor(org.bukkit.Color.AQUA)
+                    .with(org.bukkit.FireworkEffect.Type.BALL)
+                    .trail(true)
+                    .flicker(true)
+                    .build());
+            fw.setFireworkMeta(meta);
+            player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 0.8f, 1.2f);
 
         } else if (name.equals(HUB_ITEM_LEAVE_QUEUE)) {
             e.setCancelled(true);
