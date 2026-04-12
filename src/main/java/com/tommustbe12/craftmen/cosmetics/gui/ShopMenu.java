@@ -11,6 +11,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -98,16 +99,22 @@ public final class ShopMenu implements Listener {
         if (e.getView() == null || e.getView().getTitle() == null) return;
 
         String title = e.getView().getTitle();
-        if (!title.equals(TITLE) && !title.equals(TITLE_CHAT) && !title.equals(TITLE_GADGETS)) return;
+        String stripped = ChatColor.stripColor(title);
+        if (stripped == null) return;
+        boolean isShop = stripped.equals(ChatColor.stripColor(TITLE));
+        boolean isChat = stripped.equals(ChatColor.stripColor(TITLE_CHAT));
+        boolean isGadgets = stripped.equals(ChatColor.stripColor(TITLE_GADGETS));
+        boolean isKD = stripped.equals(ChatColor.stripColor(TITLE_KD));
+        if (!isShop && !isChat && !isGadgets && !isKD) return;
 
-        if (e.getClickedInventory() == null || !e.getClickedInventory().equals(e.getView().getTopInventory())) return;
+        // Always cancel interactions in our menus (including shift-clicking from bottom inventory).
         e.setCancelled(true);
 
         ItemStack clicked = e.getCurrentItem();
         if (clicked == null || clicked.getType() == Material.AIR) return;
 
         int slot = e.getRawSlot();
-        if (title.equals(TITLE)) {
+        if (isShop) {
             if (slot == 11) openChat(player);
             else if (slot == 13) openKillDeath(player);
             else if (slot == 15) openGadgets(player);
@@ -120,18 +127,31 @@ public final class ShopMenu implements Listener {
             return;
         }
 
-        if (title.equals(TITLE_CHAT)) {
+        if (isChat) {
             handleChatColorClick(player, clicked);
             return;
         }
 
-        if (title.equals(TITLE_GADGETS)) {
+        if (isGadgets) {
             handleGadgetClick(player, clicked);
             return;
         }
 
-        if (title.equals(TITLE_KD)) {
+        if (isKD) {
             handleKillDeathClick(player, clicked);
+        }
+    }
+
+    @EventHandler
+    public void onDrag(InventoryDragEvent e) {
+        if (e.getView() == null || e.getView().getTitle() == null) return;
+        String stripped = ChatColor.stripColor(e.getView().getTitle());
+        if (stripped == null) return;
+        if (stripped.equals(ChatColor.stripColor(TITLE))
+                || stripped.equals(ChatColor.stripColor(TITLE_CHAT))
+                || stripped.equals(ChatColor.stripColor(TITLE_GADGETS))
+                || stripped.equals(ChatColor.stripColor(TITLE_KD))) {
+            e.setCancelled(true);
         }
     }
 

@@ -20,6 +20,7 @@ import com.tommustbe12.craftmen.cosmetics.gui.ShopMenu;
 import com.tommustbe12.craftmen.cosmetics.listener.ChatColorListener;
 import com.tommustbe12.craftmen.cosmetics.listener.KillDeathCosmeticsListener;
 import com.tommustbe12.craftmen.hub.HubManager;
+import com.tommustbe12.craftmen.hub.SpawnProtectionListener;
 import com.tommustbe12.craftmen.kit.KitManager;
 import com.tommustbe12.craftmen.kit.KitStorage;
 import com.tommustbe12.craftmen.kit.command.KitCommand;
@@ -168,6 +169,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new EndermiteSpawnListener(), this);
         getServer().getPluginManager().registerEvents(new CountdownBlockListener(), this);
         getServer().getPluginManager().registerEvents(new SnowballHitListener(), this);
+        getServer().getPluginManager().registerEvents(new SpawnProtectionListener(), this);
         getServer().getPluginManager().registerEvents(kitEditorMenu, this);
         getServer().getPluginManager().registerEvents(new KitEditorShortcutListener(), this);
         getServer().getPluginManager().registerEvents(armorTrimMenu, this);
