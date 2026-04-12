@@ -2,6 +2,7 @@ package com.tommustbe12.craftmen.hub;
 
 import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.profile.PlayerState;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -17,6 +18,8 @@ public final class HubInventoryLockListener implements Listener {
         if (Craftmen.get().getEndFightManager().isInGame(player)) return false;
         if (Craftmen.get().getFfaManager().isInFfa(player)) return false;
         if (Craftmen.get().getMatchManager().getMatch(player) != null) return false;
+        // Allow OPs in creative to edit/build and manage inventory in spawn.
+        if (player.isOp() && player.getGameMode() == GameMode.CREATIVE) return false;
         return Craftmen.get().getProfileManager().getProfile(player).getState() == PlayerState.LOBBY;
     }
 
@@ -40,4 +43,3 @@ public final class HubInventoryLockListener implements Listener {
         e.setCancelled(true);
     }
 }
-

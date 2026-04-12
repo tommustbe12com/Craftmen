@@ -19,8 +19,13 @@ public final class PartyFfaSession {
 
     public final Set<UUID> alive = new HashSet<>();
     public final Set<UUID> spectators = new HashSet<>();
+    public final Set<UUID> roundParticipants = new HashSet<>();
 
     public boolean running = false;
+
+    // Team mode (optional). If enabled, friendly fire is disabled for same teamId.
+    public boolean teamsEnabled = false;
+    public final Map<UUID, Integer> teamByPlayer = new HashMap<>();
 
     public PartyFfaSession(UUID partyId, Game game, int totalRounds) {
         this.partyId = partyId;
@@ -28,4 +33,3 @@ public final class PartyFfaSession {
         this.totalRounds = Math.max(1, Math.min(10, totalRounds));
     }
 }
-

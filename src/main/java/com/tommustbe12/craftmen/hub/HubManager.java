@@ -27,10 +27,10 @@ import java.util.function.Consumer;
 
 public class HubManager implements Listener {
 
-    private static final String GUI_TITLE_PREFIX = "§8Select a Kit";
-    private static final String GUI_FFA_TITLE_PREFIX = "§8FFA: Select a Kit";
-    private static final String GUI_PLAYER_KITS_NAME = "§bPlayer Kits";
-    private static final String GUI_FFA_NAME = "§cFFA";
+    private static final String GUI_TITLE_PREFIX = ChatColor.DARK_GRAY + "Select a Kit";
+    private static final String GUI_FFA_TITLE_PREFIX = ChatColor.DARK_GRAY + "FFA: Select a Kit";
+    private static final String GUI_PLAYER_KITS_NAME = ChatColor.AQUA + "Player Kits";
+    private static final String GUI_FFA_NAME = ChatColor.RED + "FFA";
 
     private static final String HUB_ITEM_GAME_SELECTOR = ChatColor.GOLD + "Game Selector";
     private static final String HUB_ITEM_KIT_EDITOR = ChatColor.AQUA + "Kit Editor";
@@ -141,6 +141,10 @@ public class HubManager implements Listener {
         meta1.setDisplayName(HUB_ITEM_PLAY_AGAIN);
         again.setItemMeta(meta1);
         player.getInventory().setItem(1, again);
+
+        // Client sync (elytra + armor updates can be delayed for some clients)
+        player.updateInventory();
+        Bukkit.getScheduler().runTaskLater(Craftmen.get(), player::updateInventory, 1L);
     }
 
     public void giveLeaveQueueItem(Player player) {
@@ -310,7 +314,17 @@ public class HubManager implements Listener {
         if (isFfa) {
             ffaPage.remove(player.getUniqueId());
             player.closeInventory();
-            Craftmen.get().getFfaManager().join(player, game);
+            var party = Craftmen.get().getPartyManager().getParty(player);
+            if (party != null) {
+                if (!party.getLeader().equals(player.getUniqueId())) {
+                    player.sendMessage(ChatColor.RED + "Only the party leader can join activities.");
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                    return;
+                }
+                Craftmen.get().getFfaManager().joinPublicParty(party, game);
+            } else {
+                Craftmen.get().getFfaManager().join(player, game);
+            }
         } else {
             Consumer<Game> callback = gameCallbacks.remove(player.getUniqueId());
             playerPage.remove(player.getUniqueId());
@@ -532,7 +546,7 @@ public class HubManager implements Listener {
     private ItemStack makeArrow(boolean left) {
         ItemStack arrow = new ItemStack(left ? Material.ARROW : Material.ARROW);
         ItemMeta meta = arrow.getItemMeta();
-        meta.setDisplayName(left ? "§e◀ Previous" : "§eNext ▶");
+        meta.setDisplayName(left ? (ChatColor.YELLOW + "◀ Previous") : (ChatColor.YELLOW + "Next ▶"));
         arrow.setItemMeta(meta);
         return arrow;
     }
@@ -540,7 +554,7 @@ public class HubManager implements Listener {
     private ItemStack makeBarrier() {
         ItemStack barrier = new ItemStack(Material.BARRIER);
         ItemMeta meta = barrier.getItemMeta();
-        meta.setDisplayName("§cClose");
+        meta.setDisplayName(ChatColor.RED + "Close");
         barrier.setItemMeta(meta);
         return barrier;
     }
@@ -548,7 +562,7 @@ public class HubManager implements Listener {
     private ItemStack makeGameItem(Game game) {
         ItemStack item = game.getIcon().clone();
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName("§a" + game.getName());
+        meta.setDisplayName(ChatColor.GREEN + game.getName());
 
         int queuedPlayers = Craftmen.get().getQueueManager().getPlayersInQueue(game).size();
 
@@ -560,7 +574,7 @@ public class HubManager implements Listener {
         item.setAmount(amount);
 
         List<String> lore = new ArrayList<>();
-        lore.add("§7Players: §a" + totalPlayers);
+        lore.add(ChatColor.GRAY + "Players: " + ChatColor.GREEN + totalPlayers);
         meta.setLore(lore);
 
         item.setItemMeta(meta);

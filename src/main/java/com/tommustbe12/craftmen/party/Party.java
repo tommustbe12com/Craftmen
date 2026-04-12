@@ -45,8 +45,7 @@ public final class Party {
         members.remove(uuid);
     }
 
-    int size() {
+    public int size() {
         return members.size();
     }
 }
-

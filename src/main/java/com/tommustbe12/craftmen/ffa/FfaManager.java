@@ -27,8 +27,10 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
@@ -62,6 +64,14 @@ public final class FfaManager implements Listener {
     private final Map<UUID, FfaInstance> instancesById = new HashMap<>();
     private final Map<UUID, Location> privateRespawnLocation = new HashMap<>();
     private final Map<UUID, UUID> privateSpectateTarget = new HashMap<>();
+
+    private record PartyTeamSettings(boolean enabled, Map<UUID, Integer> teamByPlayer) {}
+
+    private final Map<UUID, PartyTeamSettings> pendingTeamSettingsByParty = new HashMap<>();
+
+    private static final long LAST_DAMAGER_WINDOW_MILLIS = 15_000L;
+    private final Map<UUID, UUID> lastDamagerByVictim = new HashMap<>();
+    private final Map<UUID, Long> lastDamagerAtMillisByVictim = new HashMap<>();
 
     public FfaManager(Craftmen plugin) {
         this.plugin = plugin;
@@ -106,6 +116,11 @@ public final class FfaManager implements Listener {
             if (session != null) {
                 if (session.spectators.contains(damager.getUniqueId())) return false;
                 if (session.spectators.contains(damaged.getUniqueId())) return false;
+                if (session.teamsEnabled) {
+                    Integer t1 = session.teamByPlayer.get(damager.getUniqueId());
+                    Integer t2 = session.teamByPlayer.get(damaged.getUniqueId());
+                    if (t1 != null && t2 != null && t1.intValue() == t2.intValue()) return false;
+                }
             }
         }
         return true;
@@ -120,6 +135,13 @@ public final class FfaManager implements Listener {
 
         if (Craftmen.get().getEndFightManager().isInGame(player)) {
             player.sendMessage(ChatColor.RED + "You cannot join FFA while in End Fight.");
+            return;
+        }
+
+        var party = Craftmen.get().getPartyManager().getParty(player);
+        if (party != null && !party.getLeader().equals(player.getUniqueId())) {
+            player.sendMessage(ChatColor.RED + "Only the party leader can join activities.");
+            player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             return;
         }
 
@@ -205,13 +227,30 @@ public final class FfaManager implements Listener {
     }
 
     public void joinPrivateParty(UUID partyId, Collection<UUID> partyMembers, Game game, int rounds) {
+        joinPrivateParty(partyId, partyMembers, game, rounds, false, null);
+    }
+
+    public void joinPrivateParty(UUID partyId, Collection<UUID> partyMembers, Game game, int rounds, boolean teamsEnabled, Map<UUID, Integer> teamByPlayer) {
         if (partyId == null || partyMembers == null || game == null) return;
+
+        boolean resolvedTeamsEnabled = teamsEnabled;
+        Map<UUID, Integer> resolvedTeamByPlayer = teamByPlayer;
+        if (resolvedTeamByPlayer == null) {
+            PartyTeamSettings pending = pendingTeamSettingsByParty.get(partyId);
+            if (pending != null) {
+                resolvedTeamsEnabled = pending.enabled;
+                resolvedTeamByPlayer = pending.teamByPlayer;
+            }
+        }
 
         PartyFfaSession session = partySessions.get(partyId);
         if (session == null) {
             session = new PartyFfaSession(partyId, game, rounds);
             partySessions.put(partyId, session);
         }
+        session.teamsEnabled = resolvedTeamsEnabled;
+        session.teamByPlayer.clear();
+        if (resolvedTeamByPlayer != null) session.teamByPlayer.putAll(resolvedTeamByPlayer);
 
         // Reuse existing private instance if present; otherwise create a new one.
         FfaInstance instance = privatePartyInstances.get(partyId);
@@ -304,6 +343,20 @@ public final class FfaManager implements Listener {
         }
     }
 
+    public void setPendingPartyTeamSettings(UUID partyId, boolean enabled, Map<UUID, Integer> teamByPlayer) {
+        if (partyId == null) return;
+        Map<UUID, Integer> copy = new HashMap<>();
+        if (teamByPlayer != null) copy.putAll(teamByPlayer);
+        pendingTeamSettingsByParty.put(partyId, new PartyTeamSettings(enabled, copy));
+
+        PartyFfaSession session = partySessions.get(partyId);
+        if (session != null) {
+            session.teamsEnabled = enabled;
+            session.teamByPlayer.clear();
+            session.teamByPlayer.putAll(copy);
+        }
+    }
+
     private PartyFfaSession getSession(FfaInstance inst) {
         if (inst == null || !inst.isPrivate || inst.ownerPartyId == null) return null;
         return partySessions.get(inst.ownerPartyId);
@@ -314,12 +367,14 @@ public final class FfaManager implements Listener {
         session.currentRound++;
         session.alive.clear();
         session.spectators.clear();
+        session.roundParticipants.clear();
 
         for (UUID uuid : new HashSet<>(inst.players)) {
             Player p = Bukkit.getPlayer(uuid);
             if (p == null) continue;
 
             session.alive.add(uuid);
+            session.roundParticipants.add(uuid);
             // Full round reset
             PlayerReset.clearTransientState(p);
             p.setHealth(20.0);
@@ -363,16 +418,39 @@ public final class FfaManager implements Listener {
         Player killer = killerId == null ? null : Bukkit.getPlayer(killerId);
         privateRespawnLocation.put(id, killer != null ? killer.getLocation() : dead.getLocation());
 
-        if (session.alive.size() > 1) return;
+        if (session.teamsEnabled) {
+            Set<Integer> aliveTeams = new HashSet<>();
+            for (UUID u : session.alive) {
+                Integer t = session.teamByPlayer.get(u);
+                if (t != null) aliveTeams.add(t);
+            }
+            if (aliveTeams.size() > 1) return;
 
-        UUID winnerId = session.alive.stream().findFirst().orElse(null);
-        Player winner = winnerId == null ? null : Bukkit.getPlayer(winnerId);
-        if (winner != null) {
-            session.roundWins.put(winnerId, session.roundWins.getOrDefault(winnerId, 0) + 1);
-            broadcast(inst, ChatColor.GREEN + winner.getName() + " won round " + session.currentRound + "!");
-            winner.playSound(winner.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+            Integer winningTeam = aliveTeams.stream().findFirst().orElse(null);
+            if (winningTeam != null) {
+                // Give the round win to all participants on the winning team (not late-join spectators).
+                for (UUID u : session.roundParticipants) {
+                    Integer t = session.teamByPlayer.get(u);
+                    if (t != null && t.intValue() == winningTeam.intValue()) {
+                        session.roundWins.put(u, session.roundWins.getOrDefault(u, 0) + 1);
+                    }
+                }
+                broadcast(inst, ChatColor.GREEN + "Team " + winningTeam + " won round " + session.currentRound + "!");
+            } else {
+                broadcast(inst, ChatColor.YELLOW + "Round " + session.currentRound + " ended.");
+            }
         } else {
-            broadcast(inst, ChatColor.YELLOW + "Round " + session.currentRound + " ended.");
+            if (session.alive.size() > 1) return;
+
+            UUID winnerId = session.alive.stream().findFirst().orElse(null);
+            Player winner = winnerId == null ? null : Bukkit.getPlayer(winnerId);
+            if (winner != null) {
+                session.roundWins.put(winnerId, session.roundWins.getOrDefault(winnerId, 0) + 1);
+                broadcast(inst, ChatColor.GREEN + winner.getName() + " won round " + session.currentRound + "!");
+                winner.playSound(winner.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+            } else {
+                broadcast(inst, ChatColor.YELLOW + "Round " + session.currentRound + " ended.");
+            }
         }
 
         if (session.currentRound >= session.totalRounds) {
@@ -402,6 +480,44 @@ public final class FfaManager implements Listener {
         Bukkit.getScheduler().runTaskLater(plugin, () -> startNextRound(inst, session), 20L * 3L);
     }
 
+    // --------------------
+    // Party -> Public FFA join
+    // --------------------
+
+    public void joinPublicParty(com.tommustbe12.craftmen.party.Party party, Game game) {
+        if (party == null || game == null) return;
+
+        // Only join players that are online + in LOBBY and not in other modes.
+        List<Player> joinable = new ArrayList<>();
+        for (UUID memberId : party.getMembers()) {
+            Player p = Bukkit.getPlayer(memberId);
+            if (p == null) continue;
+            if (Craftmen.get().getEndFightManager().isInGame(p)) continue;
+            if (Craftmen.get().getMatchManager().getMatch(p) != null) continue;
+            if (isInFfa(p)) continue;
+
+            Profile profile = Craftmen.get().getProfileManager().getProfile(p);
+            if (profile == null || profile.getState() != PlayerState.LOBBY) continue;
+            joinable.add(p);
+        }
+
+        if (joinable.isEmpty()) return;
+
+        FfaInstance inst = pickOrCreatePublicInstance(game, joinable.size());
+        if (inst == null) return;
+
+        for (Player p : joinable) {
+            PlayerReset.clearTransientState(p);
+            leave(p, false);
+            joinIntoInstance(p, inst);
+            game.applyLoadout(p);
+            Craftmen.get().getArmorTrimManager().apply(p);
+            p.updateInventory();
+        }
+
+        broadcast(inst, ChatColor.GREEN + "Party joined FFA (" + inst.players.size() + "/" + MAX_PLAYERS_PER_INSTANCE + ").");
+    }
+
     private void joinIntoInstance(Player player, FfaInstance instance) {
         instance.players.add(player.getUniqueId());
         playerInstance.put(player.getUniqueId(), instance.id);
@@ -413,11 +529,15 @@ public final class FfaManager implements Listener {
     }
 
     private FfaInstance pickOrCreatePublicInstance(Game game) {
+        return pickOrCreatePublicInstance(game, 1);
+    }
+
+    private FfaInstance pickOrCreatePublicInstance(Game game, int requiredSlots) {
         List<FfaInstance> list = publicInstances.computeIfAbsent(game.getName(), k -> new ArrayList<>());
 
         for (FfaInstance inst : list) {
             if (inst.isPrivate) continue;
-            if (inst.players.size() < MAX_PLAYERS_PER_INSTANCE) return inst;
+            if (inst.players.size() + Math.max(1, requiredSlots) <= MAX_PLAYERS_PER_INSTANCE) return inst;
         }
 
         FfaInstance created = createInstance(game);
@@ -827,7 +947,98 @@ public final class FfaManager implements Listener {
         if (!isInFfa(damaged) && !isInFfa(damager)) return;
         if (!allowDamage(damager, damaged)) {
             e.setCancelled(true);
+            return;
         }
+
+        lastDamagerByVictim.put(damaged.getUniqueId(), damager.getUniqueId());
+        lastDamagerAtMillisByVictim.put(damaged.getUniqueId(), System.currentTimeMillis());
+
+        if (e.getFinalDamage() >= damaged.getHealth()) {
+            e.setCancelled(true);
+            handleFfaLethal(damaged, damager);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onFfaAnyDamage(EntityDamageEvent e) {
+        if (!(e.getEntity() instanceof Player damaged)) return;
+        UUID instId = playerInstance.get(damaged.getUniqueId());
+        if (instId == null) return;
+        if (e.isCancelled()) return;
+        if (e.getFinalDamage() < damaged.getHealth()) return;
+
+        Player killer = null;
+        UUID lastId = lastDamagerByVictim.get(damaged.getUniqueId());
+        Long at = lastDamagerAtMillisByVictim.get(damaged.getUniqueId());
+        if (lastId != null && at != null && System.currentTimeMillis() - at <= LAST_DAMAGER_WINDOW_MILLIS) {
+            killer = Bukkit.getPlayer(lastId);
+        }
+
+        e.setCancelled(true);
+        handleFfaLethal(damaged, killer);
+    }
+
+    private void handleFfaLethal(Player dead, Player killer) {
+        UUID instId = playerInstance.get(dead.getUniqueId());
+        if (instId == null) return;
+        FfaInstance inst = instancesById.get(instId);
+        if (inst == null) return;
+
+        lastDamagerByVictim.remove(dead.getUniqueId());
+        lastDamagerAtMillisByVictim.remove(dead.getUniqueId());
+
+        // Normally prevented by lethal-damage cancellation, but keep as a fallback if another plugin forces death.
+        if (killer != null) CosmeticsApplier.applyKillDeath(killer, dead, dead.getLocation());
+
+        String msg;
+        if (killer != null && allowDamage(killer, dead)) {
+            msg = ChatColor.RED + dead.getName() + ChatColor.GRAY + " was killed by " + ChatColor.GREEN + killer.getName();
+        } else {
+            msg = ChatColor.RED + dead.getName() + ChatColor.GRAY + " died";
+        }
+        broadcast(inst, msg);
+
+        if (inst.isPrivate) {
+            PartyFfaSession session = getSession(inst);
+            if (killer != null) privateSpectateTarget.put(dead.getUniqueId(), killer.getUniqueId());
+
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                if (!dead.isOnline()) return;
+                dead.setHealth(20.0);
+                dead.setFoodLevel(20);
+                dead.setSaturation(20f);
+
+                if (session != null) handlePrivateDeath(inst, session, dead);
+
+                Location loc = privateRespawnLocation.get(dead.getUniqueId());
+                if (loc == null) loc = inst.pasteOrigin.clone().add(0, 5, 0);
+                dead.teleport(loc);
+
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    UUID targetId = privateSpectateTarget.get(dead.getUniqueId());
+                    if (targetId != null) {
+                        Player target = Bukkit.getPlayer(targetId);
+                        if (target != null) dead.setSpectatorTarget(target);
+                    }
+                }, 1L);
+            });
+            return;
+        }
+
+        if (killer != null && allowDamage(killer, dead)) {
+            Profile pk = Craftmen.get().getProfileManager().getProfile(killer);
+            if (pk != null) pk.addFfaKill();
+        }
+        Profile pd = Craftmen.get().getProfileManager().getProfile(dead);
+        if (pd != null) pd.addFfaDeath();
+
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!dead.isOnline()) return;
+            dead.setHealth(20.0);
+            dead.setFoodLevel(20);
+            dead.setSaturation(20f);
+            leave(dead, true);
+        });
     }
 
     @EventHandler
@@ -837,6 +1048,8 @@ public final class FfaManager implements Listener {
         if (instId == null) return;
 
         e.setDeathMessage(null);
+        e.getDrops().clear();
+        e.setDroppedExp(0);
 
         Player killer = dead.getKiller();
         FfaInstance inst = instancesById.get(instId);
@@ -864,7 +1077,18 @@ public final class FfaManager implements Listener {
                     msg = ChatColor.RED + dead.getName() + ChatColor.GRAY + " died";
                 }
                 broadcast(inst, msg);
-                if (session != null) handlePrivateDeath(inst, session, dead);
+                if (session != null) {
+                    Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                        if (!dead.isOnline()) return;
+                        dead.setHealth(20.0);
+                        dead.setFoodLevel(20);
+                        dead.setSaturation(20f);
+                        handlePrivateDeath(inst, session, dead);
+                        Location loc = privateRespawnLocation.get(dead.getUniqueId());
+                        if (loc == null) loc = inst.pasteOrigin.clone().add(0, 5, 0);
+                        dead.teleport(loc);
+                    }, 2L);
+                }
             });
             return;
         }
@@ -890,7 +1114,13 @@ public final class FfaManager implements Listener {
             }
             broadcast(inst, msg);
 
-            leave(dead, true);
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (!dead.isOnline()) return;
+                dead.setHealth(20.0);
+                dead.setFoodLevel(20);
+                dead.setSaturation(20f);
+                leave(dead, true);
+            }, 2L);
         });
     }
 
