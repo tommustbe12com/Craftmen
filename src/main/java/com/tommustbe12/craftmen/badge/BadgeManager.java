@@ -86,7 +86,19 @@ public final class BadgeManager implements Listener {
         UUID selected = profile == null ? null : profile.getSelectedBadgeId();
 
         List<BadgeDefinition> list = new ArrayList<>(badges.values());
-        list.sort(Comparator.comparing(BadgeDefinition::getName, String.CASE_INSENSITIVE_ORDER));
+        list.sort((a, b) -> {
+            if (selected != null) {
+                boolean aSel = selected.equals(a.getId());
+                boolean bSel = selected.equals(b.getId());
+                if (aSel != bSel) return aSel ? -1 : 1;
+            }
+
+            boolean aUnlocked = profile != null && BadgeRequirement.parse(a.getRequirement()).map(r -> r.matches(profile)).orElse(false);
+            boolean bUnlocked = profile != null && BadgeRequirement.parse(b.getRequirement()).map(r -> r.matches(profile)).orElse(false);
+            if (aUnlocked != bUnlocked) return aUnlocked ? -1 : 1;
+
+            return String.CASE_INSENSITIVE_ORDER.compare(a.getName(), b.getName());
+        });
 
         int[] slots = contentSlots();
         int i = 0;
@@ -129,7 +141,7 @@ public final class BadgeManager implements Listener {
             Optional<BadgeRequirement> req = BadgeRequirement.parse(badge.getRequirement());
             parsedOk = req.isPresent();
             available = req.map(r -> r.matches(profile)).orElse(false);
-            progress = req.map(r -> progressLines(profile, r)).orElse(null);
+            progress = req.map(r -> progressLinesFriendly(profile, r)).orElse(null);
         }
 
         // Locked badges should look disabled.
@@ -137,12 +149,20 @@ public final class BadgeManager implements Listener {
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName((available ? ChatColor.AQUA : ChatColor.DARK_GRAY) + badge.getIcon() + " " + badge.getName());
         List<String> lore = new ArrayList<>();
-        lore.add(ChatColor.GRAY + "Requirement: " + ChatColor.WHITE + badge.getRequirement());
+        Optional<BadgeRequirement> parsed = BadgeRequirement.parse(badge.getRequirement());
+        if (parsed.isPresent()) {
+            lore.add(ChatColor.GRAY + "How to get it:");
+            for (String line : requirementLinesFriendly(parsed.get())) {
+                lore.add(ChatColor.DARK_GRAY + "- " + ChatColor.WHITE + line);
+            }
+        } else {
+            lore.add(ChatColor.GRAY + "Requirement: " + ChatColor.WHITE + badge.getRequirement());
+        }
         if (progress != null) {
             lore.add(ChatColor.GRAY + "Progress:");
             for (String line : progress.split("\n")) lore.add(line);
         }
-        lore.add(ChatColor.GRAY + "Color: " + ChatColor.WHITE + (badge.getColor() == null ? "&7" : badge.getColor()));
+        lore.add(ChatColor.GRAY + "Color: " + renderColorPreview(badge));
         if (!parsedOk) lore.add(ChatColor.RED + "Invalid requirement string.");
         lore.add(available ? (ChatColor.GREEN + "Unlocked") : (ChatColor.RED + "Locked"));
         if (selected != null && selected.equals(badge.getId())) lore.add(ChatColor.YELLOW + "Selected");
@@ -328,6 +348,67 @@ public final class BadgeManager implements Listener {
             int actual = BadgeRequirement.resolveForDisplay(profile, c.key());
             String line = ChatColor.DARK_GRAY + "- " + ChatColor.GRAY + c.key() + ChatColor.WHITE + " " + opString(c.op())
                     + " " + c.value() + ChatColor.DARK_GRAY + " (you: " + actual + ")";
+            if (sb.length() > 0) sb.append("\n");
+            sb.append(line);
+        }
+        return sb.toString();
+    }
+
+    private static String renderColorPreview(BadgeDefinition badge) {
+        String colorRaw = badge.getColor() == null ? "&7" : badge.getColor();
+        String translated = ChatColor.translateAlternateColorCodes('&', colorRaw);
+        // Use a neutral glyph so weird emoji don't duplicate; still shows exact color.
+        return translated + "⬤ " + ChatColor.DARK_GRAY + "(" + ChatColor.GRAY + colorRaw + ChatColor.DARK_GRAY + ")";
+    }
+
+    private static java.util.List<String> requirementLinesFriendly(BadgeRequirement requirement) {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        for (BadgeRequirement.Clause c : requirement.getClauses()) {
+            out.add(requirementClauseFriendly(c));
+        }
+        return out;
+    }
+
+    private static String requirementClauseFriendly(BadgeRequirement.Clause c) {
+        String targetName = friendlyKeyName(c.key());
+        String amount = String.valueOf(c.value());
+        return switch (c.op()) {
+            case GT -> "More than " + amount + " " + targetName;
+            case GTE -> "At least " + amount + " " + targetName;
+            case EQ -> "Exactly " + amount + " " + targetName;
+            case LT -> "Less than " + amount + " " + targetName;
+            case LTE -> "At most " + amount + " " + targetName;
+        };
+    }
+
+    private static String friendlyKeyName(String rawKey) {
+        if (rawKey == null) return "progress";
+        String k = rawKey.trim();
+        String lower = k.toLowerCase(java.util.Locale.ROOT);
+        if (lower.equals("wins")) return "overall wins";
+        if (lower.equals("losses")) return "overall losses";
+        if (lower.equals("ffa_kills") || lower.equals("ffa_kill")) return "FFA kills";
+        if (lower.equals("ffa_deaths") || lower.equals("ffa_death")) return "FFA deaths";
+        if (lower.startsWith("game.")) {
+            String rest = k.substring(5);
+            String restLower = rest.toLowerCase(java.util.Locale.ROOT).trim();
+            boolean wins = restLower.endsWith("wins");
+            boolean losses = restLower.endsWith("losses");
+            String gameKey = rest.substring(0, rest.length() - (wins ? 4 : (losses ? 6 : 0)));
+            String gameName = gameKey.replace("_", " ").trim();
+            if (wins) return gameName + " wins";
+            if (losses) return gameName + " losses";
+        }
+        return k;
+    }
+
+    private static String progressLinesFriendly(Profile profile, BadgeRequirement requirement) {
+        StringBuilder sb = new StringBuilder();
+        for (BadgeRequirement.Clause c : requirement.getClauses()) {
+            int actual = BadgeRequirement.resolveForDisplay(profile, c.key());
+            String name = friendlyKeyName(c.key());
+            String line = ChatColor.DARK_GRAY + "- " + ChatColor.GRAY + actual + ChatColor.DARK_GRAY + "/" + ChatColor.WHITE + c.value()
+                    + ChatColor.DARK_GRAY + " " + ChatColor.GRAY + name;
             if (sb.length() > 0) sb.append("\n");
             sb.append(line);
         }
