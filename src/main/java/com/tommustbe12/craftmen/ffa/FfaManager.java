@@ -998,6 +998,12 @@ public final class FfaManager implements Listener {
         }
         broadcast(inst, msg);
 
+        if(!inst.isPrivate) {
+            killer.setHealth(20.0);
+            killer.setFoodLevel(20);
+            killer.setSaturation(20f);
+        }
+
         if (inst.isPrivate) {
             PartyFfaSession session = getSession(inst);
             if (killer != null) privateSpectateTarget.put(dead.getUniqueId(), killer.getUniqueId());

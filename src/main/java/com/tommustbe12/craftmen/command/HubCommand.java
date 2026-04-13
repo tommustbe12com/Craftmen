@@ -32,8 +32,7 @@ public class HubCommand implements CommandExecutor {
         }
 
         if (Craftmen.get().getEndFightManager().isInGame(player)) {
-            player.sendMessage("§cYou cannot use /hub while in a match!");
-            return true;
+            Craftmen.get().getEndFightManager().removePlayer(player);
         }
 
         // Leaving FFA should always clear inventory/state first.

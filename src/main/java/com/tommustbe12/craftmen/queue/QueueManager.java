@@ -16,7 +16,7 @@ public class QueueManager {
     private final Map<String, Queue> queues = new HashMap<>();
     private final Map<Player, DuelRequest> duelRequests = new HashMap<>();
     private final Map<String, Long> duelRequestCooldowns = new HashMap<>(); // requester|target -> lastSentMillis
-    private static final long DUEL_REQUEST_COOLDOWN_MILLIS = 45_000L;
+    private static final long DUEL_REQUEST_COOLDOWN_MILLIS = 15_000L;
 
     public boolean addDuelRequest(Player sender, Player target, Game game) {
         if (sender == null || target == null || game == null) return false;
