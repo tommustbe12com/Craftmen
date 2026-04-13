@@ -16,6 +16,7 @@ commands:
   hub:
     description: Go to the server hub
     usage: /hub
+    aliases: spawn
   duel:
     description: Duel a player in Craftmen
     usage: /duel <name>

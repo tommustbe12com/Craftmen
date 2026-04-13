@@ -94,7 +94,7 @@ public class DPotionGame extends Game {
         });
 
         for (int i = 1; i <= 8; i++)
-            contents[i] = regen.clone();
+            contents[i] = heal.clone();
 
         // ===== INVENTORY (+8 offset) =====
 

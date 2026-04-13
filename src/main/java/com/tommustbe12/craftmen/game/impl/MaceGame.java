@@ -98,7 +98,7 @@ public class MaceGame extends Game {
         contents[4] = new ItemStack(Material.ELYTRA);
         contents[5] = new ItemStack(Material.WIND_CHARGE,64);
         contents[6] = enchItem(Material.MACE, new Object[][]{
-                {"wind_burst",3},{"density",5},{"unbreaking",3},{"mending",1}
+                {"wind_burst",1},{"density",5},{"unbreaking",3},{"mending",1}
         });
         contents[7] = enchItem(Material.MACE, new Object[][]{
                 {"breach",4},{"unbreaking",3},{"mending",1}
