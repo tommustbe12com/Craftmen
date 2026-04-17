@@ -13,14 +13,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.Action;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -146,29 +145,13 @@ public final class SoulsManager implements Listener {
 
         ItemStack main = e.getMainHandItem();
         ItemStack off = e.getOffHandItem();
-        if (!SoulsItems.isShardOfSoul(main) && !SoulsItems.isShardOfSoul(off)) return;
+        if (!SoulsItems.isShardOfSoul(main)) return;
 
         // prevent swapping shard away and use as ability key
         e.setCancelled(true);
 
         boolean special = player.isSneaking();
         if (special) useSpecial(player);
-        else useBase(player);
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST)
-    public void onInteract(PlayerInteractEvent e) {
-        Player player = e.getPlayer();
-        if (!isInSouls(player)) return;
-
-        Action action = e.getAction();
-        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) return;
-
-        ItemStack item = e.getItem();
-        if (!SoulsItems.isShardOfSoul(item)) return;
-
-        e.setCancelled(true);
-        if (player.isSneaking()) useSpecial(player);
         else useBase(player);
     }
 
@@ -187,8 +170,19 @@ public final class SoulsManager implements Listener {
         if (!isInSouls(player)) return;
         ItemStack current = e.getCurrentItem();
         ItemStack cursor = e.getCursor();
-        if (SoulsItems.isShardOfSoul(current) || SoulsItems.isShardOfSoul(cursor)) {
+
+        boolean currentShard = SoulsItems.isShardOfSoul(current);
+        boolean cursorShard = SoulsItems.isShardOfSoul(cursor);
+        if (!currentShard && !cursorShard) return;
+
+        // Shard of Soul cannot leave the hotbar (slots 0-8). Allow rearranging within hotbar only.
+        int slot = e.getSlot();
+        boolean playerInv = e.getClickedInventory() != null && e.getClickedInventory().getType() == org.bukkit.event.inventory.InventoryType.PLAYER;
+        boolean hotbarSlot = playerInv && slot >= 0 && slot <= 8;
+
+        if (!hotbarSlot || e.isShiftClick()) {
             e.setCancelled(true);
+            return;
         }
     }
 
@@ -197,15 +191,35 @@ public final class SoulsManager implements Listener {
         if (!(e.getWhoClicked() instanceof Player player)) return;
         if (!isInSouls(player)) return;
         ItemStack old = e.getOldCursor();
-        if (SoulsItems.isShardOfSoul(old)) {
-            e.setCancelled(true);
-            return;
+        boolean draggingShard = SoulsItems.isShardOfSoul(old);
+        if (!draggingShard) {
+            for (ItemStack it : e.getNewItems().values()) {
+                if (SoulsItems.isShardOfSoul(it)) {
+                    draggingShard = true;
+                    break;
+                }
+            }
         }
-        for (ItemStack it : e.getNewItems().values()) {
-            if (SoulsItems.isShardOfSoul(it)) {
+        if (!draggingShard) return;
+
+        // Only allow placing shard into hotbar slots (0-8) within the player inventory.
+        for (int rawSlot : e.getRawSlots()) {
+            // Player inventory hotbar raw slots are 0-8 when the top inventory is the player inventory view.
+            if (rawSlot < 0 || rawSlot > 8) {
                 e.setCancelled(true);
                 return;
             }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onFallDamage(EntityDamageEvent e) {
+        if (!(e.getEntity() instanceof Player player)) return;
+        if (!isInSouls(player)) return;
+        if (e.getCause() != EntityDamageEvent.DamageCause.FALL) return;
+        SoulCharacter c = getSelected(player);
+        if (c == SoulCharacter.GOOP) {
+            e.setCancelled(true);
         }
     }
 
@@ -462,8 +476,7 @@ public final class SoulsManager implements Listener {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!isInSouls(player)) continue;
             ItemStack main = player.getInventory().getItemInMainHand();
-            ItemStack off = player.getInventory().getItemInOffHand();
-            if (!SoulsItems.isShardOfSoul(main) && !SoulsItems.isShardOfSoul(off)) continue;
+            if (!SoulsItems.isShardOfSoul(main)) continue;
 
             long now = System.currentTimeMillis();
             SoulCharacter c = getSelected(player);
@@ -489,6 +502,18 @@ public final class SoulsManager implements Listener {
                 case GOOP -> {
                     // no fall damage handled in damage listener in other file (not present), so approximate via slow falling
                     player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 40, 0, true, false, false));
+                }
+                case DEVILS_FROST -> {
+                    // Frost Walker passive: ensure boots are enchanted while in Souls.
+                    ItemStack boots = player.getInventory().getBoots();
+                    if (boots != null && boots.getType() != org.bukkit.Material.AIR) {
+                        ItemMeta meta = boots.getItemMeta();
+                        if (meta != null && !meta.hasEnchant(org.bukkit.enchantments.Enchantment.FROST_WALKER)) {
+                            meta.addEnchant(org.bukkit.enchantments.Enchantment.FROST_WALKER, 2, true);
+                            meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
+                            boots.setItemMeta(meta);
+                        }
+                    }
                 }
                 case VOICE_OF_THE_SEA -> {
                     if (player.getWorld().hasStorm()) {

@@ -19,7 +19,7 @@ public final class SoulsItems {
         ItemStack shard = new ItemStack(Material.AMETHYST_SHARD);
         ItemMeta meta = shard.getItemMeta();
         if (meta != null) {
-            meta.setDisplayName("§dFire");
+            meta.setDisplayName("§d🔥");
             meta.setUnbreakable(true);
             meta.addEnchant(Enchantment.UNBREAKING, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE, ItemFlag.HIDE_ATTRIBUTES);
@@ -37,4 +37,3 @@ public final class SoulsItems {
         return b != null && b == (byte) 1;
     }
 }
-

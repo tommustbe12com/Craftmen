@@ -90,6 +90,9 @@ commands:
   credits:
     description: Show Credits
     usage: /credits
+  discord:
+    description: Show Discord
+    usage: /discord
 permissions:
   craftmen.admin:
     default: op

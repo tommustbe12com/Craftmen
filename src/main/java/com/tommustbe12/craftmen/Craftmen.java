@@ -29,6 +29,7 @@ import com.tommustbe12.craftmen.kit.KitStorage;
 import com.tommustbe12.craftmen.kit.command.KitCommand;
 import com.tommustbe12.craftmen.kit.gui.KitEditorMenu;
 import com.tommustbe12.craftmen.kit.gui.KitEditorShortcutListener;
+import com.tommustbe12.craftmen.souls.SoulsManager;
 import com.tommustbe12.craftmen.trim.ArmorTrimManager;
 import com.tommustbe12.craftmen.trim.ArmorTrimStorage;
 import com.tommustbe12.craftmen.trim.command.TrimsCommand;
@@ -88,6 +89,7 @@ public final class Craftmen extends JavaPlugin {
     private PartyManager partyManager;
     private PartyChatManager partyChatManager;
     private PartyFfaMenu partyFfaMenu;
+    private SoulsManager soulManager;
     private GemManager gemManager;
     private ShopMenu shopMenu;
     private HelpMenu helpMenu;
@@ -119,6 +121,7 @@ public final class Craftmen extends JavaPlugin {
 
         profileManager = new ProfileManager();
         gameManager = new GameManager();
+        soulManager = new SoulsManager();
         arenaManager = new ArenaManager();
         matchManager = new MatchManager();
         queueManager = new QueueManager();
@@ -212,6 +215,7 @@ public final class Craftmen extends JavaPlugin {
         getCommand("shop").setExecutor(new ShopCommand());
         getCommand("help").setExecutor(new HelpCommand());
         getCommand("credits").setExecutor(new CreditsCommand());
+        getCommand("discord").setExecutor(new DiscordCommand());
         getCommand("stat").setTabCompleter(new StatCommand());
 
         saveDefaultConfig();
@@ -258,6 +262,7 @@ public final class Craftmen extends JavaPlugin {
     public BadgeManager getBadgeManager() { return badgeManager; }
     public PartyManager getPartyManager() { return partyManager; }
     public PartyChatManager getPartyChatManager() { return partyChatManager; }
+    public SoulsManager getSoulsManager() { return soulManager; }
     public PartyFfaMenu getPartyFfaMenu() { return partyFfaMenu; }
     public GemManager getGemManager() { return gemManager; }
     public ShopMenu getShopMenu() { return shopMenu; }
