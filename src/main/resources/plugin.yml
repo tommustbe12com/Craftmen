@@ -87,6 +87,9 @@ commands:
   shop:
     description: Open cosmetics shop
     usage: /shop
+  credits:
+    description: Show Credits
+    usage: /credits
 permissions:
   craftmen.admin:
     default: op
