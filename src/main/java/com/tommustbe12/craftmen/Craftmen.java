@@ -212,6 +212,7 @@ public final class Craftmen extends JavaPlugin {
         getCommand("shop").setExecutor(new ShopCommand());
         getCommand("help").setExecutor(new HelpCommand());
         getCommand("credits").setExecutor(new CreditsCommand());
+        getCommand("discord").setExecutor(new DiscordCommand());
         getCommand("stat").setTabCompleter(new StatCommand());
 
         saveDefaultConfig();
