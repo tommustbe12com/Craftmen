@@ -111,30 +111,29 @@ public class HubManager implements Listener {
             rocket.setItemMeta(rMeta);
             player.getInventory().setItem(5, rocket);
         }
-
-        // Permanent gadgets purchased with gems.
-        if (profile != null) {
-            if (profile.hasCosmetic("gadget.elytra")) {
-                ItemStack elytra = new ItemStack(Material.ELYTRA);
-                ItemMeta em = elytra.getItemMeta();
-                if (em != null) {
-                    em.setDisplayName("§aSpawn Elytra");
-                    em.addEnchant(Enchantment.UNBREAKING, 1, true);
-                    elytra.setItemMeta(em);
-                }
-                player.getInventory().setChestplate(elytra);
+        // Spawn mobility items are purchasable in /shop.
+        if (profile != null && profile.hasCosmetic("gadget.elytra")) {
+            ItemStack elytra = new ItemStack(Material.ELYTRA);
+            ItemMeta em = elytra.getItemMeta();
+            if (em != null) {
+                em.setDisplayName("§aSpawn Elytra");
+                em.setUnbreakable(true);
+                em.addEnchant(Enchantment.UNBREAKING, 1, true);
+                em.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS, org.bukkit.inventory.ItemFlag.HIDE_UNBREAKABLE);
+                elytra.setItemMeta(em);
             }
-            if (profile.hasCosmetic("gadget.windcharge")) {
-                ItemStack wc = new ItemStack(Material.WIND_CHARGE, 16);
-                ItemMeta wm = wc.getItemMeta();
-                if (wm != null) {
-                    wm.setDisplayName("§aSpawn Wind Charges");
-                    wc.setItemMeta(wm);
-                }
-                player.getInventory().setItem(3, wc);
-            }
+            player.getInventory().setChestplate(elytra);
         }
 
+        if (profile != null && profile.hasCosmetic("gadget.windcharge")) {
+            ItemStack wc = new ItemStack(Material.WIND_CHARGE, 64);
+            ItemMeta wm = wc.getItemMeta();
+            if (wm != null) {
+                wm.setDisplayName("§aSpawn Wind Charges");
+                wc.setItemMeta(wm);
+            }
+            player.getInventory().setItem(3, wc);
+        }
         if(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame().equals("None")) return;
         ItemStack again = new ItemStack(Craftmen.get().getGameManager().getGame(Craftmen.get().getProfileManager().getProfile(player).getLastPlayedGame()).getIcon()); // complicated lol
         ItemMeta meta1 = again.getItemMeta();
@@ -182,6 +181,19 @@ public class HubManager implements Listener {
         String name = item.getItemMeta().getDisplayName();
         Player player = e.getPlayer();
 
+        // Infinite wind charges in spawn: allow use, then replenish the stack next tick (only if purchased).
+        if (item.getType() == Material.WIND_CHARGE
+                && Craftmen.get().getProfileManager().getProfile(player).getState() == PlayerState.LOBBY
+                && Craftmen.get().getProfileManager().getProfile(player).hasCosmetic("gadget.windcharge")) {
+            int slot = player.getInventory().getHeldItemSlot();
+            Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+                ItemStack current = player.getInventory().getItem(slot);
+                if (current != null && current.getType() == Material.WIND_CHARGE) {
+                    current.setAmount(64);
+                    player.getInventory().setItem(slot, current);
+                }
+            }, 1L);
+        }
         if (name.equals(HUB_ITEM_GAME_SELECTOR)) {
             e.setCancelled(true);
             openGameSelector(player, game -> {

@@ -43,6 +43,9 @@ public class Profile {
 
     private String lastPlayedGame;
 
+    // transient selection (not persisted) for Souls mode
+    private com.tommustbe12.craftmen.souls.SoulCharacter selectedSoulCharacter;
+
     public Profile(Player player) {
         this.player = player;
         this.state = PlayerState.LOBBY;
@@ -162,5 +165,13 @@ public class Profile {
 
     public void setLastPlayedGame(String gameName) {
         this.lastPlayedGame = gameName;
+    }
+
+    public com.tommustbe12.craftmen.souls.SoulCharacter getSelectedSoulCharacter() {
+        return selectedSoulCharacter;
+    }
+
+    public void setSelectedSoulCharacter(com.tommustbe12.craftmen.souls.SoulCharacter selectedSoulCharacter) {
+        this.selectedSoulCharacter = selectedSoulCharacter;
     }
 }

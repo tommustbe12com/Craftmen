@@ -104,6 +104,11 @@ public final class FfaManager implements Listener {
         return inst == null ? null : inst.game;
     }
 
+    public UUID getPlayerInstanceId(Player player) {
+        if (player == null) return null;
+        return playerInstance.get(player.getUniqueId());
+    }
+
     public boolean allowDamage(Player damager, Player damaged) {
         UUID i1 = playerInstance.get(damager.getUniqueId());
         if (i1 == null) return false;

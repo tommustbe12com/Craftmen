@@ -10,7 +10,7 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 
 public final class ChatColorListener implements Listener {
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onChat(AsyncPlayerChatEvent e) {
         Profile profile = Craftmen.get().getProfileManager().getProfile(e.getPlayer());
         if (profile == null) return;
@@ -20,11 +20,6 @@ public final class ChatColorListener implements Listener {
 
         String color = ChatColor.translateAlternateColorCodes('&', code);
 
-        String format = e.getFormat();
-        if (format == null) return;
-
-        if (format.contains("%2$s")) {
-            e.setFormat(format.replace("%2$s", color + "%2$s" + ChatColor.RESET));
-        }
+        e.setMessage(color + e.getMessage() + ChatColor.RESET);
     }
 }

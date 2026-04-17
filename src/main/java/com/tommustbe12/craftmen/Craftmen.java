@@ -48,6 +48,7 @@ import com.tommustbe12.craftmen.party.listener.PartyChatListener;
 import com.tommustbe12.craftmen.party.listener.PartyPlayerListener;
 import com.tommustbe12.craftmen.queue.QueueManager;
 import com.tommustbe12.craftmen.scoreboard.ScoreboardManager;
+import com.tommustbe12.craftmen.souls.SoulsManager;
 import com.tommustbe12.craftmen.web.ExposeData;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -91,6 +92,7 @@ public final class Craftmen extends JavaPlugin {
     private GemManager gemManager;
     private ShopMenu shopMenu;
     private HelpMenu helpMenu;
+    private SoulsManager soulsManager;
 
     @Override
     public void onEnable() {
@@ -138,6 +140,7 @@ public final class Craftmen extends JavaPlugin {
         gemManager = new GemManager();
         shopMenu = new ShopMenu();
         helpMenu = new HelpMenu();
+        soulsManager = new SoulsManager();
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -157,6 +160,7 @@ public final class Craftmen extends JavaPlugin {
         gameManager.registerGame(new PotionGame());
         gameManager.registerGame(new CrystalGame());
         gameManager.registerGame(new SpleefGame());
+        gameManager.registerGame(new SoulsGame());
 
         getServer().getPluginManager().registerEvents(new PlayerListener(), this);
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
@@ -186,6 +190,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ChatColorListener(), this);
         getServer().getPluginManager().registerEvents(new KillDeathCosmeticsListener(), this);
         getServer().getPluginManager().registerEvents(helpMenu, this);
+        getServer().getPluginManager().registerEvents(soulsManager, this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
@@ -199,20 +204,22 @@ public final class Craftmen extends JavaPlugin {
         getCommand("endfight").setExecutor(new EndFightCommand(endFightManager));
         KitCommand kitCommand = new KitCommand(kitEditorMenu);
         getCommand("kit").setExecutor(kitCommand);
-        getCommand("kit").setTabCompleter(kitCommand);
         getCommand("trims").setExecutor(new TrimsCommand());
         getCommand("ffa").setExecutor(new FfaCommand());
         getCommand("badges").setExecutor(new BadgesCommand());
         getCommand("badgeadmin").setExecutor(new BadgeAdminCommand());
         getCommand("party").setExecutor(new PartyCommand());
-        getCommand("party").setTabCompleter(new PartyTabCompleter());
         getCommand("pc").setExecutor(new PartyChatCommand());
-        getCommand("pc").setTabCompleter(new PartyChatTabCompleter());
         getCommand("gems").setExecutor(new GemsCommand());
         getCommand("shop").setExecutor(new ShopCommand());
         getCommand("help").setExecutor(new HelpCommand());
+        getCommand("stats").setExecutor(new StatsCommand());
 
         getCommand("stat").setTabCompleter(new StatCommand());
+        getCommand("kit").setTabCompleter(kitCommand);
+        getCommand("party").setTabCompleter(new PartyTabCompleter());
+        getCommand("pc").setTabCompleter(new PartyChatTabCompleter());
+        getCommand("stats").setTabCompleter(new StatsCommand());
 
         saveDefaultConfig();
         loadProfiles();
@@ -262,6 +269,7 @@ public final class Craftmen extends JavaPlugin {
     public GemManager getGemManager() { return gemManager; }
     public ShopMenu getShopMenu() { return shopMenu; }
     public HelpMenu getHelpMenu() { return helpMenu; }
+    public SoulsManager getSoulsManager() { return soulsManager; }
 
     public void saveProfiles() {
         for (Profile profile : getProfileManager().getProfiles().values()) {
