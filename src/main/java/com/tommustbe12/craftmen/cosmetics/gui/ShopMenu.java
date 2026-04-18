@@ -3,6 +3,7 @@ package com.tommustbe12.craftmen.cosmetics.gui;
 import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.cosmetics.CosmeticsShop;
 import com.tommustbe12.craftmen.profile.Profile;
+import com.tommustbe12.craftmen.profile.PlayerState;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -195,7 +196,13 @@ public final class ShopMenu implements Listener {
         // Lore format: "ID: gadget.elytra"
         String cosmeticId = idLine.replace("ID: ", "").trim();
         int cost = parseCost(meta.getLore());
-        CosmeticsShop.purchase(player, cosmeticId, cost);
+        boolean purchased = CosmeticsShop.purchase(player, cosmeticId, cost);
+        if (purchased) {
+            Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+            if (profile != null && profile.getState() == PlayerState.LOBBY) {
+                Craftmen.get().getHubManager().giveHubItems(player);
+            }
+        }
         openGadgets(player);
     }
 

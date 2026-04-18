@@ -9,6 +9,7 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.meta.FireworkMeta;
+import org.bukkit.persistence.PersistentDataType;
 
 public final class CosmeticsApplier {
 
@@ -20,8 +21,8 @@ public final class CosmeticsApplier {
         Profile deadProfile = Craftmen.get().getProfileManager().getProfile(dead);
         if (killerProfile == null || deadProfile == null) return;
 
-        applyKillEffect(killerProfile, location);
-        applyDeathEffect(deadProfile, location);
+        applyKillEffect(killer, killerProfile, location);
+        applyDeathEffect(killer, deadProfile, location);
         playKillSound(killerProfile, killer);
         playDeathSound(deadProfile, dead);
 
@@ -39,21 +40,34 @@ public final class CosmeticsApplier {
         Craftmen.get().saveProfile(deadProfile);
     }
 
-    private static void applyKillEffect(Profile profile, Location loc) {
+    private static void applyKillEffect(Player killer, Profile profile, Location loc) {
         String id = profile.getSelectedKillEffect();
         if (id == null) return;
         switch (id) {
-            case "kill.lightning" -> loc.getWorld().strikeLightningEffect(loc);
-            case "kill.firework" -> spawnFirework(loc, Color.AQUA);
+            case "kill.lightning" -> {
+                loc.getWorld().strikeLightningEffect(loc);
+                // Safety: if anything ends up causing lightning damage, never hurt the killer.
+                Craftmen.get().getCosmeticsDamageListener().protectFromLightning(
+                        killer.getUniqueId(),
+                        System.currentTimeMillis() + 1500L
+                );
+            }
+            case "kill.firework" -> spawnFirework(loc, Color.AQUA, killer);
         }
     }
 
-    private static void applyDeathEffect(Profile profile, Location loc) {
+    private static void applyDeathEffect(Player killer, Profile profile, Location loc) {
         String id = profile.getSelectedDeathEffect();
         if (id == null) return;
         switch (id) {
-            case "death.lightning" -> loc.getWorld().strikeLightningEffect(loc);
-            case "death.firework" -> spawnFirework(loc, Color.RED);
+            case "death.lightning" -> {
+                loc.getWorld().strikeLightningEffect(loc);
+                Craftmen.get().getCosmeticsDamageListener().protectFromLightning(
+                        killer.getUniqueId(),
+                        System.currentTimeMillis() + 1500L
+                );
+            }
+            case "death.firework" -> spawnFirework(loc, Color.RED, killer);
         }
     }
 
@@ -81,7 +95,7 @@ public final class CosmeticsApplier {
         }
     }
 
-    private static void spawnFirework(Location loc, Color color) {
+    private static void spawnFirework(Location loc, Color color, Player owner) {
         if (loc.getWorld() == null) return;
         Firework fw = loc.getWorld().spawn(loc.clone().add(0, 0.2, 0), Firework.class, firework -> {
             FireworkMeta meta = firework.getFireworkMeta();
@@ -95,6 +109,13 @@ public final class CosmeticsApplier {
             meta.setPower(0);
             firework.setFireworkMeta(meta);
         });
+        if (owner != null) {
+            fw.getPersistentDataContainer().set(
+                    new org.bukkit.NamespacedKey(Craftmen.get(), "cosmetic_firework_owner"),
+                    PersistentDataType.STRING,
+                    owner.getUniqueId().toString()
+            );
+        }
         org.bukkit.Bukkit.getScheduler().runTaskLater(Craftmen.get(), fw::detonate, 1L);
     }
 }

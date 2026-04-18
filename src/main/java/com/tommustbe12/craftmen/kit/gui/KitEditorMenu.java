@@ -14,6 +14,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -51,11 +52,16 @@ public final class KitEditorMenu implements Listener {
     private static final int SLOT_SAVE = 51;
     private static final int SLOT_RESET = 52;
     private static final int SLOT_CLOSE = 53;
+    private static final int SLOT_RENAME = 44;
 
     private final KitManager kitManager;
     private final Set<UUID> suppressCloseReopen = new HashSet<>();
     private final Map<UUID, Boolean> cursorFromEditor = new HashMap<>();
     private final Map<UUID, Integer> playerPage = new HashMap<>();
+    private final Map<UUID, Integer> lastEditableSlotClicked = new HashMap<>();
+    private final Map<UUID, RenameRequest> awaitingRename = new HashMap<>();
+
+    private record RenameRequest(Game game, int slot) {}
 
     public KitEditorMenu(KitManager kitManager) {
         this.kitManager = kitManager;
@@ -144,6 +150,7 @@ public final class KitEditorMenu implements Listener {
         inv.setItem(SLOT_BOOTS, armor[3]);
         inv.setItem(SLOT_OFFHAND, kit.getOffhand());
 
+        inv.setItem(SLOT_RENAME, renameItem());
         inv.setItem(50, helpItem());
         inv.setItem(SLOT_SAVE, saveItem());
         inv.setItem(SLOT_RESET, resetItem());
@@ -228,6 +235,25 @@ public final class KitEditorMenu implements Listener {
             return;
         }
 
+        if (raw == SLOT_RENAME) {
+            e.setCancelled(true);
+            Integer slot = lastEditableSlotClicked.get(player.getUniqueId());
+            if (slot == null) {
+                player.sendMessage(ChatColor.RED + "Click an item in your kit first, then click Rename.");
+                return;
+            }
+            ItemStack target = e.getInventory().getItem(slot);
+            if (target == null || target.getType() == Material.AIR) {
+                player.sendMessage(ChatColor.RED + "That slot is empty.");
+                return;
+            }
+            awaitingRename.put(player.getUniqueId(), new RenameRequest(holder.getGame(), slot));
+            suppressCloseReopen.add(player.getUniqueId());
+            player.closeInventory();
+            player.sendMessage(ChatColor.YELLOW + "Type the new item name in chat. Type " + ChatColor.RED + "cancel" + ChatColor.YELLOW + " to abort.");
+            return;
+        }
+
         if (raw == SLOT_RESET) {
             e.setCancelled(true);
             Game game = holder.getGame();
@@ -249,6 +275,8 @@ public final class KitEditorMenu implements Listener {
                 e.setCancelled(true);
                 return;
             }
+
+            lastEditableSlotClicked.put(player.getUniqueId(), raw);
 
             ItemStack cursor = e.getCursor();
             boolean cursorHasItem = cursor != null && cursor.getType() != Material.AIR;
@@ -349,14 +377,67 @@ public final class KitEditorMenu implements Listener {
         player.sendMessage(ChatColor.GRAY + "Tip: click " + ChatColor.GREEN + "Save" + ChatColor.GRAY + " to keep your changes.");
     }
 
+    @EventHandler(priority = org.bukkit.event.EventPriority.HIGHEST)
+    public void onChatRename(AsyncPlayerChatEvent e) {
+        Player player = e.getPlayer();
+        RenameRequest req = awaitingRename.get(player.getUniqueId());
+        if (req == null) return;
+
+        e.setCancelled(true);
+        String msg = e.getMessage() == null ? "" : e.getMessage().trim();
+
+        if (msg.equalsIgnoreCase("cancel")) {
+            awaitingRename.remove(player.getUniqueId());
+            player.sendMessage(ChatColor.GRAY + "Rename cancelled.");
+            Bukkit.getScheduler().runTask(Craftmen.get(), () -> openEdit(player, req.game(), false));
+            return;
+        }
+
+        String sanitized = sanitizeName(msg);
+        if (sanitized == null) {
+            player.sendMessage(ChatColor.RED + "That name isn't allowed. Try again or type cancel.");
+            return;
+        }
+
+        awaitingRename.remove(player.getUniqueId());
+        Bukkit.getScheduler().runTask(Craftmen.get(), () -> {
+            openEdit(player, req.game(), false);
+            Inventory top = player.getOpenInventory().getTopInventory();
+            ItemStack target = top.getItem(req.slot());
+            if (target == null || target.getType() == Material.AIR) return;
+            ItemMeta meta = target.getItemMeta();
+            if (meta == null) return;
+            meta.setDisplayName(ChatColor.RESET + sanitized);
+            target.setItemMeta(meta);
+            top.setItem(req.slot(), target);
+            sanitizeEditor(top);
+            player.updateInventory();
+        });
+    }
+
     private static void sanitizeEditor(Inventory inv) {
         // Border row (36-44) must stay panes.
         for (int i = 36; i < 45; i++) inv.setItem(i, borderPane());
+        inv.setItem(SLOT_RENAME, renameItem());
         // Buttons must stay buttons.
         inv.setItem(50, helpItem());
         inv.setItem(SLOT_SAVE, saveItem());
         inv.setItem(SLOT_RESET, resetItem());
         inv.setItem(SLOT_CLOSE, closeItem());
+    }
+
+    private static ItemStack renameItem() {
+        ItemStack item = new ItemStack(Material.ANVIL);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(ChatColor.AQUA + "Rename Item");
+            meta.setLore(List.of(
+                    ChatColor.GRAY + "Click an item slot, then click this.",
+                    ChatColor.DARK_GRAY + "Name is filtered."
+            ));
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 
     private static int firstEmptyEditable(Inventory inv) {
@@ -374,6 +455,27 @@ public final class KitEditorMenu implements Listener {
     private static boolean isEditableSlot(int raw) {
         if (raw >= 0 && raw < 36) return true;
         return raw == SLOT_HELMET || raw == SLOT_CHEST || raw == SLOT_LEGS || raw == SLOT_BOOTS || raw == SLOT_OFFHAND;
+    }
+
+    private static String sanitizeName(String raw) {
+        if (raw == null) return null;
+        String s = ChatColor.stripColor(ChatColor.translateAlternateColorCodes('&', raw));
+        if (s == null) return null;
+        s = s.trim();
+        if (s.isEmpty()) return null;
+        if (s.length() > 32) s = s.substring(0, 32);
+
+        String lowered = s.toLowerCase(Locale.ROOT);
+        String[] banned = {"nigger", "faggot", "kike", "cunt", "fuck", "shit", "bitch"};
+        for (String b : banned) {
+            if (lowered.contains(b)) return null;
+        }
+
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < 32 || c > 126) return null;
+        }
+        return s;
     }
 
     private Kit readKitFromEditor(Inventory inv) {

@@ -19,6 +19,7 @@ import com.tommustbe12.craftmen.cosmetics.command.ShopCommand;
 import com.tommustbe12.craftmen.cosmetics.gui.ShopMenu;
 import com.tommustbe12.craftmen.cosmetics.listener.ChatColorListener;
 import com.tommustbe12.craftmen.cosmetics.listener.KillDeathCosmeticsListener;
+import com.tommustbe12.craftmen.cosmetics.CosmeticsDamageListener;
 import com.tommustbe12.craftmen.help.HelpMenu;
 import com.tommustbe12.craftmen.help.command.HelpCommand;
 import com.tommustbe12.craftmen.hub.HubManager;
@@ -90,6 +91,7 @@ public final class Craftmen extends JavaPlugin {
     private PartyChatManager partyChatManager;
     private PartyFfaMenu partyFfaMenu;
     private SoulsManager soulManager;
+    private CosmeticsDamageListener cosmeticsDamageListener;
     private GemManager gemManager;
     private ShopMenu shopMenu;
     private HelpMenu helpMenu;
@@ -122,6 +124,7 @@ public final class Craftmen extends JavaPlugin {
         profileManager = new ProfileManager();
         gameManager = new GameManager();
         soulManager = new SoulsManager();
+        cosmeticsDamageListener = new CosmeticsDamageListener();
         arenaManager = new ArenaManager();
         matchManager = new MatchManager();
         queueManager = new QueueManager();
@@ -189,6 +192,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(shopMenu, this);
         getServer().getPluginManager().registerEvents(new ChatColorListener(), this);
         getServer().getPluginManager().registerEvents(new KillDeathCosmeticsListener(), this);
+        getServer().getPluginManager().registerEvents(cosmeticsDamageListener, this);
         getServer().getPluginManager().registerEvents(helpMenu, this);
         getServer().getPluginManager().registerEvents(soulManager, this);
 
@@ -266,6 +270,7 @@ public final class Craftmen extends JavaPlugin {
     public PartyManager getPartyManager() { return partyManager; }
     public PartyChatManager getPartyChatManager() { return partyChatManager; }
     public SoulsManager getSoulsManager() { return soulManager; }
+    public CosmeticsDamageListener getCosmeticsDamageListener() { return cosmeticsDamageListener; }
     public PartyFfaMenu getPartyFfaMenu() { return partyFfaMenu; }
     public GemManager getGemManager() { return gemManager; }
     public ShopMenu getShopMenu() { return shopMenu; }
