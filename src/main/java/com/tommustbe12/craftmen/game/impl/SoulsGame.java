@@ -74,16 +74,16 @@ public final class SoulsGame extends Game {
 
         // Armor array order used in this codebase: [helmet, chest, legs, boots]
         armor[0] = enchItem(Material.DIAMOND_HELMET, new Object[][]{
-                {"protection", 3}, {"unbreaking", 3}, {"mending", 1}
+                {"protection", 4}, {"unbreaking", 3}, {"mending", 1}
         });
         armor[1] = enchItem(Material.DIAMOND_CHESTPLATE, new Object[][]{
                 {"protection", 4}, {"unbreaking", 3}, {"mending", 1}
         });
         armor[2] = enchItem(Material.DIAMOND_LEGGINGS, new Object[][]{
-                {"protection", 3}, {"unbreaking", 3}, {"mending", 1}
+                {"protection", 4}, {"unbreaking", 3}, {"mending", 1}
         });
         armor[3] = enchItem(Material.DIAMOND_BOOTS, new Object[][]{
-                {"protection", 3}, {"feather_falling", 4}, {"unbreaking", 3}, {"mending", 1}
+                {"protection", 4}, {"feather_falling", 4}, {"unbreaking", 3}, {"mending", 1}
         });
 
         ItemStack offhand = enchItem(Material.SHIELD, new Object[][]{

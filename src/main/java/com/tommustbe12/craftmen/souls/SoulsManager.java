@@ -52,6 +52,7 @@ public final class SoulsManager implements Listener {
 
     private final Map<UUID, Double> originalMaxHealth = new HashMap<>();
     private final Map<UUID, Long> specialWeatherUntil = new HashMap<>();
+    private final Map<UUID, ItemStack> seaTridentRestore = new HashMap<>();
 
     private BukkitTask actionbarTask;
     private BukkitTask passiveTask;
@@ -419,6 +420,23 @@ public final class SoulsManager implements Listener {
         UUID id = player.getUniqueId();
         specialWeatherUntil.put(id, System.currentTimeMillis() + 20_000L);
 
+        // Give caster a Channeling trident for the duration (restore previous slot after).
+        if (!seaTridentRestore.containsKey(id)) {
+            seaTridentRestore.put(id, player.getInventory().getItem(1));
+            ItemStack trident = new ItemStack(org.bukkit.Material.TRIDENT);
+            ItemMeta meta = trident.getItemMeta();
+            if (meta != null) {
+                meta.setDisplayName("§bChanneling Trident");
+                meta.setUnbreakable(true);
+                meta.addEnchant(org.bukkit.enchantments.Enchantment.CHANNELING, 1, true);
+                meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 3, true);
+                meta.addEnchant(org.bukkit.enchantments.Enchantment.MENDING, 1, true);
+                meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS, org.bukkit.inventory.ItemFlag.HIDE_UNBREAKABLE, org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES);
+                trident.setItemMeta(meta);
+            }
+            player.getInventory().setItem(1, trident);
+        }
+
         Bukkit.getScheduler().runTaskTimer(Craftmen.get(), task -> {
             if (!player.isOnline()) {
                 task.cancel();
@@ -429,12 +447,27 @@ public final class SoulsManager implements Listener {
                 task.cancel();
                 return;
             }
+            // Visual lightning + heavy damage to nearby enemies (without harming the caster).
             for (int i = 0; i < 4; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 double radius = 6 + Math.random() * 10;
                 Location loc = player.getLocation().clone().add(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
                 loc.setY(world.getHighestBlockYAt(loc) + 1);
                 world.strikeLightningEffect(loc);
+            }
+
+            Location center = player.getLocation();
+            for (Player p : world.getPlayers()) {
+                if (p == player) continue;
+                if (!p.isOnline() || p.isDead()) continue;
+                if (!isInSouls(p)) continue;
+                if (!sameContext(player, p)) continue;
+                if (p.getLocation().distanceSquared(center) > (14.0 * 14.0)) continue;
+
+                // "Lots of damage": 12 hearts (24 damage). Clamp to leave at least 0.5 heart if needed by other plugins.
+                double dmg = 24.0;
+                world.strikeLightningEffect(p.getLocation());
+                p.damage(dmg, player);
             }
         }, 0L, 20L);
 
@@ -444,6 +477,13 @@ public final class SoulsManager implements Listener {
             world.setThundering(prevThundering);
             world.setWeatherDuration(prevDuration);
             world.setThunderDuration(prevThunderDuration);
+
+            // Restore slot 1 item
+            ItemStack restore = seaTridentRestore.remove(id);
+            if (player.isOnline()) {
+                player.getInventory().setItem(1, restore);
+                player.updateInventory();
+            }
         }, 20L * 20L);
     }
 
