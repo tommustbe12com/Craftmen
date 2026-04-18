@@ -16,10 +16,12 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -147,14 +149,37 @@ public final class SoulsManager implements Listener {
 
         ItemStack main = e.getMainHandItem();
         ItemStack off = e.getOffHandItem();
-        if (!SoulsItems.isShardOfSoul(main)) return;
+        if (SoulsItems.isShardOfSoul(main) || SoulsItems.isShardOfSoul(off)) {
+            // prevent swapping shard away
+            e.setCancelled(true);
+        }
+    }
 
-        // prevent swapping shard away and use as ability key
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onShardClick(PlayerInteractEvent e) {
+        Player player = e.getPlayer();
+        if (!isInSouls(player)) return;
+
+        ItemStack item = e.getItem();
+        if (!SoulsItems.isShardOfSoul(item)) return;
+
+        Action action = e.getAction();
+        if (action != Action.LEFT_CLICK_AIR
+                && action != Action.LEFT_CLICK_BLOCK
+                && action != Action.RIGHT_CLICK_AIR
+                && action != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+
+        // Clicking the shard triggers abilities: left-click = [1], right-click = [2].
         e.setCancelled(true);
-
-        boolean special = player.isSneaking();
-        if (special) useSpecial(player);
-        else useBase(player);
+        if (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK) {
+            useBase(player);
+            player.sendActionBar("§aUsed [1]");
+        } else {
+            useSpecial(player);
+            player.sendActionBar("§bUsed [2]");
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
