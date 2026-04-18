@@ -4,6 +4,7 @@ import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.kit.Kit;
 import com.tommustbe12.craftmen.match.Match;
 import com.tommustbe12.craftmen.profile.PlayerState;
+import com.tommustbe12.craftmen.potion.AutoPotionApplier;
 import org.bukkit.entity.Player;
 import org.bukkit.Sound;
 import org.bukkit.inventory.ItemStack;
@@ -47,6 +48,7 @@ public abstract class Game {
         if (player == null) return;
         Kit kit = Craftmen.get().getKitManager().getEffectiveKit(player, this);
         kit.apply(player);
+        AutoPotionApplier.applyAtStartIfPresent(player);
         Craftmen.get().getArmorTrimManager().apply(player);
         afterLoadoutApplied(player);
     }

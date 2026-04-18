@@ -97,8 +97,12 @@ public final class SoulsManager implements Listener {
 
     public void onRoundStart(Player player) {
         if (player == null) return;
-        // Special starts on cooldown when the round starts.
-        setCooldown(player, "special", System.currentTimeMillis());
+        // Special starts on cooldown when the round starts (only for souls that actually have a special).
+        SoulCharacter c = getSelected(player);
+        if (c == null) c = SoulCharacter.GOOP;
+        if (c != SoulCharacter.GOOP) {
+            setCooldown(player, "special", System.currentTimeMillis());
+        }
     }
 
     public void applySoulLoadout(Player player) {
@@ -173,7 +177,24 @@ public final class SoulsManager implements Listener {
 
         // Clicking the shard triggers abilities: left-click = [1], right-click = [2].
         e.setCancelled(true);
-        if (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK) {
+        SoulCharacter c = getSelected(player);
+        if (c == null) c = SoulCharacter.GOOP;
+
+        boolean left = (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK);
+        if (c == SoulCharacter.GOOP) {
+            // Goop has 2 base abilities (no special). Both share the same 15s cooldown.
+            if (!tryUseCooldown(player, "goop", BASE_COOLDOWN_MS)) return;
+            if (left) {
+                goopBounce(player);
+                player.sendActionBar("§aUsed [1]");
+            } else {
+                goopFreeze(player);
+                player.sendActionBar("§bUsed [2]");
+            }
+            return;
+        }
+
+        if (left) {
             useBase(player);
             player.sendActionBar("§aUsed [1]");
         } else {
@@ -244,10 +265,7 @@ public final class SoulsManager implements Listener {
         if (!(e.getEntity() instanceof Player player)) return;
         if (!isInSouls(player)) return;
         if (e.getCause() != EntityDamageEvent.DamageCause.FALL) return;
-        SoulCharacter c = getSelected(player);
-        if (c == SoulCharacter.GOOP) {
-            e.setCancelled(true);
-        }
+        // (No souls currently have fall-damage immunity.)
     }
 
     @EventHandler
@@ -281,15 +299,8 @@ public final class SoulsManager implements Listener {
         SoulCharacter c = getSelected(player);
         if (c == null) c = SoulCharacter.GOOP;
 
-        // Goop has 2 base abilities: shift is reserved for special, so cycle: if base1 on cooldown, try base2.
-        if (c == SoulCharacter.GOOP) {
-            if (tryUseCooldown(player, "base1", BASE_COOLDOWN_MS)) {
-                goopBounce(player);
-            } else if (tryUseCooldown(player, "base2", BASE_COOLDOWN_MS)) {
-                goopFreeze(player);
-            }
-            return;
-        }
+        // Goop is handled by click handler (2 base abilities, no special).
+        if (c == SoulCharacter.GOOP) return;
 
         if (!tryUseCooldown(player, "base", BASE_COOLDOWN_MS)) return;
 
@@ -509,15 +520,23 @@ public final class SoulsManager implements Listener {
             SoulCharacter c = getSelected(player);
             if (c == null) c = SoulCharacter.GOOP;
 
-            long baseRemaining = remaining(player, (c == SoulCharacter.GOOP) ? "base1" : "base", BASE_COOLDOWN_MS, now);
+            long baseRemaining = remaining(player, (c == SoulCharacter.GOOP) ? "goop" : "base", BASE_COOLDOWN_MS, now);
             long slot2Remaining = (c == SoulCharacter.GOOP)
-                    ? remaining(player, "base2", BASE_COOLDOWN_MS, now)
+                    ? baseRemaining
                     : remaining(player, "special", SPECIAL_COOLDOWN_MS, now);
 
-            String one = (baseRemaining <= 0) ? "§a[1]" : "§c[1]";
-            String two = (slot2Remaining <= 0) ? "§b[2]" : "§7[2]";
+            String one = formatCooldownToken(1, baseRemaining, true);
+            String two = formatCooldownToken(2, slot2Remaining, false);
             player.sendActionBar(one + " §8" + two);
         }
+    }
+
+    private static String formatCooldownToken(int num, long remainingMs, boolean base) {
+        String readyColor = base ? "§a" : "§b";
+        String cdColor = base ? "§c" : "§7";
+        if (remainingMs <= 0) return readyColor + "[" + num + "]";
+        long sec = Math.max(1, (long) Math.ceil(remainingMs / 1000.0));
+        return cdColor + "[" + num + " " + sec + "s]";
     }
     private void tickPassives() {
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -527,8 +546,8 @@ public final class SoulsManager implements Listener {
 
             switch (c) {
                 case GOOP -> {
-                    // no fall damage handled in damage listener in other file (not present), so approximate via slow falling
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 40, 0, true, false, false));
+                    // Passive: Speed I
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, 0, true, false, false));
                 }
                 case DEVILS_FROST -> {
                     // Frost Walker passive: ensure boots are enchanted while in Souls.
