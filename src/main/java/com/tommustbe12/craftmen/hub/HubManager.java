@@ -43,7 +43,7 @@ public class HubManager implements Listener {
     private static final String HUB_ITEM_LEAVE_QUEUE = ChatColor.RED + "Leave Queue";
 
     private static final List<String> PAGE_ONE_KITS = Arrays.asList(
-            "Souls", "Sword", "Mace", "Axe", "Netherite Potion", "Diamond Potion", "SMP"
+            "Sword", "Mace", "Axe", "Netherite Potion", "Diamond Potion", "SMP", "UHC"
     );
 
     private static final int INV_SIZE = 54;
@@ -253,9 +253,18 @@ public class HubManager implements Listener {
             giveHubItems(player);
         } else if (name.equals(HUB_ITEM_PLAY_AGAIN)) {
             e.setCancelled(true);
-            Craftmen.get().getQueueManager().queueAgain(player);
-            player.teleport(Craftmen.get().getHubLocation());
-            giveLeaveQueueItem(player);
+            Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+            if (profile != null && "Souls".equalsIgnoreCase(profile.getLastPlayedGame())) {
+                Craftmen.get().getSoulsManager().openCharacterSelect(player, picked -> {
+                    Craftmen.get().getQueueManager().queueAgain(player);
+                    player.teleport(Craftmen.get().getHubLocation());
+                    giveLeaveQueueItem(player);
+                });
+            } else {
+                Craftmen.get().getQueueManager().queueAgain(player);
+                player.teleport(Craftmen.get().getHubLocation());
+                giveLeaveQueueItem(player);
+            }
         }
     }
 

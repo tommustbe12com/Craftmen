@@ -55,6 +55,8 @@ public final class SoulsManager implements Listener {
     private BukkitTask passiveTask;
 
     public SoulsManager() {
+        // SoulsCharacterMenu is its own listener; register it so clicks are handled/cancelled.
+        Bukkit.getPluginManager().registerEvents(characterMenu, Craftmen.get());
         startTasks();
     }
 

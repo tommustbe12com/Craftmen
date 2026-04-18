@@ -15,6 +15,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,7 +25,7 @@ public final class SoulsCharacterMenu implements Listener {
 
     public static final String TITLE = "§8Select a Soul";
 
-    private final Map<UUID, Consumer<SoulCharacter>> callbacks = new java.util.HashMap<>();
+    private final Map<UUID, Consumer<SoulCharacter>> callbacks = new HashMap<>();
     private final Map<SoulCharacter, ItemStack> buttonByCharacter = new EnumMap<>(SoulCharacter.class);
 
     public SoulsCharacterMenu() {

@@ -160,6 +160,7 @@ public final class Craftmen extends JavaPlugin {
         gameManager.registerGame(new PotionGame());
         gameManager.registerGame(new CrystalGame());
         gameManager.registerGame(new SpleefGame());
+        gameManager.registerGame(new SoulsGame());
 
         getServer().getPluginManager().registerEvents(new PlayerListener(), this);
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
@@ -189,6 +190,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new ChatColorListener(), this);
         getServer().getPluginManager().registerEvents(new KillDeathCosmeticsListener(), this);
         getServer().getPluginManager().registerEvents(helpMenu, this);
+        getServer().getPluginManager().registerEvents(soulManager, this);
 
         getCommand("checkstatus").setExecutor(new CheckStatusCommand());
         getCommand("hub").setExecutor(new HubCommand());
@@ -217,6 +219,7 @@ public final class Craftmen extends JavaPlugin {
         getCommand("credits").setExecutor(new CreditsCommand());
         getCommand("discord").setExecutor(new DiscordCommand());
         getCommand("stat").setTabCompleter(new StatCommand());
+        getCommand("stats").setExecutor(new StatsCommand());
 
         saveDefaultConfig();
         loadProfiles();

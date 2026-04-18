@@ -93,6 +93,9 @@ commands:
   discord:
     description: Show Discord
     usage: /discord
+  stats:
+    description: See somebody's stats
+    usage: /stats <player>
 permissions:
   craftmen.admin:
     default: op
