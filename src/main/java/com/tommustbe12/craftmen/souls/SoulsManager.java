@@ -182,12 +182,16 @@ public final class SoulsManager implements Listener {
 
         boolean left = (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK);
         if (c == SoulCharacter.GOOP) {
-            // Goop has 2 base abilities (no special). Both share the same 15s cooldown.
-            if (!tryUseCooldown(player, "goop", BASE_COOLDOWN_MS)) return;
             if (left) {
-                goopBounce(player);
+                if (!tryUseCooldown(player, "goop1", BASE_COOLDOWN_MS)) return;
+                if (player.isSneaking()) {
+                    goopLaunchSelf(player);
+                } else {
+                    goopBounce(player);
+                }
                 player.sendActionBar("§aUsed [1]");
             } else {
+                if (!tryUseCooldown(player, "goop2", BASE_COOLDOWN_MS)) return;
                 goopFreeze(player);
                 player.sendActionBar("§bUsed [2]");
             }
@@ -392,9 +396,11 @@ public final class SoulsManager implements Listener {
     }
 
     private void seaRiptideBoost(Player player) {
-        // If they have a trident, let them use it; otherwise just do a small forward dash.
         Vector dir = player.getLocation().getDirection().normalize();
-        player.setVelocity(dir.multiply(1.2).setY(0.2));
+        // Faster/farther dash that can go upward based on look direction.
+        Vector vel = dir.multiply(2.4);
+        vel.setY(Math.max(dir.getY() * 1.4, 0.25));
+        player.setVelocity(vel);
         player.playSound(player.getLocation(), Sound.ITEM_TRIDENT_RIPTIDE_1, 1.0f, 1.1f);
     }
 
@@ -510,6 +516,15 @@ public final class SoulsManager implements Listener {
         passiveTask = Bukkit.getScheduler().runTaskTimer(Craftmen.get(), this::tickPassives, 20L, 20L);
     }
 
+    private void goopLaunchSelf(Player player) {
+        if (player == null) return;
+        Vector dir = player.getLocation().getDirection().normalize();
+        Vector vel = dir.multiply(1.8);
+        vel.setY(Math.max(dir.getY(), 0.2) + 0.5);
+        player.setVelocity(vel);
+        player.playSound(player.getLocation(), Sound.ENTITY_SLIME_JUMP, 1.0f, 1.2f);
+    }
+
     private void tickActionbar() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!isInSouls(player)) continue;
@@ -520,9 +535,9 @@ public final class SoulsManager implements Listener {
             SoulCharacter c = getSelected(player);
             if (c == null) c = SoulCharacter.GOOP;
 
-            long baseRemaining = remaining(player, (c == SoulCharacter.GOOP) ? "goop" : "base", BASE_COOLDOWN_MS, now);
+            long baseRemaining = remaining(player, (c == SoulCharacter.GOOP) ? "goop1" : "base", BASE_COOLDOWN_MS, now);
             long slot2Remaining = (c == SoulCharacter.GOOP)
-                    ? baseRemaining
+                    ? remaining(player, "goop2", BASE_COOLDOWN_MS, now)
                     : remaining(player, "special", SPECIAL_COOLDOWN_MS, now);
 
             String one = formatCooldownToken(1, baseRemaining, true);

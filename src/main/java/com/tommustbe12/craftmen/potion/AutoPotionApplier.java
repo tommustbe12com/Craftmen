@@ -13,6 +13,9 @@ import org.bukkit.potion.PotionType;
 import org.bukkit.util.Vector;
 
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.Set;
+
 public final class AutoPotionApplier {
 
     private AutoPotionApplier() {}
