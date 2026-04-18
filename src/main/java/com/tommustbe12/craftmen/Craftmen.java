@@ -223,7 +223,10 @@ public final class Craftmen extends JavaPlugin {
         getCommand("credits").setExecutor(new CreditsCommand());
         getCommand("discord").setExecutor(new DiscordCommand());
         getCommand("stat").setTabCompleter(new StatCommand());
-        getCommand("stats").setExecutor(new StatsCommand());
+        StatsCommand statsCommand = new StatsCommand();
+        getCommand("stats").setExecutor(statsCommand);
+        getCommand("stats").setTabCompleter(statsCommand);
+        getServer().getPluginManager().registerEvents(statsCommand, this);
 
         saveDefaultConfig();
         loadProfiles();
