@@ -120,7 +120,7 @@ public final class SoulsGame extends Game {
         });
 
         Material spearMat = Material.matchMaterial("DIAMOND_SPEAR");
-        ItemStack spear = enchItem(materialOr(spearMat, Material.TRIDENT), new Object[][]{
+        ItemStack spear = enchItem(spearMat, new Object[][]{
                 {"lunge", 3}
         });
 
