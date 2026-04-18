@@ -44,6 +44,14 @@ public abstract class Game {
         return iconItemStack;
     }
 
+    /**
+     * Whether this game should use saved custom kits from the kit editor.
+     * Some modes (e.g. Random Kit) must always generate a fresh kit.
+     */
+    public boolean allowCustomKits() {
+        return true;
+    }
+
     public final void applyLoadout(Player player) {
         if (player == null) return;
         Kit kit = Craftmen.get().getKitManager().getEffectiveKit(player, this);

@@ -349,9 +349,19 @@ public class HubManager implements Listener {
                     player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                     return;
                 }
-                Craftmen.get().getFfaManager().joinPublicParty(party, game);
+                if (game != null && game.getName().equalsIgnoreCase("Souls")) {
+                    Craftmen.get().getSoulsManager().openCharacterSelect(player, picked ->
+                            Craftmen.get().getFfaManager().joinPublicParty(party, game));
+                } else {
+                    Craftmen.get().getFfaManager().joinPublicParty(party, game);
+                }
             } else {
-                Craftmen.get().getFfaManager().join(player, game);
+                if (game != null && game.getName().equalsIgnoreCase("Souls")) {
+                    Craftmen.get().getSoulsManager().openCharacterSelect(player, picked ->
+                            Craftmen.get().getFfaManager().join(player, game));
+                } else {
+                    Craftmen.get().getFfaManager().join(player, game);
+                }
             }
         } else {
             Consumer<Game> callback = gameCallbacks.remove(player.getUniqueId());

@@ -11,6 +11,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemFlag;
@@ -18,7 +19,10 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class PartyFfaMenu implements Listener {
@@ -27,11 +31,14 @@ public final class PartyFfaMenu implements Listener {
     private static final String TEAMS_TITLE = ChatColor.DARK_GRAY + "Party FFA Teams";
     private static final String PLAY_AGAIN_NAME = ChatColor.GOLD + "" + ChatColor.BOLD + "Play Party FFA Again";
 
+    private static final int MAX_TEAMS = 4;
+
     private final Map<UUID, UUID> pendingPartyByLeader = new HashMap<>();
     private final Map<UUID, Game> pendingGameByLeader = new HashMap<>();
     private final Map<UUID, Integer> pendingRoundsByLeader = new HashMap<>();
     private final Map<UUID, Boolean> pendingTeamsEnabledByLeader = new HashMap<>();
     private final Map<UUID, Map<UUID, Integer>> pendingTeamsByLeader = new HashMap<>();
+    private final Map<UUID, Boolean> pendingTeamsCustomizeByLeader = new HashMap<>();
 
     public void openGameSelect(Player leader, Party party) {
         if (leader == null || party == null) return;
@@ -114,17 +121,19 @@ public final class PartyFfaMenu implements Listener {
         if (!SETTINGS_TITLE.equals(title) && !TEAMS_TITLE.equals(title)) return;
         if (!(e.getWhoClicked() instanceof Player leader)) return;
 
-        e.setCancelled(true);
+        e.setCancelled(true); // we manually manage all movement in these menus
 
         int slot = e.getRawSlot();
-        if (slot < 0 || slot >= e.getInventory().getSize()) return;
+        if (slot < 0) return;
 
         UUID leaderId = leader.getUniqueId();
 
         if (TEAMS_TITLE.equals(title)) {
-            handleTeamsClick(leader, slot);
+            handleTeamsClick(e, leader, slot);
             return;
         }
+
+        if (slot < 0 || slot >= e.getInventory().getSize()) return;
 
         // round buttons (0..9)
         if (slot >= 0 && slot <= 9) {
@@ -142,6 +151,7 @@ public final class PartyFfaMenu implements Listener {
             leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
             if (!enabled) {
                 initTeamsIfMissing(leader);
+                pendingTeamsCustomizeByLeader.put(leaderId, false);
                 openTeams(leader);
             } else {
                 openSettings(leader);
@@ -224,10 +234,10 @@ public final class PartyFfaMenu implements Listener {
         Party party = partyId == null ? null : Craftmen.get().getPartyManager().getPartyById(partyId);
         if (party == null) return;
 
-        int team = 1;
-        for (UUID u : party.getMembers()) {
-            map.putIfAbsent(u, team);
-            team++;
+        // Default: spread across up to 4 teams (round-robin).
+        List<UUID> members = new java.util.ArrayList<>(party.getMembers());
+        for (int i = 0; i < members.size(); i++) {
+            map.putIfAbsent(members.get(i), (i % MAX_TEAMS) + 1);
         }
     }
 
@@ -243,46 +253,67 @@ public final class PartyFfaMenu implements Listener {
 
         initTeamsIfMissing(leader);
         Map<UUID, Integer> teams = pendingTeamsByLeader.get(leaderId);
+        boolean customize = pendingTeamsCustomizeByLeader.getOrDefault(leaderId, false);
 
         Inventory inv = Bukkit.createInventory(null, 54, TEAMS_TITLE);
         fill(inv);
 
         inv.setItem(45, make(Material.ARROW, ChatColor.YELLOW + "Back", ChatColor.GRAY + "Return to settings", Sound.UI_BUTTON_CLICK));
-        inv.setItem(49, make(Material.NETHER_STAR, ChatColor.AQUA + "Randomize", ChatColor.GRAY + "Random teams", Sound.UI_BUTTON_CLICK));
+        inv.setItem(47, make(customize ? Material.LIME_DYE : Material.GRAY_DYE,
+                ChatColor.YELLOW + "" + ChatColor.BOLD + "Customize Teams",
+                customize ? (ChatColor.GREEN + "ON") : (ChatColor.GRAY + "OFF"),
+                Sound.UI_BUTTON_CLICK));
+        inv.setItem(49, make(Material.NETHER_STAR, ChatColor.AQUA + "Randomize", ChatColor.GRAY + "Shuffle into 4 teams", Sound.UI_BUTTON_CLICK));
+        inv.setItem(51, make(Material.EMERALD_BLOCK, ChatColor.GREEN + "" + ChatColor.BOLD + "Confirm", ChatColor.GRAY + "Save & lock in teams", Sound.UI_TOAST_CHALLENGE_COMPLETE));
         inv.setItem(53, make(Material.BARRIER, ChatColor.RED + "Close", ChatColor.GRAY + "Close", Sound.UI_BUTTON_CLICK));
 
-        int slot = 10;
-        for (UUID u : party.getMembers()) {
-            Player p = Bukkit.getPlayer(u);
-            ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-            ItemMeta meta = head.getItemMeta();
-            if (meta instanceof org.bukkit.inventory.meta.SkullMeta sm) {
-                if (p != null) sm.setOwningPlayer(p);
-                int team = teams.getOrDefault(u, 1);
-                String name = (p != null ? p.getName() : u.toString());
-                sm.setDisplayName(ChatColor.WHITE + name);
-                sm.setLore(java.util.List.of(
-                        ChatColor.GRAY + "Team: " + ChatColor.GREEN + team,
-                        ChatColor.YELLOW + "Click to change"
-                ));
-                head.setItemMeta(sm);
-            }
+        // 4 rows (teams 1-4): slots 0..35. Heads can only be moved within this area when customize is ON.
+        Set<UUID> placed = new HashSet<>();
+        for (int team = 1; team <= MAX_TEAMS; team++) {
+            int rowStart = (team - 1) * 9;
+            int col = 0;
+            for (UUID memberId : party.getMembers()) {
+                if (placed.contains(memberId)) continue;
+                if (teams.getOrDefault(memberId, 1) != team) continue;
+                if (col >= 9) break;
 
-            inv.setItem(slot, head);
-            slot++;
-            if (slot % 9 == 8) slot += 2; // skip right border
-            if (slot >= 44) break;
+                inv.setItem(rowStart + col, makeMemberHead(memberId, teams.getOrDefault(memberId, 1), customize));
+                placed.add(memberId);
+                col++;
+            }
+        }
+        // Any missing/unassigned members: place them into the first available slot and assign a team based on row.
+        for (UUID memberId : party.getMembers()) {
+            if (placed.contains(memberId)) continue;
+            int firstEmpty = firstEmptyTeamSlot(inv);
+            if (firstEmpty < 0) break;
+            int team = (firstEmpty / 9) + 1;
+            teams.put(memberId, team);
+            inv.setItem(firstEmpty, makeMemberHead(memberId, team, customize));
+            placed.add(memberId);
         }
 
         leader.openInventory(inv);
     }
 
-    private void handleTeamsClick(Player leader, int rawSlot) {
+    private void handleTeamsClick(InventoryClickEvent e, Player leader, int rawSlot) {
         UUID leaderId = leader.getUniqueId();
 
+        // Only allow interacting with the top inventory; prevent shift-clicking into/from player inventory.
+        int topSize = leader.getOpenInventory().getTopInventory().getSize();
+        if (rawSlot >= topSize) return;
+
         if (rawSlot == 45) {
+            clearCursorIfMemberHead(e);
             leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
             openSettings(leader);
+            return;
+        }
+        if (rawSlot == 47) {
+            boolean cur = pendingTeamsCustomizeByLeader.getOrDefault(leaderId, false);
+            pendingTeamsCustomizeByLeader.put(leaderId, !cur);
+            leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+            openTeams(leader);
             return;
         }
         if (rawSlot == 49) {
@@ -291,39 +322,53 @@ public final class PartyFfaMenu implements Listener {
             openTeams(leader);
             return;
         }
+        if (rawSlot == 51) {
+            clearCursorIfMemberHead(e);
+            // Teams are stored in pendingTeamsByLeader already; confirming just returns to settings.
+            leader.playSound(leader.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.2f);
+            openSettings(leader);
+            return;
+        }
         if (rawSlot == 53) {
+            clearCursorIfMemberHead(e);
             leader.closeInventory();
             return;
         }
 
-        ItemStack clicked = leader.getOpenInventory().getTopInventory().getItem(rawSlot);
-        if (clicked == null || clicked.getType() != Material.PLAYER_HEAD) return;
-        ItemMeta meta = clicked.getItemMeta();
-        if (meta == null || meta.getDisplayName() == null) return;
+        boolean customize = pendingTeamsCustomizeByLeader.getOrDefault(leaderId, false);
+        if (!customize) return;
 
-        UUID partyId = pendingPartyByLeader.get(leaderId);
-        Party party = partyId == null ? null : Craftmen.get().getPartyManager().getPartyById(partyId);
-        if (party == null) return;
+        // Team area: rows 0..3 (slots 0..35)
+        if (rawSlot < 0 || rawSlot >= 36) return;
 
-        String clickedName = ChatColor.stripColor(meta.getDisplayName());
-        UUID memberId = null;
-        for (UUID u : party.getMembers()) {
-            Player p = Bukkit.getPlayer(u);
-            if (p != null && p.getName().equalsIgnoreCase(clickedName)) {
-                memberId = u;
-                break;
-            }
+        ItemStack cursor = e.getCursor();
+        ItemStack clicked = e.getCurrentItem();
+
+        boolean cursorHead = isMemberHead(cursor);
+        boolean clickedHead = isMemberHead(clicked);
+
+        // Disallow placing arbitrary items into the menu.
+        if (cursor != null && cursor.getType() != Material.AIR && !cursorHead) return;
+        if (clicked != null && clicked.getType() != Material.AIR && !clickedHead) return;
+
+        // Pick up
+        if (!cursorHead && clickedHead) {
+            e.setCursor(clicked);
+            e.setCurrentItem(null);
+            leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+            return;
         }
-        if (memberId == null) return;
 
-        Map<UUID, Integer> teams = pendingTeamsByLeader.computeIfAbsent(leaderId, k -> new HashMap<>());
-        int maxTeams = Math.max(2, party.size());
-        int current = teams.getOrDefault(memberId, 1);
-        int next = current + 1;
-        if (next > maxTeams) next = 1;
-        teams.put(memberId, next);
-        leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
-        openTeams(leader);
+        // Place / swap
+        if (cursorHead) {
+            e.setCursor(clickedHead ? clicked : null);
+            e.setCurrentItem(cursor);
+            syncTeamAssignmentFromSlot(leader, rawSlot, cursor);
+            if (clickedHead) {
+                // the previous occupant moved to cursor; no team sync until they are placed
+            }
+            leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+        }
     }
 
     private void randomizeTeams(Player leader) {
@@ -336,9 +381,67 @@ public final class PartyFfaMenu implements Listener {
         java.util.List<UUID> members = new java.util.ArrayList<>(party.getMembers());
         java.util.Collections.shuffle(members);
 
-        int half = Math.max(1, members.size() / 2);
         for (int i = 0; i < members.size(); i++) {
-            teams.put(members.get(i), (i < half) ? 1 : 2);
+            teams.put(members.get(i), (i % MAX_TEAMS) + 1);
         }
+    }
+
+    @EventHandler
+    public void onDrag(InventoryDragEvent e) {
+        if (e.getView() == null) return;
+        String title = e.getView().getTitle();
+        if (!TEAMS_TITLE.equals(title) && !SETTINGS_TITLE.equals(title)) return;
+        e.setCancelled(true);
+    }
+
+    private static boolean isMemberHead(ItemStack item) {
+        return item != null && item.getType() == Material.PLAYER_HEAD && item.hasItemMeta();
+    }
+
+    private static void clearCursorIfMemberHead(InventoryClickEvent e) {
+        if (e == null) return;
+        ItemStack cursor = e.getCursor();
+        if (isMemberHead(cursor)) e.setCursor(null);
+    }
+
+    private ItemStack makeMemberHead(UUID memberId, int team, boolean customize) {
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        ItemMeta meta = head.getItemMeta();
+        if (meta instanceof org.bukkit.inventory.meta.SkullMeta sm) {
+            sm.setOwningPlayer(Bukkit.getOfflinePlayer(memberId));
+            String name = Bukkit.getOfflinePlayer(memberId).getName();
+            sm.setDisplayName(ChatColor.WHITE + (name == null ? memberId.toString() : name));
+            sm.setLore(List.of(
+                    ChatColor.GRAY + "Team: " + ChatColor.GREEN + team,
+                    customize ? (ChatColor.YELLOW + "Drag between rows to change teams") : (ChatColor.YELLOW + "Enable Customize to move")
+            ));
+            head.setItemMeta(sm);
+        }
+        return head;
+    }
+
+    private static int firstEmptyTeamSlot(Inventory inv) {
+        for (int i = 0; i < 36; i++) {
+            ItemStack it = inv.getItem(i);
+            if (it == null || it.getType() == Material.AIR) return i;
+        }
+        return -1;
+    }
+
+    private void syncTeamAssignmentFromSlot(Player leader, int rawSlot, ItemStack head) {
+        if (leader == null || head == null) return;
+        if (!(head.getItemMeta() instanceof org.bukkit.inventory.meta.SkullMeta sm)) return;
+        if (sm.getOwningPlayer() == null) return;
+
+        UUID leaderId = leader.getUniqueId();
+        UUID memberId = sm.getOwningPlayer().getUniqueId();
+        int team = (rawSlot / 9) + 1;
+        if (team < 1 || team > MAX_TEAMS) return;
+
+        Map<UUID, Integer> teams = pendingTeamsByLeader.computeIfAbsent(leaderId, k -> new HashMap<>());
+        teams.put(memberId, team);
+
+        // Refresh lore (team number) on the moved head.
+        head.setItemMeta(makeMemberHead(memberId, team, true).getItemMeta());
     }
 }

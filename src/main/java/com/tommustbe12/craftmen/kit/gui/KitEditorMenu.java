@@ -198,6 +198,12 @@ public final class KitEditorMenu implements Listener {
             Game game = gameFromIcon(clicked);
             if (game == null) return;
 
+            if (!game.allowCustomKits()) {
+                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                player.sendMessage(ChatColor.RED + "That mode does not support custom kits.");
+                return;
+            }
+
             suppressCloseReopen.add(player.getUniqueId());
             Bukkit.getScheduler().runTask(Craftmen.get(), () -> openEdit(player, game, true));
             return;
@@ -506,12 +512,17 @@ public final class KitEditorMenu implements Listener {
         ItemMeta meta = icon.getItemMeta();
         meta.setDisplayName(ChatColor.GREEN + game.getName());
         List<String> lore = new ArrayList<>();
-        if (kitManager.getCustomKit(player.getUniqueId(), game).isPresent()) {
-            lore.add(ChatColor.AQUA + "Custom kit: " + ChatColor.GREEN + "Yes");
+        if (!game.allowCustomKits()) {
+            lore.add(ChatColor.GRAY + "This kit is always generated randomly.");
+            lore.add(ChatColor.DARK_GRAY + "Custom kits are not supported.");
         } else {
-            lore.add(ChatColor.AQUA + "Custom kit: " + ChatColor.RED + "No");
+            if (kitManager.getCustomKit(player.getUniqueId(), game).isPresent()) {
+                lore.add(ChatColor.AQUA + "Custom kit: " + ChatColor.GREEN + "Yes");
+            } else {
+                lore.add(ChatColor.AQUA + "Custom kit: " + ChatColor.RED + "No");
+            }
+            lore.add(ChatColor.GRAY + "Click to edit");
         }
-        lore.add(ChatColor.GRAY + "Click to edit");
         meta.setLore(lore);
         icon.setItemMeta(meta);
         return icon;

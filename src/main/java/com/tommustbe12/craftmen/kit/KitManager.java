@@ -26,6 +26,7 @@ public final class KitManager {
     }
 
     public Kit getEffectiveKit(Player player, Game game) {
+        if (!game.allowCustomKits()) return game.createDefaultKit();
         return getCustomKit(player.getUniqueId(), game).orElseGet(game::createDefaultKit);
     }
 
@@ -41,4 +42,3 @@ public final class KitManager {
         storage.flushAll();
     }
 }
-

@@ -24,20 +24,27 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.EnderCrystal;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageByBlockEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -75,6 +82,11 @@ public final class FfaManager implements Listener {
     private static final long LAST_DAMAGER_WINDOW_MILLIS = 15_000L;
     private final Map<UUID, UUID> lastDamagerByVictim = new HashMap<>();
     private final Map<UUID, Long> lastDamagerAtMillisByVictim = new HashMap<>();
+
+    // Track ownership for crystal/anchor explosions so team-friendly-fire can be prevented.
+    private final Map<UUID, UUID> ownerByCrystalEntity = new HashMap<>(); // crystal entity id -> player id
+    private final Map<String, UUID> ownerByAnchorBlock = new HashMap<>(); // world:x:y:z -> player id
+    private final Map<String, Long> ownerByAnchorAtMillis = new HashMap<>();
 
     public FfaManager(Craftmen plugin) {
         this.plugin = plugin;
@@ -951,15 +963,21 @@ public final class FfaManager implements Listener {
     @EventHandler
     public void onFfaDamage(EntityDamageByEntityEvent e) {
         if (!(e.getEntity() instanceof Player damaged)) return;
-        if (!(e.getDamager() instanceof Player damager)) return;
-        if (!isInFfa(damaged) && !isInFfa(damager)) return;
-        if (!allowDamage(damager, damaged)) {
-            e.setCancelled(true);
-            return;
-        }
 
-        lastDamagerByVictim.put(damaged.getUniqueId(), damager.getUniqueId());
-        lastDamagerAtMillisByVictim.put(damaged.getUniqueId(), System.currentTimeMillis());
+        Player source = resolveDamagingPlayer(e.getDamager());
+        if (source != null) {
+            if (!isInFfa(damaged) && !isInFfa(source)) return;
+            if (!allowDamage(source, damaged)) {
+                e.setCancelled(true);
+                return;
+            }
+
+            lastDamagerByVictim.put(damaged.getUniqueId(), source.getUniqueId());
+            lastDamagerAtMillisByVictim.put(damaged.getUniqueId(), System.currentTimeMillis());
+        } else {
+            // No resolved player source (e.g., environmental); allow damage as-is.
+            if (!isInFfa(damaged)) return;
+        }
 
         if (e.getFinalDamage() >= damaged.getHealth()) {
             if (tryPopTotem(damaged)) {
@@ -967,7 +985,27 @@ public final class FfaManager implements Listener {
                 return;
             }
             e.setCancelled(true);
-            handleFfaLethal(damaged, damager);
+            handleFfaLethal(damaged, source);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onFfaDamageByBlock(EntityDamageByBlockEvent e) {
+        if (!(e.getEntity() instanceof Player damaged)) return;
+        if (!isInFfa(damaged)) return;
+        if (e.isCancelled()) return;
+
+        Block damager = e.getDamager();
+        if (damager == null) return;
+
+        if (damager.getType() == Material.RESPAWN_ANCHOR) {
+            UUID owner = ownerByAnchorBlock.get(anchorKey(damager));
+            if (owner != null) {
+                Player source = Bukkit.getPlayer(owner);
+                if (source != null && !allowDamage(source, damaged)) {
+                    e.setCancelled(true);
+                }
+            }
         }
     }
 
@@ -993,6 +1031,85 @@ public final class FfaManager implements Listener {
 
         e.setCancelled(true);
         handleFfaLethal(damaged, killer);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    public void onFfaInteractExplosives(PlayerInteractEvent e) {
+        Player player = e.getPlayer();
+        if (player == null) return;
+        if (!isInFfa(player)) return;
+
+        UUID instId = playerInstance.get(player.getUniqueId());
+        if (instId == null) return;
+        FfaInstance inst = instancesById.get(instId);
+        if (inst == null || !inst.isPrivate) return;
+        PartyFfaSession session = getSession(inst);
+        if (session == null || !session.teamsEnabled) return;
+
+        // End crystal placement: attach the placer as the owner for the spawned crystal entity.
+        if (e.getClickedBlock() != null
+                && e.getItem() != null
+                && e.getItem().getType() == Material.END_CRYSTAL
+                && (e.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK)) {
+            var placedAgainst = e.getClickedBlock().getRelative(BlockFace.UP).getLocation().add(0.5, 0.0, 0.5);
+            UUID placerId = player.getUniqueId();
+
+            BukkitTask task = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                EnderCrystal best = null;
+                double bestDist = 2.5 * 2.5;
+                for (Entity ent : placedAgainst.getWorld().getNearbyEntities(placedAgainst, 2.5, 2.5, 2.5)) {
+                    if (!(ent instanceof EnderCrystal c)) continue;
+                    double d = c.getLocation().distanceSquared(placedAgainst);
+                    if (d <= bestDist) {
+                        bestDist = d;
+                        best = c;
+                    }
+                }
+                if (best != null) {
+                    ownerByCrystalEntity.put(best.getUniqueId(), placerId);
+                }
+            }, 1L);
+            // ignore task handle; one-shot
+        }
+
+        // Respawn anchor interaction: record the clicker as "owner" for a short window.
+        if (e.getClickedBlock() != null
+                && e.getClickedBlock().getType() == Material.RESPAWN_ANCHOR
+                && (e.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK)) {
+            String key = anchorKey(e.getClickedBlock());
+            ownerByAnchorBlock.put(key, player.getUniqueId());
+            ownerByAnchorAtMillis.put(key, System.currentTimeMillis());
+        }
+
+        cleanupAnchorOwners();
+    }
+
+    private void cleanupAnchorOwners() {
+        long now = System.currentTimeMillis();
+        ownerByAnchorAtMillis.entrySet().removeIf(ent -> {
+            if (now - ent.getValue() <= 10_000L) return false;
+            ownerByAnchorBlock.remove(ent.getKey());
+            return true;
+        });
+    }
+
+    private static String anchorKey(Block b) {
+        return b.getWorld().getUID() + ":" + b.getX() + ":" + b.getY() + ":" + b.getZ();
+    }
+
+    private Player resolveDamagingPlayer(Entity damager) {
+        if (damager == null) return null;
+        if (damager instanceof Player p) return p;
+        if (damager instanceof Projectile proj) {
+            Object shooter = proj.getShooter();
+            if (shooter instanceof Player p) return p;
+            return null;
+        }
+        if (damager instanceof EnderCrystal crystal) {
+            UUID owner = ownerByCrystalEntity.get(crystal.getUniqueId());
+            return owner == null ? null : Bukkit.getPlayer(owner);
+        }
+        return null;
     }
 
     private boolean tryPopTotem(Player player) {

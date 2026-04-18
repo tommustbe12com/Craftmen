@@ -21,6 +21,12 @@ public class RandomKitGame extends Game {
     }
 
     @Override
+    public boolean allowCustomKits() {
+        // Always generate a fresh random kit; ignore kit-editor saved kits.
+        return false;
+    }
+
+    @Override
     public Kit createDefaultKit() {
         ItemStack[] contents = new ItemStack[36];
 
