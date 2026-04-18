@@ -40,6 +40,7 @@ public final class SoulsManager implements Listener {
     public static final String GAME_NAME = "Souls";
 
     private static final long BASE_COOLDOWN_MS = 15_000L;
+    private static final long GOOP_RIGHT_CLICK_COOLDOWN_MS = 25_000L;
     private static final long SPECIAL_COOLDOWN_MS = 3 * 60_000L;
 
     private final SoulsCharacterMenu characterMenu = new SoulsCharacterMenu();
@@ -192,7 +193,7 @@ public final class SoulsManager implements Listener {
                 }
                 player.sendActionBar("§aUsed [1]");
             } else {
-                if (!tryUseCooldown(player, "goop2", BASE_COOLDOWN_MS)) return;
+                if (!tryUseCooldown(player, "goop2", GOOP_RIGHT_CLICK_COOLDOWN_MS)) return;
                 goopFreeze(player);
                 player.sendActionBar("§bUsed [2]");
             }
@@ -349,7 +350,7 @@ public final class SoulsManager implements Listener {
             caster.sendMessage(ChatColor.RED + "No target in range.");
             return;
         }
-        freeze(target, 7_000L);
+        freeze(target, 2_000L);
         caster.playSound(caster.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.2f);
         target.playSound(target.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 0.8f);
     }
@@ -560,7 +561,7 @@ public final class SoulsManager implements Listener {
         if (player == null) return;
         Vector dir = player.getLocation().getDirection().normalize();
         Vector vel = dir.multiply(1.8);
-        vel.setY(Math.max(dir.getY(), 0.2) + 0.5);
+        vel.setY(Math.max(dir.getY(), 0.15) + 0.25);
         player.setVelocity(vel);
         player.playSound(player.getLocation(), Sound.ENTITY_SLIME_JUMP, 1.0f, 1.2f);
     }
@@ -577,7 +578,7 @@ public final class SoulsManager implements Listener {
 
             long baseRemaining = remaining(player, (c == SoulCharacter.GOOP) ? "goop1" : "base", BASE_COOLDOWN_MS, now);
             long slot2Remaining = (c == SoulCharacter.GOOP)
-                    ? remaining(player, "goop2", BASE_COOLDOWN_MS, now)
+                    ? remaining(player, "goop2", GOOP_RIGHT_CLICK_COOLDOWN_MS, now)
                     : remaining(player, "special", SPECIAL_COOLDOWN_MS, now);
 
             String one = formatCooldownToken(1, baseRemaining, true);

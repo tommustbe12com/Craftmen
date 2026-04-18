@@ -33,7 +33,7 @@ public final class SoulsCharacterMenu implements Listener {
                 button(Material.SLIME_BALL, "§aGoop", List.of(
                         "§7Base: Bounce a player back",
                         "§7Passive: No fall damage",
-                        "§7Base 2: Freeze for 7s"
+                        "§7Base 2: Freeze for 2s"
                 )));
         buttonByCharacter.put(SoulCharacter.DEVILS_FROST,
                 button(Material.PACKED_ICE, "§bThe Devil's Frost", List.of(
@@ -122,4 +122,3 @@ public final class SoulsCharacterMenu implements Listener {
         }
     }
 }
-
