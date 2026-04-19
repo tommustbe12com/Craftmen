@@ -52,6 +52,14 @@ public abstract class Game {
         return true;
     }
 
+    /**
+     * Whether this game should appear in hub/FFA selectors.
+     * Some internal-only games exist only to support kit editing.
+     */
+    public boolean listInSelectors() {
+        return true;
+    }
+
     public final void applyLoadout(Player player) {
         if (player == null) return;
         Kit kit = Craftmen.get().getKitManager().getEffectiveKit(player, this);

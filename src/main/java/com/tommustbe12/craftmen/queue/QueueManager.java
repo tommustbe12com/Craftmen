@@ -65,6 +65,15 @@ public class QueueManager {
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         if (profile == null || profile.getState() != PlayerState.LOBBY) return;
 
+        // Parties can only queue for party-capable activities (Party FFA / Public FFA as a party / End Fight).
+        // Disallow normal 1v1 queuing when the player is in a party.
+        var party = Craftmen.get().getPartyManager().getParty(player);
+        if (party != null) {
+            player.sendMessage("Â§cYou cannot queue normally while in a party.");
+            player.sendMessage("Â§7Have the party leader start Party FFA / Public FFA / End Fight.");
+            return;
+        }
+
         // Match end gives temporary flight/invulnerability; ensure it never leaks into the next queue.
         PlayerReset.clearTransientState(player);
 

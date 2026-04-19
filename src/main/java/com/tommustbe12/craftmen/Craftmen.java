@@ -50,6 +50,7 @@ import com.tommustbe12.craftmen.party.listener.PartyChatListener;
 import com.tommustbe12.craftmen.party.listener.PartyPlayerListener;
 import com.tommustbe12.craftmen.queue.QueueManager;
 import com.tommustbe12.craftmen.scoreboard.ScoreboardManager;
+import com.tommustbe12.craftmen.stats.command.TopCommand;
 import com.tommustbe12.craftmen.web.ExposeData;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -90,6 +91,7 @@ public final class Craftmen extends JavaPlugin {
     private PartyManager partyManager;
     private PartyChatManager partyChatManager;
     private PartyFfaMenu partyFfaMenu;
+    private TopCommand topCommand;
     private SoulsManager soulManager;
     private CosmeticsDamageListener cosmeticsDamageListener;
     private GemManager gemManager;
@@ -164,6 +166,9 @@ public final class Craftmen extends JavaPlugin {
         gameManager.registerGame(new CrystalGame());
         gameManager.registerGame(new SpleefGame());
         gameManager.registerGame(new SoulsGame());
+        gameManager.registerGame(new EndFightKitGame(EndFightKitGame.Variant.NETHERITE));
+        gameManager.registerGame(new EndFightKitGame(EndFightKitGame.Variant.DIAMOND));
+        gameManager.registerGame(new EndFightKitGame(EndFightKitGame.Variant.IRON));
 
         getServer().getPluginManager().registerEvents(new PlayerListener(), this);
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
@@ -227,6 +232,10 @@ public final class Craftmen extends JavaPlugin {
         getCommand("stats").setExecutor(statsCommand);
         getCommand("stats").setTabCompleter(statsCommand);
         getServer().getPluginManager().registerEvents(statsCommand, this);
+
+        topCommand = new TopCommand();
+        getCommand("top").setExecutor(topCommand);
+        getServer().getPluginManager().registerEvents(topCommand, this);
 
         saveDefaultConfig();
         loadProfiles();

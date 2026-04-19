@@ -16,6 +16,7 @@ public final class PartyFfaSession {
 
     public int currentRound = 0;
     public final Map<UUID, Integer> roundWins = new HashMap<>();
+    public final Map<Integer, Integer> teamRoundWins = new HashMap<>();
 
     public final Set<UUID> alive = new HashSet<>();
     public final Set<UUID> spectators = new HashSet<>();
@@ -26,6 +27,9 @@ public final class PartyFfaSession {
     // Team mode (optional). If enabled, friendly fire is disabled for same teamId.
     public boolean teamsEnabled = false;
     public final Map<UUID, Integer> teamByPlayer = new HashMap<>();
+
+    // Juggernaut-style: optional different kit per team (stores Game name).
+    public final Map<Integer, String> kitByTeamName = new HashMap<>();
 
     public PartyFfaSession(UUID partyId, Game game, int totalRounds) {
         this.partyId = partyId;

@@ -8,6 +8,7 @@ import com.tommustbe12.craftmen.profile.Profile;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -33,6 +34,7 @@ public class HubManager implements Listener {
     private static final String GUI_FFA_NAME = ChatColor.RED + "FFA";
 
     private static final String HUB_ITEM_GAME_SELECTOR = ChatColor.GOLD + "Game Selector";
+    private static final String HUB_ITEM_PARTY_SELECTOR = ChatColor.GOLD + "Party Activities";
     private static final String HUB_ITEM_KIT_EDITOR = ChatColor.AQUA + "Kit Editor";
     // Armor trims moved into the cosmetics shop.
     private static final String HUB_ITEM_ARMOR_TRIMS = ChatColor.LIGHT_PURPLE + "Armor Trims";
@@ -73,9 +75,19 @@ public class HubManager implements Listener {
     public void giveHubItems(Player player) {
         player.getInventory().clear();
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
-        ItemStack selector = new ItemStack(Material.IRON_SWORD);
+
+        var party = Craftmen.get().getPartyManager().getParty(player);
+        boolean isPartyLeader = party != null && party.getLeader() != null && party.getLeader().equals(player.getUniqueId());
+
+        ItemStack selector = new ItemStack(isPartyLeader ? Material.TNT : Material.IRON_SWORD);
         ItemMeta meta = selector.getItemMeta();
-        meta.setDisplayName(HUB_ITEM_GAME_SELECTOR);
+        meta.setDisplayName(isPartyLeader ? HUB_ITEM_PARTY_SELECTOR : HUB_ITEM_GAME_SELECTOR);
+        if (isPartyLeader) {
+            meta.setLore(Arrays.asList(
+                    ChatColor.GRAY + "Party leader only.",
+                    ChatColor.GRAY + "Choose: Party FFA, Public FFA, End Fight."
+            ));
+        }
         selector.setItemMeta(meta);
         player.getInventory().setItem(0, selector);
 
@@ -194,8 +206,28 @@ public class HubManager implements Listener {
                 }
             }, 1L);
         }
-        if (name.equals(HUB_ITEM_GAME_SELECTOR)) {
+        if (name.equals(HUB_ITEM_PARTY_SELECTOR)) {
             e.setCancelled(true);
+            var party = Craftmen.get().getPartyManager().getParty(player);
+            if (party == null) {
+                player.sendMessage(ChatColor.RED + "You are not in a party.");
+                return;
+            }
+            if (!party.getLeader().equals(player.getUniqueId())) {
+                player.sendMessage(ChatColor.RED + "Only the party leader can start activities.");
+                return;
+            }
+            openPartyActivities(player);
+
+        } else if (name.equals(HUB_ITEM_GAME_SELECTOR)) {
+            e.setCancelled(true);
+            var party = Craftmen.get().getPartyManager().getParty(player);
+            if (party != null) {
+                player.sendMessage(ChatColor.RED + "You cannot queue normally while in a party.");
+                player.sendMessage(ChatColor.GRAY + "Party leader: use Party Activities.");
+                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                return;
+            }
             openGameSelector(player, game -> {
                 if (game != null && game.getName().equalsIgnoreCase("Souls")) {
                     Craftmen.get().getSoulsManager().openCharacterSelect(player, picked -> {
@@ -268,11 +300,48 @@ public class HubManager implements Listener {
         }
     }
 
+    private static final String PARTY_ACTIVITIES_TITLE = ChatColor.DARK_GRAY + "Party Activities";
+
+    private void openPartyActivities(Player leader) {
+        var party = Craftmen.get().getPartyManager().getParty(leader);
+        if (party == null) {
+            leader.sendMessage(ChatColor.RED + "You are not in a party.");
+            return;
+        }
+        if (!party.getLeader().equals(leader.getUniqueId())) {
+            leader.sendMessage(ChatColor.RED + "Only the party leader can start activities.");
+            return;
+        }
+
+        Inventory inv = Bukkit.createInventory(null, 27, PARTY_ACTIVITIES_TITLE);
+        for (int i = 0; i < inv.getSize(); i++) {
+            ItemStack pane = makeBorderPane();
+            inv.setItem(i, pane);
+        }
+
+        inv.setItem(11, make(Material.EMERALD_BLOCK,
+                ChatColor.GREEN + "" + ChatColor.BOLD + "Private Party FFA",
+                ChatColor.GRAY + "Choose a kit + rounds, then start.",
+                Sound.UI_BUTTON_CLICK));
+        inv.setItem(13, make(Material.END_PORTAL_FRAME,
+                ChatColor.DARK_PURPLE + "" + ChatColor.BOLD + "End Fight",
+                ChatColor.GRAY + "Start End Fight for the party.",
+                Sound.UI_BUTTON_CLICK));
+        inv.setItem(15, make(Material.TNT,
+                ChatColor.RED + "" + ChatColor.BOLD + "Public FFA",
+                ChatColor.GRAY + "Choose a kit, join as a party.",
+                Sound.UI_BUTTON_CLICK));
+
+        leader.openInventory(inv);
+        leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+    }
+
     @EventHandler
     public void onGUIClick(InventoryClickEvent e) {
         boolean isNormal = e.getView().getTitle().startsWith(GUI_TITLE_PREFIX);
         boolean isFfa = e.getView().getTitle().startsWith(GUI_FFA_TITLE_PREFIX);
-        if (!isNormal && !isFfa) return;
+        boolean isPartyActivities = PARTY_ACTIVITIES_TITLE.equals(e.getView().getTitle());
+        if (!isNormal && !isFfa && !isPartyActivities) return;
         e.setCancelled(true);
 
         if (!(e.getWhoClicked() instanceof Player)) return;
@@ -283,6 +352,40 @@ public class HubManager implements Listener {
         if (!clicked.hasItemMeta() || clicked.getItemMeta().getDisplayName() == null) return;
 
         int slot = e.getRawSlot();
+
+        if (isPartyActivities) {
+            player.closeInventory();
+            var party = Craftmen.get().getPartyManager().getParty(player);
+            if (party == null) {
+                player.sendMessage(ChatColor.RED + "You are not in a party.");
+                return;
+            }
+            if (!party.getLeader().equals(player.getUniqueId())) {
+                player.sendMessage(ChatColor.RED + "Only the party leader can start activities.");
+                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                return;
+            }
+
+            if (slot == 11) {
+                Craftmen.get().getPartyFfaMenu().openGameSelect(player, party);
+                return;
+            }
+            if (slot == 13) {
+                // Join all online party members into End Fight.
+                for (UUID memberId : party.getMembers()) {
+                    Player m = Bukkit.getPlayer(memberId);
+                    if (m != null) {
+                        Craftmen.get().getEndFightManager().join(m);
+                    }
+                }
+                return;
+            }
+            if (slot == 15) {
+                openFfaSelector(player, 0);
+                return;
+            }
+            return;
+        }
 
         if (isNormal && slot == SLOT_FFA) {
             player.closeInventory();
@@ -527,10 +630,23 @@ public class HubManager implements Listener {
 
     // ── Sorting helpers ──────────────────────────────────────────────────────
 
+    private ItemStack make(Material mat, String name, String lore, Sound sound) {
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName(name);
+            meta.setLore(Arrays.asList(lore));
+            meta.addItemFlags(ItemFlag.HIDE_ATTRIBUTES);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
     private List<Game> getPage1Games(Collection<Game> all) {
         List<Game> result = new ArrayList<>();
         for (String name : PAGE_ONE_KITS) {
             for (Game g : all) {
+                if (!g.listInSelectors()) continue;
                 if (g.getName().equalsIgnoreCase(name)) {
                     result.add(g);
                     break;
@@ -542,6 +658,7 @@ public class HubManager implements Listener {
 
     private Game getCrystalGame(Collection<Game> all) {
         for (Game g : all) {
+            if (!g.listInSelectors()) continue;
             if (g.getName().equalsIgnoreCase("Crystal")) return g;
         }
         return null;
@@ -554,6 +671,7 @@ public class HubManager implements Listener {
 
         List<Game> result = new ArrayList<>();
         for (Game g : all) {
+            if (!g.listInSelectors()) continue;
             if (!reserved.contains(g.getName().toLowerCase())) result.add(g);
         }
         return result;

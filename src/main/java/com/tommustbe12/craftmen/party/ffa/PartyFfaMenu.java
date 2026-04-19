@@ -32,6 +32,7 @@ public final class PartyFfaMenu implements Listener {
     private static final String PLAY_AGAIN_NAME = ChatColor.GOLD + "" + ChatColor.BOLD + "Play Party FFA Again";
 
     private static final int MAX_TEAMS = 4;
+    private static final int TEAM_AREA_SIZE = 36; // 4 rows * 9 columns
 
     private final Map<UUID, UUID> pendingPartyByLeader = new HashMap<>();
     private final Map<UUID, Game> pendingGameByLeader = new HashMap<>();
@@ -39,6 +40,9 @@ public final class PartyFfaMenu implements Listener {
     private final Map<UUID, Boolean> pendingTeamsEnabledByLeader = new HashMap<>();
     private final Map<UUID, Map<UUID, Integer>> pendingTeamsByLeader = new HashMap<>();
     private final Map<UUID, Boolean> pendingTeamsCustomizeByLeader = new HashMap<>();
+    private final Map<UUID, Map<Integer, Game>> pendingKitByTeamByLeader = new HashMap<>();
+
+    private static final String TEAM_KITS_TITLE = ChatColor.DARK_GRAY + "Party FFA Team Kits";
 
     public void openGameSelect(Player leader, Party party) {
         if (leader == null || party == null) return;
@@ -80,6 +84,9 @@ public final class PartyFfaMenu implements Listener {
                 ChatColor.YELLOW + "" + ChatColor.BOLD + "Teams",
                 teamsEnabled ? (ChatColor.GREEN + "Enabled") : (ChatColor.GRAY + "Disabled"),
                 Sound.UI_BUTTON_CLICK));
+        if (teamsEnabled) {
+            inv.setItem(26, make(Material.CHEST, ChatColor.AQUA + "" + ChatColor.BOLD + "Team Kits", ChatColor.GRAY + "Choose a kit per team", Sound.UI_BUTTON_CLICK));
+        }
 
         // Quick round buttons
         for (int i = 1; i <= 10; i++) {
@@ -159,6 +166,13 @@ public final class PartyFfaMenu implements Listener {
             return;
         }
 
+        if (slot == 26) {
+            boolean teamsEnabled = pendingTeamsEnabledByLeader.getOrDefault(leaderId, false);
+            if (!teamsEnabled) return;
+            openTeamKits(leader);
+            return;
+        }
+
         // start button
         if (slot == 15) {
             UUID partyId = pendingPartyByLeader.get(leaderId);
@@ -190,6 +204,7 @@ public final class PartyFfaMenu implements Listener {
             int rounds = pendingRoundsByLeader.getOrDefault(leaderId, 1);
             boolean teamsEnabled = pendingTeamsEnabledByLeader.getOrDefault(leaderId, false);
             Map<UUID, Integer> teamByPlayer = pendingTeamsByLeader.getOrDefault(leaderId, java.util.Collections.emptyMap());
+            Map<Integer, Game> kitByTeam = pendingKitByTeamByLeader.getOrDefault(leaderId, java.util.Collections.emptyMap());
             leader.closeInventory();
             leader.playSound(leader.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
 
@@ -197,8 +212,94 @@ public final class PartyFfaMenu implements Listener {
                     ChatColor.GOLD + "Party FFA starting: " + ChatColor.YELLOW + game.getName() + ChatColor.GRAY + " (" + rounds + " rounds)",
                     Sound.ENTITY_ENDER_DRAGON_GROWL);
 
-            Craftmen.get().getFfaManager().joinPrivateParty(party.getId(), party.getMembers(), game, rounds, teamsEnabled, teamByPlayer);
+            Craftmen.get().getFfaManager().joinPrivateParty(party.getId(), party.getMembers(), game, rounds, teamsEnabled, teamByPlayer, kitByTeam);
         }
+    }
+
+    private void openTeamKits(Player leader) {
+        UUID leaderId = leader.getUniqueId();
+        UUID partyId = pendingPartyByLeader.get(leaderId);
+        Party party = partyId == null ? null : Craftmen.get().getPartyManager().getPartyById(partyId);
+        if (party == null) {
+            leader.sendMessage(ChatColor.RED + "Party not found.");
+            leader.closeInventory();
+            return;
+        }
+
+        Map<Integer, Game> map = pendingKitByTeamByLeader.computeIfAbsent(leaderId, k -> new HashMap<>());
+        Game fallback = pendingGameByLeader.get(leaderId);
+        for (int t = 1; t <= MAX_TEAMS; t++) {
+            if (!map.containsKey(t) && fallback != null) map.put(t, fallback);
+        }
+
+        Inventory inv = Bukkit.createInventory(null, 27, TEAM_KITS_TITLE);
+        fill(inv);
+
+        inv.setItem(18, make(Material.ARROW, ChatColor.YELLOW + "Back", ChatColor.GRAY + "Return to settings", Sound.UI_BUTTON_CLICK));
+        inv.setItem(26, make(Material.EMERALD_BLOCK, ChatColor.GREEN + "" + ChatColor.BOLD + "Done", ChatColor.GRAY + "Save team kits", Sound.UI_TOAST_CHALLENGE_COMPLETE));
+
+        inv.setItem(10, teamKitItem(map.get(1), 1));
+        inv.setItem(12, teamKitItem(map.get(2), 2));
+        inv.setItem(14, teamKitItem(map.get(3), 3));
+        inv.setItem(16, teamKitItem(map.get(4), 4));
+
+        leader.openInventory(inv);
+        leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+    }
+
+    private ItemStack teamKitItem(Game game, int team) {
+        Material mat = switch (team) {
+            case 1 -> Material.RED_CONCRETE;
+            case 2 -> Material.BLUE_CONCRETE;
+            case 3 -> Material.GREEN_CONCRETE;
+            default -> Material.YELLOW_CONCRETE;
+        };
+        String kit = game == null ? "None" : game.getName();
+        return make(mat,
+                ChatColor.GOLD + "Team " + team,
+                ChatColor.GRAY + "Kit: " + ChatColor.AQUA + kit + ChatColor.GRAY + " (click to change)",
+                Sound.UI_BUTTON_CLICK);
+    }
+
+    @EventHandler
+    public void onTeamKitsClick(InventoryClickEvent e) {
+        if (!(e.getWhoClicked() instanceof Player leader)) return;
+        if (e.getView() == null) return;
+        String title = e.getView().getTitle();
+        if (!TEAM_KITS_TITLE.equals(title)) return;
+        e.setCancelled(true);
+
+        UUID leaderId = leader.getUniqueId();
+        UUID partyId = pendingPartyByLeader.get(leaderId);
+        Party party = partyId == null ? null : Craftmen.get().getPartyManager().getPartyById(partyId);
+        if (party == null) return;
+        if (!party.getLeader().equals(leaderId)) return;
+
+        int slot = e.getRawSlot();
+        if (slot == 18) {
+            openSettings(leader);
+            return;
+        }
+        if (slot == 26) {
+            openSettings(leader);
+            return;
+        }
+
+        int team = switch (slot) {
+            case 10 -> 1;
+            case 12 -> 2;
+            case 14 -> 3;
+            case 16 -> 4;
+            default -> -1;
+        };
+        if (team == -1) return;
+
+        // Reuse the hub game selector to pick a kit, then store it for this team.
+        Craftmen.get().getHubManager().openGameSelector(leader, picked -> {
+            if (picked == null) return;
+            pendingKitByTeamByLeader.computeIfAbsent(leaderId, k -> new HashMap<>()).put(team, picked);
+            Bukkit.getScheduler().runTask(Craftmen.get(), () -> openTeamKits(leader));
+        });
     }
 
     @EventHandler
@@ -268,6 +369,12 @@ public final class PartyFfaMenu implements Listener {
         inv.setItem(53, make(Material.BARRIER, ChatColor.RED + "Close", ChatColor.GRAY + "Close", Sound.UI_BUTTON_CLICK));
 
         // 4 rows (teams 1-4): slots 0..35. Heads can only be moved within this area when customize is ON.
+        // Row labels (right side of each row) to make it clearer which row is which team.
+        inv.setItem(8, make(Material.RED_CONCRETE, ChatColor.RED + "Team 1", ChatColor.GRAY + "Top row", Sound.UI_BUTTON_CLICK));
+        inv.setItem(17, make(Material.BLUE_CONCRETE, ChatColor.BLUE + "Team 2", ChatColor.GRAY + "2nd row", Sound.UI_BUTTON_CLICK));
+        inv.setItem(26, make(Material.GREEN_CONCRETE, ChatColor.GREEN + "Team 3", ChatColor.GRAY + "3rd row", Sound.UI_BUTTON_CLICK));
+        inv.setItem(35, make(Material.YELLOW_CONCRETE, ChatColor.YELLOW + "Team 4", ChatColor.GRAY + "Bottom row", Sound.UI_BUTTON_CLICK));
+
         Set<UUID> placed = new HashSet<>();
         for (int team = 1; team <= MAX_TEAMS; team++) {
             int rowStart = (team - 1) * 9;
@@ -324,6 +431,11 @@ public final class PartyFfaMenu implements Listener {
         }
         if (rawSlot == 51) {
             clearCursorIfMemberHead(e);
+            if (!validateTeams(leader)) {
+                leader.playSound(leader.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                openTeams(leader);
+                return;
+            }
             // Teams are stored in pendingTeamsByLeader already; confirming just returns to settings.
             leader.playSound(leader.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.2f);
             openSettings(leader);
@@ -339,7 +451,7 @@ public final class PartyFfaMenu implements Listener {
         if (!customize) return;
 
         // Team area: rows 0..3 (slots 0..35)
-        if (rawSlot < 0 || rawSlot >= 36) return;
+        if (rawSlot < 0 || rawSlot >= TEAM_AREA_SIZE) return;
 
         ItemStack cursor = e.getCursor();
         ItemStack clicked = e.getCurrentItem();
@@ -421,7 +533,7 @@ public final class PartyFfaMenu implements Listener {
     }
 
     private static int firstEmptyTeamSlot(Inventory inv) {
-        for (int i = 0; i < 36; i++) {
+        for (int i = 0; i < TEAM_AREA_SIZE; i++) {
             ItemStack it = inv.getItem(i);
             if (it == null || it.getType() == Material.AIR) return i;
         }
@@ -443,5 +555,31 @@ public final class PartyFfaMenu implements Listener {
 
         // Refresh lore (team number) on the moved head.
         head.setItemMeta(makeMemberHead(memberId, team, true).getItemMeta());
+    }
+
+    private boolean validateTeams(Player leader) {
+        UUID leaderId = leader.getUniqueId();
+        UUID partyId = pendingPartyByLeader.get(leaderId);
+        Party party = partyId == null ? null : Craftmen.get().getPartyManager().getPartyById(partyId);
+        if (party == null) {
+            leader.sendMessage(ChatColor.RED + "Party not found.");
+            return false;
+        }
+
+        Map<UUID, Integer> teams = pendingTeamsByLeader.getOrDefault(leaderId, Map.of());
+        Set<Integer> used = new HashSet<>();
+        for (UUID u : party.getMembers()) {
+            Integer t = teams.get(u);
+            if (t == null) continue;
+            used.add(t);
+        }
+
+        // Must have at least 2 opposing teams.
+        if (used.size() < 2) {
+            leader.sendMessage(ChatColor.RED + "You must have at least 2 teams.");
+            leader.sendMessage(ChatColor.GRAY + "Move at least one player to a different team.");
+            return false;
+        }
+        return true;
     }
 }

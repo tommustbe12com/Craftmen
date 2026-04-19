@@ -96,6 +96,9 @@ commands:
   stats:
     description: See somebody's stats
     usage: /stats <player>
+  top:
+    description: View top wins/losses/gems
+    usage: /top <wins|losses|gems> [page]
 permissions:
   craftmen.admin:
     default: op

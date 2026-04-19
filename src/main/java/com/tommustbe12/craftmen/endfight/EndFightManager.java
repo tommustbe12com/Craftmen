@@ -1,6 +1,7 @@
 package com.tommustbe12.craftmen.endfight;
 
 import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.game.Game;
 import org.bukkit.*;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
@@ -182,6 +183,16 @@ public class EndFightManager {
     public void giveKit(Player player) {
         int idx = kitIndex.getOrDefault(player.getUniqueId(), 0);
         player.getInventory().clear();
+
+        Game kitGame = resolveEditableKitGame(idx);
+        if (kitGame != null) {
+            var custom = Craftmen.get().getKitManager().getCustomKit(player.getUniqueId(), kitGame);
+            if (custom.isPresent()) {
+                custom.get().apply(player);
+                return;
+            }
+        }
+
         if (idx == 0) {
             giveNetheriteKit(player);
         } else if (idx == 1) {
@@ -278,6 +289,11 @@ public class EndFightManager {
         ItemStack shield = enchant(new ItemStack(Material.SHIELD),
                 Map.of(Enchantment.UNBREAKING, 3, Enchantment.MENDING, 1));
         player.getInventory().setItem(8, shield);
+    }
+
+    private static Game resolveEditableKitGame(int idx) {
+        String name = (idx == 0) ? "End Fight (Netherite)" : (idx == 1) ? "End Fight (Diamond)" : "End Fight (Iron)";
+        return Craftmen.get().getGameManager().getGame(name);
     }
 
     private void giveDiamondKit(Player player) {

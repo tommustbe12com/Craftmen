@@ -251,6 +251,10 @@ public final class FfaManager implements Listener {
     }
 
     public void joinPrivateParty(UUID partyId, Collection<UUID> partyMembers, Game game, int rounds, boolean teamsEnabled, Map<UUID, Integer> teamByPlayer) {
+        joinPrivateParty(partyId, partyMembers, game, rounds, teamsEnabled, teamByPlayer, null);
+    }
+
+    public void joinPrivateParty(UUID partyId, Collection<UUID> partyMembers, Game game, int rounds, boolean teamsEnabled, Map<UUID, Integer> teamByPlayer, Map<Integer, Game> kitByTeam) {
         if (partyId == null || partyMembers == null || game == null) return;
 
         boolean resolvedTeamsEnabled = teamsEnabled;
@@ -271,6 +275,13 @@ public final class FfaManager implements Listener {
         session.teamsEnabled = resolvedTeamsEnabled;
         session.teamByPlayer.clear();
         if (resolvedTeamByPlayer != null) session.teamByPlayer.putAll(resolvedTeamByPlayer);
+        session.kitByTeamName.clear();
+        if (kitByTeam != null) {
+            for (var entry : kitByTeam.entrySet()) {
+                if (entry.getKey() == null || entry.getValue() == null) continue;
+                session.kitByTeamName.put(entry.getKey(), entry.getValue().getName());
+            }
+        }
 
         // Reuse existing private instance if present; otherwise create a new one.
         FfaInstance instance = privatePartyInstances.get(partyId);
@@ -291,6 +302,7 @@ public final class FfaManager implements Listener {
             session.running = true;
             session.currentRound = 0;
             session.roundWins.clear();
+            session.teamRoundWins.clear();
         }
 
         // Join online members. If the session is already running, late joiners become spectators until the round ends.
@@ -337,8 +349,8 @@ public final class FfaManager implements Listener {
         UUID leaderId = party == null ? null : party.getLeader();
 
         // Copy first because leave() mutates sets/maps.
-        Set<UUID> members = new HashSet<>(inst.players);
-        for (UUID uuid : members) {
+        Set<UUID> inInstance = new HashSet<>(inst.players);
+        for (UUID uuid : inInstance) {
             Player p = Bukkit.getPlayer(uuid);
             if (p != null) {
                 leave(p, true);
@@ -346,6 +358,25 @@ public final class FfaManager implements Listener {
                 // offline cleanup
                 playerInstance.remove(uuid);
                 inst.players.remove(uuid);
+            }
+        }
+
+        // Safety net: ensure all party members end up in hub even if their instance tracking glitched.
+        if (party != null) {
+            for (UUID memberId : party.getMembers()) {
+                Player p = Bukkit.getPlayer(memberId);
+                if (p == null) continue;
+                UUID instId = playerInstance.get(memberId);
+                if (instId != null) {
+                    FfaInstance cur = instancesById.get(instId);
+                    if (cur != null && cur.isPrivate && partyId.equals(cur.ownerPartyId)) {
+                        leave(p, true);
+                        continue;
+                    }
+                }
+                if (Craftmen.get().getMatchManager().getMatch(p) == null && !Craftmen.get().getEndFightManager().isInGame(p)) {
+                    PlayerReset.resetToHub(p);
+                }
             }
         }
 
@@ -382,6 +413,18 @@ public final class FfaManager implements Listener {
         return partySessions.get(inst.ownerPartyId);
     }
 
+    private Game resolveKitForPlayer(FfaInstance inst, PartyFfaSession session, Player player) {
+        if (inst == null || session == null || player == null) return inst == null ? null : inst.game;
+        if (!session.teamsEnabled) return inst.game;
+
+        Integer team = session.teamByPlayer.get(player.getUniqueId());
+        if (team == null) return inst.game;
+        String gameName = session.kitByTeamName.get(team);
+        if (gameName == null) return inst.game;
+        Game g = Craftmen.get().getGameManager().getGame(gameName);
+        return g == null ? inst.game : g;
+    }
+
     private void startNextRound(FfaInstance inst, PartyFfaSession session) {
         clearDroppedItems(inst);
         session.currentRound++;
@@ -402,7 +445,8 @@ public final class FfaManager implements Listener {
             p.setSaturation(20f);
             p.getInventory().clear();
             setParticipant(p);
-            inst.game.applyLoadout(p);
+            Game kitGame = resolveKitForPlayer(inst, session, p);
+            kitGame.applyLoadout(p);
             p.updateInventory();
             teleportToSafeSpawn(p, inst);
         }
@@ -448,14 +492,9 @@ public final class FfaManager implements Listener {
 
             Integer winningTeam = aliveTeams.stream().findFirst().orElse(null);
             if (winningTeam != null) {
-                // Give the round win to all participants on the winning team (not late-join spectators).
-                for (UUID u : session.roundParticipants) {
-                    Integer t = session.teamByPlayer.get(u);
-                    if (t != null && t.intValue() == winningTeam.intValue()) {
-                        session.roundWins.put(u, session.roundWins.getOrDefault(u, 0) + 1);
-                    }
-                }
+                session.teamRoundWins.put(winningTeam, session.teamRoundWins.getOrDefault(winningTeam, 0) + 1);
                 broadcast(inst, ChatColor.GREEN + "Team " + winningTeam + " won round " + session.currentRound + "!");
+                broadcast(inst, ChatColor.GOLD + "Winners: " + ChatColor.YELLOW + formatTeamMembers(session, winningTeam));
             } else {
                 broadcast(inst, ChatColor.YELLOW + "Round " + session.currentRound + " ended.");
             }
@@ -474,20 +513,35 @@ public final class FfaManager implements Listener {
         }
 
         if (session.currentRound >= session.totalRounds) {
-            UUID top = null;
-            int best = -1;
-            for (var entry : session.roundWins.entrySet()) {
-                if (entry.getValue() > best) {
-                    best = entry.getValue();
-                    top = entry.getKey();
+            if (session.teamsEnabled) {
+                Integer topTeam = null;
+                int best = -1;
+                for (var entry : session.teamRoundWins.entrySet()) {
+                    if (entry.getValue() > best) {
+                        best = entry.getValue();
+                        topTeam = entry.getKey();
+                    }
                 }
-            }
-            Player finalWinner = top == null ? null : Bukkit.getPlayer(top);
-            if (finalWinner != null) {
-                broadcast(inst, ChatColor.GOLD + finalWinner.getName() + " won the FFA!");
-                finalWinner.playSound(finalWinner.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                broadcast(inst, ChatColor.GOLD + "" + ChatColor.BOLD + "Party FFA finished!");
+                if (topTeam != null) {
+                    broadcast(inst, ChatColor.GOLD + "Winning Team: " + ChatColor.YELLOW + "Team " + topTeam + ChatColor.GRAY + " (" + best + " rounds)");
+                    broadcast(inst, ChatColor.GOLD + "Winners: " + ChatColor.YELLOW + formatTeamMembers(session, topTeam));
+                }
             } else {
-                broadcast(inst, ChatColor.GOLD + "FFA ended!");
+                UUID top = null;
+                int best = -1;
+                for (var entry : session.roundWins.entrySet()) {
+                    if (entry.getValue() > best) {
+                        best = entry.getValue();
+                        top = entry.getKey();
+                    }
+                }
+                Player finalWinner = top == null ? null : Bukkit.getPlayer(top);
+                broadcast(inst, ChatColor.GOLD + "" + ChatColor.BOLD + "Party FFA finished!");
+                if (finalWinner != null) {
+                    broadcast(inst, ChatColor.GOLD + "Winner: " + ChatColor.YELLOW + finalWinner.getName() + ChatColor.GRAY + " (" + best + " rounds)");
+                    finalWinner.playSound(finalWinner.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                }
             }
 
             UUID partyId = inst.ownerPartyId;
@@ -1112,6 +1166,20 @@ public final class FfaManager implements Listener {
         return null;
     }
 
+    private static String formatTeamMembers(PartyFfaSession session, int teamId) {
+        if (session == null) return "Unknown";
+        List<String> names = new ArrayList<>();
+        for (var entry : session.teamByPlayer.entrySet()) {
+            Integer t = entry.getValue();
+            if (t == null || t.intValue() != teamId) continue;
+            Player p = Bukkit.getPlayer(entry.getKey());
+            names.add(p != null ? p.getName() : entry.getKey().toString());
+        }
+        if (names.isEmpty()) return "Unknown";
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+        return String.join(ChatColor.GRAY + ", " + ChatColor.YELLOW, names);
+    }
+
     private boolean tryPopTotem(Player player) {
         if (player == null) return false;
 
@@ -1192,7 +1260,7 @@ public final class FfaManager implements Listener {
         }
         broadcast(inst, msg);
 
-        if(!inst.isPrivate) {
+        if (!inst.isPrivate && killer != null) {
             killer.setHealth(20.0);
             killer.setFoodLevel(20);
             killer.setSaturation(20f);
