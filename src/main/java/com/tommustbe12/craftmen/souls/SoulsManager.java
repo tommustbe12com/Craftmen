@@ -929,6 +929,12 @@ public final class SoulsManager implements Listener {
                         p.setVelocity(p.getVelocity().add(vel));
                     }
 
+                    // Minor damage + blindness while trapped (kept light).
+                    p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 40, 0, true, false, false));
+                    if (ticks % 20 == 0) {
+                        p.damage(1.0, caster); // 0.5 heart per second
+                    }
+
                     // Damage enemy armor durability.
                     damageArmorPieces(p, 2);
                 }
