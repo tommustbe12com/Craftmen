@@ -353,7 +353,7 @@ public final class FfaManager implements Listener {
         for (UUID uuid : inInstance) {
             Player p = Bukkit.getPlayer(uuid);
             if (p != null) {
-                leave(p, true);
+                leave(p, false, false);
             } else {
                 // offline cleanup
                 playerInstance.remove(uuid);
@@ -370,7 +370,7 @@ public final class FfaManager implements Listener {
                 if (instId != null) {
                     FfaInstance cur = instancesById.get(instId);
                     if (cur != null && cur.isPrivate && partyId.equals(cur.ownerPartyId)) {
-                        leave(p, true);
+                        leave(p, false, false);
                         continue;
                     }
                 }
@@ -432,6 +432,9 @@ public final class FfaManager implements Listener {
         session.spectators.clear();
         session.roundParticipants.clear();
 
+        Map<Integer, Location> baseSpawnByTeam = new HashMap<>();
+        Map<Integer, Integer> indexByTeam = new HashMap<>();
+
         for (UUID uuid : new HashSet<>(inst.players)) {
             Player p = Bukkit.getPlayer(uuid);
             if (p == null) continue;
@@ -448,7 +451,28 @@ public final class FfaManager implements Listener {
             Game kitGame = resolveKitForPlayer(inst, session, p);
             kitGame.applyLoadout(p);
             p.updateInventory();
-            teleportToSafeSpawn(p, inst);
+
+            // Team spawns: keep teammates near each other (private party FFA only).
+            Location spawn = null;
+            if (session.teamsEnabled) {
+                int team = session.teamByPlayer.getOrDefault(uuid, 1);
+                Location base = baseSpawnByTeam.computeIfAbsent(team, t -> {
+                    Location loc = findSafeSpawn(inst);
+                    return loc != null ? loc : inst.pasteOrigin.clone().add(0, 5, 0);
+                });
+                int idx = indexByTeam.getOrDefault(team, 0);
+                indexByTeam.put(team, idx + 1);
+                spawn = findNearbySafe(base, inst, idx);
+            }
+            if (spawn == null) spawn = findSafeSpawn(inst);
+            if (spawn == null) spawn = inst.pasteOrigin.clone().add(0, 5, 0);
+            p.teleport(spawn);
+
+            if (session.teamsEnabled) {
+                int team = session.teamByPlayer.getOrDefault(uuid, 1);
+                String mates = formatTeammates(session, uuid, team);
+                p.sendMessage(ChatColor.GOLD + "Team " + team + ChatColor.GRAY + " teammates: " + ChatColor.YELLOW + mates);
+            }
         }
 
         broadcast(inst, ChatColor.GOLD + "Round " + session.currentRound + "/" + session.totalRounds + " started!");
@@ -493,10 +517,14 @@ public final class FfaManager implements Listener {
             Integer winningTeam = aliveTeams.stream().findFirst().orElse(null);
             if (winningTeam != null) {
                 session.teamRoundWins.put(winningTeam, session.teamRoundWins.getOrDefault(winningTeam, 0) + 1);
-                broadcast(inst, ChatColor.GREEN + "Team " + winningTeam + " won round " + session.currentRound + "!");
-                broadcast(inst, ChatColor.GOLD + "Winners: " + ChatColor.YELLOW + formatTeamMembers(session, winningTeam));
+                broadcastBox(inst, ChatColor.GREEN + "Round " + session.currentRound + " Winner",
+                        List.of(
+                                ChatColor.YELLOW + "Team " + winningTeam,
+                                ChatColor.GOLD + "Winners: " + ChatColor.YELLOW + formatTeamMembers(session, winningTeam)
+                        ));
             } else {
-                broadcast(inst, ChatColor.YELLOW + "Round " + session.currentRound + " ended.");
+                broadcastBox(inst, ChatColor.YELLOW + "Round " + session.currentRound + " ended",
+                        List.of(ChatColor.GRAY + "No winner"));
             }
         } else {
             if (session.alive.size() > 1) return;
@@ -505,10 +533,12 @@ public final class FfaManager implements Listener {
             Player winner = winnerId == null ? null : Bukkit.getPlayer(winnerId);
             if (winner != null) {
                 session.roundWins.put(winnerId, session.roundWins.getOrDefault(winnerId, 0) + 1);
-                broadcast(inst, ChatColor.GREEN + winner.getName() + " won round " + session.currentRound + "!");
+                broadcastBox(inst, ChatColor.GREEN + "Round " + session.currentRound + " Winner",
+                        List.of(ChatColor.YELLOW + winner.getName()));
                 winner.playSound(winner.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
             } else {
-                broadcast(inst, ChatColor.YELLOW + "Round " + session.currentRound + " ended.");
+                broadcastBox(inst, ChatColor.YELLOW + "Round " + session.currentRound + " ended",
+                        List.of(ChatColor.GRAY + "No winner"));
             }
         }
 
@@ -522,11 +552,13 @@ public final class FfaManager implements Listener {
                         topTeam = entry.getKey();
                     }
                 }
-                broadcast(inst, ChatColor.GOLD + "" + ChatColor.BOLD + "Party FFA finished!");
-                if (topTeam != null) {
-                    broadcast(inst, ChatColor.GOLD + "Winning Team: " + ChatColor.YELLOW + "Team " + topTeam + ChatColor.GRAY + " (" + best + " rounds)");
-                    broadcast(inst, ChatColor.GOLD + "Winners: " + ChatColor.YELLOW + formatTeamMembers(session, topTeam));
-                }
+                broadcastBox(inst, ChatColor.GOLD + "" + ChatColor.BOLD + "Party FFA Finished",
+                        topTeam == null
+                                ? List.of(ChatColor.GRAY + "No winner")
+                                : List.of(
+                                        ChatColor.GOLD + "Winning Team: " + ChatColor.YELLOW + "Team " + topTeam + ChatColor.GRAY + " (" + best + " rounds)",
+                                        ChatColor.GOLD + "Winners: " + ChatColor.YELLOW + formatTeamMembers(session, topTeam)
+                                ));
             } else {
                 UUID top = null;
                 int best = -1;
@@ -537,16 +569,16 @@ public final class FfaManager implements Listener {
                     }
                 }
                 Player finalWinner = top == null ? null : Bukkit.getPlayer(top);
-                broadcast(inst, ChatColor.GOLD + "" + ChatColor.BOLD + "Party FFA finished!");
-                if (finalWinner != null) {
-                    broadcast(inst, ChatColor.GOLD + "Winner: " + ChatColor.YELLOW + finalWinner.getName() + ChatColor.GRAY + " (" + best + " rounds)");
-                    finalWinner.playSound(finalWinner.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
-                }
+                broadcastBox(inst, ChatColor.GOLD + "" + ChatColor.BOLD + "Party FFA Finished",
+                        finalWinner == null
+                                ? List.of(ChatColor.GRAY + "No winner")
+                                : List.of(ChatColor.GOLD + "Winner: " + ChatColor.YELLOW + finalWinner.getName() + ChatColor.GRAY + " (" + best + " rounds)"));
+                if (finalWinner != null) finalWinner.playSound(finalWinner.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
             }
 
             UUID partyId = inst.ownerPartyId;
             if (partyId != null) {
-                endPrivatePartyFfa(partyId);
+                Bukkit.getScheduler().runTaskLater(plugin, () -> endPrivatePartyFfa(partyId), 20L * 3L);
             }
             return;
         }
@@ -626,6 +658,10 @@ public final class FfaManager implements Listener {
     // --------------------
 
     public void leave(Player player, boolean message) {
+        leave(player, message, true);
+    }
+
+    public void leave(Player player, boolean message, boolean broadcastLeave) {
         if (player == null) return;
 
         UUID instId = playerInstance.remove(player.getUniqueId());
@@ -634,7 +670,9 @@ public final class FfaManager implements Listener {
         FfaInstance inst = instancesById.get(instId);
         if (inst != null) {
             inst.players.remove(player.getUniqueId());
-            broadcast(inst, ChatColor.RED + player.getName() + " left FFA (" + inst.players.size() + "/" + MAX_PLAYERS_PER_INSTANCE + ").");
+            if (broadcastLeave) {
+                broadcast(inst, ChatColor.RED + player.getName() + " left FFA (" + inst.players.size() + "/" + MAX_PLAYERS_PER_INSTANCE + ").");
+            }
         }
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
@@ -1043,6 +1081,46 @@ public final class FfaManager implements Listener {
         }
     }
 
+    private Location findNearbySafe(Location base, FfaInstance inst, int idx) {
+        if (base == null) return null;
+        World world = base.getWorld();
+        if (world == null) return null;
+
+        int[] dx = {0, 1, -1, 2, -2, 0, 1, -1, 2, -2};
+        int[] dz = {0, 0, 0, 0, 0, 1, -1, 1, -1, 2};
+        int start = Math.max(0, idx);
+        for (int i = 0; i < 10; i++) {
+            int k = (start + i) % dx.length;
+            Location candidate = base.clone().add(dx[k], 0, dz[k]);
+            int x = candidate.getBlockX();
+            int y = candidate.getBlockY();
+            int z = candidate.getBlockZ();
+            Block below = world.getBlockAt(x, y - 1, z);
+            Block feet = world.getBlockAt(x, y, z);
+            Block head = world.getBlockAt(x, y + 1, z);
+            if (below.getType() == Material.AIR || below.getType() == Material.BARRIER) continue;
+            if (feet.getType() != Material.AIR) continue;
+            if (head.getType() != Material.AIR) continue;
+            return new Location(world, x + 0.5, y, z + 0.5);
+        }
+        return base;
+    }
+
+    private static String formatTeammates(PartyFfaSession session, UUID self, int team) {
+        if (session == null) return "None";
+        List<String> names = new ArrayList<>();
+        for (var entry : session.teamByPlayer.entrySet()) {
+            if (entry.getKey().equals(self)) continue;
+            Integer t = entry.getValue();
+            if (t == null || t.intValue() != team) continue;
+            Player p = Bukkit.getPlayer(entry.getKey());
+            names.add(p != null ? p.getName() : entry.getKey().toString());
+        }
+        if (names.isEmpty()) return "None";
+        names.sort(String.CASE_INSENSITIVE_ORDER);
+        return String.join(ChatColor.GRAY + ", " + ChatColor.YELLOW, names);
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onFfaDamageByBlock(EntityDamageByBlockEvent e) {
         if (!(e.getEntity() instanceof Player damaged)) return;
@@ -1180,6 +1258,19 @@ public final class FfaManager implements Listener {
         return String.join(ChatColor.GRAY + ", " + ChatColor.YELLOW, names);
     }
 
+    private void broadcastBox(FfaInstance inst, String title, List<String> lines) {
+        if (inst == null || title == null) return;
+        broadcast(inst, ChatColor.DARK_GRAY + "Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»");
+        broadcast(inst, " " + title);
+        if (lines != null) {
+            for (String l : lines) {
+                if (l == null) continue;
+                broadcast(inst, " " + l);
+            }
+        }
+        broadcast(inst, ChatColor.DARK_GRAY + "Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«");
+    }
+
     private boolean tryPopTotem(Player player) {
         if (player == null) return false;
 
@@ -1272,6 +1363,8 @@ public final class FfaManager implements Listener {
 
             Bukkit.getScheduler().runTask(plugin, () -> {
                 if (!dead.isOnline()) return;
+                UUID curInst = playerInstance.get(dead.getUniqueId());
+                if (curInst == null || !curInst.equals(inst.id)) return;
                 dead.setHealth(20.0);
                 dead.setFoodLevel(20);
                 dead.setSaturation(20f);
@@ -1348,6 +1441,8 @@ public final class FfaManager implements Listener {
                 if (session != null) {
                     Bukkit.getScheduler().runTaskLater(plugin, () -> {
                         if (!dead.isOnline()) return;
+                        UUID curInst = playerInstance.get(dead.getUniqueId());
+                        if (curInst == null || !curInst.equals(inst.id)) return;
                         dead.setHealth(20.0);
                         dead.setFoodLevel(20);
                         dead.setSaturation(20f);

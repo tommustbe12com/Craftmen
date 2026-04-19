@@ -27,6 +27,7 @@ import java.util.UUID;
 
 public final class PartyFfaMenu implements Listener {
 
+    private static final String PRIVATE_TITLE = ChatColor.DARK_GRAY + "Private Party FFA";
     private static final String SETTINGS_TITLE = ChatColor.DARK_GRAY + "Party FFA Settings";
     private static final String TEAMS_TITLE = ChatColor.DARK_GRAY + "Party FFA Teams";
     private static final String PLAY_AGAIN_NAME = ChatColor.GOLD + "" + ChatColor.BOLD + "Play Party FFA Again";
@@ -47,13 +48,10 @@ public final class PartyFfaMenu implements Listener {
     public void openGameSelect(Player leader, Party party) {
         if (leader == null || party == null) return;
         pendingPartyByLeader.put(leader.getUniqueId(), party.getId());
-
-        Craftmen.get().getHubManager().openGameSelector(leader, (Game game) -> {
-            if (game == null) return;
-            pendingGameByLeader.put(leader.getUniqueId(), game);
-            pendingRoundsByLeader.putIfAbsent(leader.getUniqueId(), 1);
-            openSettings(leader);
-        });
+        pendingRoundsByLeader.putIfAbsent(leader.getUniqueId(), 1);
+        pendingTeamsEnabledByLeader.putIfAbsent(leader.getUniqueId(), false);
+        pendingTeamsCustomizeByLeader.putIfAbsent(leader.getUniqueId(), false);
+        openPrivateSetup(leader);
     }
 
     public void givePlayAgain(Player leader) {
@@ -84,9 +82,6 @@ public final class PartyFfaMenu implements Listener {
                 ChatColor.YELLOW + "" + ChatColor.BOLD + "Teams",
                 teamsEnabled ? (ChatColor.GREEN + "Enabled") : (ChatColor.GRAY + "Disabled"),
                 Sound.UI_BUTTON_CLICK));
-        if (teamsEnabled) {
-            inv.setItem(26, make(Material.CHEST, ChatColor.AQUA + "" + ChatColor.BOLD + "Team Kits", ChatColor.GRAY + "Choose a kit per team", Sound.UI_BUTTON_CLICK));
-        }
 
         // Quick round buttons
         for (int i = 1; i <= 10; i++) {
@@ -95,6 +90,39 @@ public final class PartyFfaMenu implements Listener {
         }
 
         leader.openInventory(inv);
+    }
+
+    private void openPrivateSetup(Player leader) {
+        UUID leaderId = leader.getUniqueId();
+        UUID partyId = pendingPartyByLeader.get(leaderId);
+        Party party = partyId == null ? null : Craftmen.get().getPartyManager().getPartyById(partyId);
+        if (party == null) {
+            leader.sendMessage(ChatColor.RED + "Party not found.");
+            leader.closeInventory();
+            return;
+        }
+
+        Inventory inv = Bukkit.createInventory(null, 27, PRIVATE_TITLE);
+        fill(inv);
+
+        Game game = pendingGameByLeader.get(leaderId);
+        inv.setItem(11, make(Material.NETHER_STAR,
+                ChatColor.AQUA + "" + ChatColor.BOLD + "Game",
+                game == null ? (ChatColor.GRAY + "Click to choose") : (ChatColor.WHITE + game.getName()),
+                Sound.UI_BUTTON_CLICK));
+
+        inv.setItem(13, make(Material.TNT,
+                ChatColor.GOLD + "" + ChatColor.BOLD + "Juggernaut Kits",
+                ChatColor.GRAY + "Choose a kit for each team",
+                Sound.UI_BUTTON_CLICK));
+
+        inv.setItem(15, make(Material.COMPARATOR,
+                ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Continue",
+                ChatColor.GRAY + "Rounds / Teams / Start",
+                Sound.UI_BUTTON_CLICK));
+
+        leader.openInventory(inv);
+        leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
     }
 
     private void fill(Inventory inv) {
@@ -125,7 +153,7 @@ public final class PartyFfaMenu implements Listener {
     public void onClick(InventoryClickEvent e) {
         if (e.getView() == null) return;
         String title = e.getView().getTitle();
-        if (!SETTINGS_TITLE.equals(title) && !TEAMS_TITLE.equals(title)) return;
+        if (!PRIVATE_TITLE.equals(title) && !SETTINGS_TITLE.equals(title) && !TEAMS_TITLE.equals(title)) return;
         if (!(e.getWhoClicked() instanceof Player leader)) return;
 
         e.setCancelled(true); // we manually manage all movement in these menus
@@ -134,6 +162,31 @@ public final class PartyFfaMenu implements Listener {
         if (slot < 0) return;
 
         UUID leaderId = leader.getUniqueId();
+
+        if (PRIVATE_TITLE.equals(title)) {
+            if (slot < 0 || slot >= e.getInventory().getSize()) return;
+
+            if (slot == 11) {
+                Craftmen.get().getHubManager().openGameSelector(leader, picked -> {
+                    if (picked == null) return;
+                    pendingGameByLeader.put(leaderId, picked);
+                    Bukkit.getScheduler().runTask(Craftmen.get(), () -> openPrivateSetup(leader));
+                });
+                return;
+            }
+
+            if (slot == 13) {
+                openTeamKits(leader);
+                return;
+            }
+
+            if (slot == 15) {
+                openSettings(leader);
+                return;
+            }
+
+            return;
+        }
 
         if (TEAMS_TITLE.equals(title)) {
             handleTeamsClick(e, leader, slot);
@@ -163,13 +216,6 @@ public final class PartyFfaMenu implements Listener {
             } else {
                 openSettings(leader);
             }
-            return;
-        }
-
-        if (slot == 26) {
-            boolean teamsEnabled = pendingTeamsEnabledByLeader.getOrDefault(leaderId, false);
-            if (!teamsEnabled) return;
-            openTeamKits(leader);
             return;
         }
 
@@ -358,6 +404,7 @@ public final class PartyFfaMenu implements Listener {
 
         Inventory inv = Bukkit.createInventory(null, 54, TEAMS_TITLE);
         fill(inv);
+        for (int i = 0; i < TEAM_AREA_SIZE; i++) inv.setItem(i, null);
 
         inv.setItem(45, make(Material.ARROW, ChatColor.YELLOW + "Back", ChatColor.GRAY + "Return to settings", Sound.UI_BUTTON_CLICK));
         inv.setItem(47, make(customize ? Material.LIME_DYE : Material.GRAY_DYE,
@@ -369,11 +416,6 @@ public final class PartyFfaMenu implements Listener {
         inv.setItem(53, make(Material.BARRIER, ChatColor.RED + "Close", ChatColor.GRAY + "Close", Sound.UI_BUTTON_CLICK));
 
         // 4 rows (teams 1-4): slots 0..35. Heads can only be moved within this area when customize is ON.
-        // Row labels (right side of each row) to make it clearer which row is which team.
-        inv.setItem(8, make(Material.RED_CONCRETE, ChatColor.RED + "Team 1", ChatColor.GRAY + "Top row", Sound.UI_BUTTON_CLICK));
-        inv.setItem(17, make(Material.BLUE_CONCRETE, ChatColor.BLUE + "Team 2", ChatColor.GRAY + "2nd row", Sound.UI_BUTTON_CLICK));
-        inv.setItem(26, make(Material.GREEN_CONCRETE, ChatColor.GREEN + "Team 3", ChatColor.GRAY + "3rd row", Sound.UI_BUTTON_CLICK));
-        inv.setItem(35, make(Material.YELLOW_CONCRETE, ChatColor.YELLOW + "Team 4", ChatColor.GRAY + "Bottom row", Sound.UI_BUTTON_CLICK));
 
         Set<UUID> placed = new HashSet<>();
         for (int team = 1; team <= MAX_TEAMS; team++) {

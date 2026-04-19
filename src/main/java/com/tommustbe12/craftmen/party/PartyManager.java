@@ -1,5 +1,6 @@
 package com.tommustbe12.craftmen.party;
 
+import com.tommustbe12.craftmen.Craftmen;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -34,6 +35,7 @@ public final class PartyManager {
         for (UUID member : party.getMembers()) {
             partiesByMember.put(member, party);
         }
+        Craftmen.get().getHubManager().giveHubItems(leader);
         return party;
     }
 
@@ -72,6 +74,10 @@ public final class PartyManager {
 
         party.addMember(target.getUniqueId());
         partiesByMember.put(target.getUniqueId(), party);
+
+        // Party leader should instantly see Party Activities item without requiring /hub.
+        Player leader = Bukkit.getPlayer(party.getLeader());
+        if (leader != null) Craftmen.get().getHubManager().giveHubItems(leader);
         return true;
     }
 
@@ -89,6 +95,7 @@ public final class PartyManager {
         broadcastParty(party, msg, snd);
         party.removeMember(uuid);
         partiesByMember.remove(uuid);
+        Craftmen.get().getHubManager().giveHubItems(player);
 
         if (party.size() <= 0) {
             disbandParty(party);
@@ -100,6 +107,7 @@ public final class PartyManager {
             party.setLeader(newLeader);
             Player nl = Bukkit.getPlayer(newLeader);
             if (nl != null) nl.sendMessage(ChatColor.YELLOW + "You are now the party leader.");
+            if (nl != null) Craftmen.get().getHubManager().giveHubItems(nl);
             broadcastParty(party, ChatColor.YELLOW + "New leader: " + (nl != null ? nl.getName() : newLeader.toString()), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP);
         }
 
