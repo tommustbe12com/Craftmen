@@ -6,15 +6,19 @@ import com.tommustbe12.craftmen.profile.Profile;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.FluidCollisionMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -24,14 +28,20 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
+import org.bukkit.util.RayTraceResult;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -54,6 +64,17 @@ public final class SoulsManager implements Listener {
     private final Map<UUID, Double> originalMaxHealth = new HashMap<>();
     private final Map<UUID, Long> specialWeatherUntil = new HashMap<>();
     private final Map<UUID, ItemStack> seaTridentRestore = new HashMap<>();
+
+    // Magnet passive (speed stacks while attacking).
+    private final Map<UUID, Integer> magnetStacks = new HashMap<>();
+    private final Map<UUID, Long> magnetLastHitAt = new HashMap<>();
+    private static final long MAGNET_STACK_RESET_MS = 2_000L;
+    private static final int MAGNET_MAX_SPEED_AMP = 3; // Speed IV max
+
+    // Artificial Genocide passive (random effect every minute).
+    private final Map<UUID, Long> genocideNextEffectAt = new HashMap<>();
+
+    private final Random rng = new Random();
 
     private BukkitTask actionbarTask;
     private BukkitTask passiveTask;
@@ -102,7 +123,10 @@ public final class SoulsManager implements Listener {
         // Special starts on cooldown when the round starts (only for souls that actually have a special).
         SoulCharacter c = getSelected(player);
         if (c == null) c = SoulCharacter.GOOP;
-        if (c != SoulCharacter.GOOP) {
+        if (c == SoulCharacter.DEVILS_FROST
+                || c == SoulCharacter.VOICE_OF_THE_SEA
+                || c == SoulCharacter.ARTIFICIAL_GENOCIDE
+                || c == SoulCharacter.COSMIC_DESTROYER) {
             setCooldown(player, "special", System.currentTimeMillis());
         }
     }
@@ -110,11 +134,11 @@ public final class SoulsManager implements Listener {
     public void applySoulLoadout(Player player) {
         if (player == null) return;
 
-        // shard always in slot 0, and locked by listeners
-        player.getInventory().setItem(0, SoulsItems.shardOfSoul());
-
         SoulCharacter c = getSelected(player);
         if (c == null) c = SoulCharacter.GOOP;
+
+        // soul item always in slot 0, and locked by listeners
+        player.getInventory().setItem(0, SoulsItems.soulItem(c));
 
         switch (c) {
             case GOOP -> {
@@ -195,6 +219,19 @@ public final class SoulsManager implements Listener {
             } else {
                 if (!tryUseCooldown(player, "goop2", GOOP_RIGHT_CLICK_COOLDOWN_MS)) return;
                 goopFreeze(player);
+                player.sendActionBar("§bUsed [2]");
+            }
+            return;
+        }
+
+        if (c == SoulCharacter.MAGNET) {
+            if (left) {
+                if (!tryUseCooldown(player, "magnet1", BASE_COOLDOWN_MS)) return;
+                magnetPull(player);
+                player.sendActionBar("§aUsed [1]");
+            } else {
+                if (!tryUseCooldown(player, "magnet2", BASE_COOLDOWN_MS)) return;
+                magnetPush(player);
                 player.sendActionBar("§bUsed [2]");
             }
             return;
@@ -299,20 +336,26 @@ public final class SoulsManager implements Listener {
         selectedCharacter.remove(id);
         originalMaxHealth.remove(id);
         specialWeatherUntil.remove(id);
+        seaTridentRestore.remove(id);
+        magnetStacks.remove(id);
+        magnetLastHitAt.remove(id);
+        genocideNextEffectAt.remove(id);
     }
 
     private void useBase(Player player) {
         SoulCharacter c = getSelected(player);
         if (c == null) c = SoulCharacter.GOOP;
 
-        // Goop is handled by click handler (2 base abilities, no special).
-        if (c == SoulCharacter.GOOP) return;
+        // Goop + Magnet are handled by click handler (2 base abilities, no special).
+        if (c == SoulCharacter.GOOP || c == SoulCharacter.MAGNET) return;
 
         if (!tryUseCooldown(player, "base", BASE_COOLDOWN_MS)) return;
 
         switch (c) {
             case DEVILS_FROST -> frostStun(player);
             case VOICE_OF_THE_SEA -> seaRiptideBoost(player);
+            case ARTIFICIAL_GENOCIDE -> genocideTeleport(player);
+            case COSMIC_DESTROYER -> cosmicSmash(player);
             default -> {}
         }
     }
@@ -326,6 +369,8 @@ public final class SoulsManager implements Listener {
         switch (c) {
             case DEVILS_FROST -> frostHearts(player);
             case VOICE_OF_THE_SEA -> seaThunderstorm(player);
+            case ARTIFICIAL_GENOCIDE -> genocideShuffle(player);
+            case COSMIC_DESTROYER -> cosmicBlackhole(player);
             default -> player.sendMessage(ChatColor.RED + "No special ability for this soul yet.");
         }
     }
@@ -576,10 +621,15 @@ public final class SoulsManager implements Listener {
             SoulCharacter c = getSelected(player);
             if (c == null) c = SoulCharacter.GOOP;
 
-            long baseRemaining = remaining(player, (c == SoulCharacter.GOOP) ? "goop1" : "base", BASE_COOLDOWN_MS, now);
+            String key1 = (c == SoulCharacter.GOOP) ? "goop1" : (c == SoulCharacter.MAGNET) ? "magnet1" : "base";
+            String key2 = (c == SoulCharacter.GOOP) ? "goop2" : (c == SoulCharacter.MAGNET) ? "magnet2" : "special";
+
+            long baseRemaining = remaining(player, key1, BASE_COOLDOWN_MS, now);
             long slot2Remaining = (c == SoulCharacter.GOOP)
-                    ? remaining(player, "goop2", GOOP_RIGHT_CLICK_COOLDOWN_MS, now)
-                    : remaining(player, "special", SPECIAL_COOLDOWN_MS, now);
+                    ? remaining(player, key2, GOOP_RIGHT_CLICK_COOLDOWN_MS, now)
+                    : (c == SoulCharacter.MAGNET)
+                    ? remaining(player, key2, BASE_COOLDOWN_MS, now)
+                    : remaining(player, key2, SPECIAL_COOLDOWN_MS, now);
 
             String one = formatCooldownToken(1, baseRemaining, true);
             String two = formatCooldownToken(2, slot2Remaining, false);
@@ -594,6 +644,7 @@ public final class SoulsManager implements Listener {
         long sec = Math.max(1, (long) Math.ceil(remainingMs / 1000.0));
         return cdColor + "[" + num + " " + sec + "s]";
     }
+
     private void tickPassives() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (!isInSouls(player)) continue;
@@ -622,7 +673,227 @@ public final class SoulsManager implements Listener {
                         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, 1, true, false, false));
                     }
                 }
+                case MAGNET -> tickMagnetPassive(player);
+                case ARTIFICIAL_GENOCIDE -> tickGenocidePassive(player);
+                default -> {}
             }
+        }
+    }
+
+    private void tickMagnetPassive(Player player) {
+        long now = System.currentTimeMillis();
+        long last = magnetLastHitAt.getOrDefault(player.getUniqueId(), 0L);
+        if (last <= 0 || (now - last) > MAGNET_STACK_RESET_MS) {
+            magnetStacks.remove(player.getUniqueId());
+            return;
+        }
+        int stacks = Math.max(1, magnetStacks.getOrDefault(player.getUniqueId(), 1));
+        int amp = Math.min(MAGNET_MAX_SPEED_AMP, stacks - 1);
+        player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, amp, true, false, false));
+    }
+
+    private void tickGenocidePassive(Player player) {
+        long now = System.currentTimeMillis();
+        long next = genocideNextEffectAt.getOrDefault(player.getUniqueId(), now);
+        if (now < next) return;
+        genocideNextEffectAt.put(player.getUniqueId(), now + 60_000L);
+
+        PotionEffectType[] pool = {
+                PotionEffectType.SPEED,
+                PotionEffectType.STRENGTH,
+                PotionEffectType.REGENERATION,
+                PotionEffectType.RESISTANCE,
+                PotionEffectType.JUMP_BOOST,
+                PotionEffectType.HASTE,
+                PotionEffectType.SLOWNESS,
+                PotionEffectType.WEAKNESS,
+                PotionEffectType.POISON,
+                PotionEffectType.BLINDNESS
+        };
+        PotionEffectType type = pool[rng.nextInt(pool.length)];
+        int amp = rng.nextInt(2); // I-II
+        int seconds = 45;
+        player.addPotionEffect(new PotionEffect(type, 20 * seconds, amp, true, true, true));
+    }
+
+    private void magnetPull(Player caster) {
+        Player target = findNearestEnemy(caster, 10.0);
+        if (target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return;
+        }
+        Vector delta = target.getLocation().toVector().subtract(caster.getLocation().toVector());
+        Vector dir = delta.lengthSquared() < 0.01 ? caster.getLocation().getDirection().normalize() : delta.normalize();
+        caster.setVelocity(dir.clone().multiply(1.6).setY(Math.max(dir.getY() * 0.8, 0.1)));
+        target.setVelocity(dir.clone().multiply(-1.6).setY(Math.max(-dir.getY() * 0.8, 0.1)));
+        caster.playSound(caster.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 1.2f);
+        target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 0.9f);
+    }
+
+    private void magnetPush(Player caster) {
+        Player target = findNearestEnemy(caster, 10.0);
+        if (target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return;
+        }
+        Vector away = target.getLocation().toVector().subtract(caster.getLocation().toVector()).normalize();
+        caster.setVelocity(away.clone().multiply(-1.4).setY(0.25));
+        target.setVelocity(away.clone().multiply(1.8).setY(0.35));
+        caster.playSound(caster.getLocation(), Sound.ENTITY_IRON_GOLEM_REPAIR, 1.0f, 1.2f);
+        target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_REPAIR, 1.0f, 0.9f);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSoulsHit(EntityDamageByEntityEvent e) {
+        if (!(e.getDamager() instanceof Player damager)) return;
+        if (!(e.getEntity() instanceof Player victim)) return;
+        if (!isInSouls(damager) || !isInSouls(victim)) return;
+        if (!sameContext(damager, victim)) return;
+
+        if (getSelected(damager) != SoulCharacter.MAGNET) return;
+
+        UUID id = damager.getUniqueId();
+        magnetLastHitAt.put(id, System.currentTimeMillis());
+        int stacks = magnetStacks.getOrDefault(id, 0) + 1;
+        magnetStacks.put(id, Math.min(1 + MAGNET_MAX_SPEED_AMP, stacks));
+    }
+
+    private void genocideTeleport(Player player) {
+        var world = player.getWorld();
+        Vector dir = player.getLocation().getDirection().normalize();
+        RayTraceResult hit = world.rayTraceBlocks(player.getEyeLocation(), dir, 10.0, FluidCollisionMode.NEVER, true);
+
+        Location dest;
+        if (hit != null && hit.getHitPosition() != null) {
+            Vector v = hit.getHitPosition();
+            dest = new Location(world, v.getX(), v.getY(), v.getZ());
+            dest.subtract(dir.clone().multiply(0.6));
+        } else {
+            dest = player.getLocation().clone().add(dir.clone().multiply(10.0));
+        }
+        dest.setYaw(player.getLocation().getYaw());
+        dest.setPitch(player.getLocation().getPitch());
+
+        if (!dest.getBlock().isPassable()) {
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            return;
+        }
+
+        player.teleport(dest);
+        player.playSound(dest, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.2f);
+    }
+
+    private void genocideShuffle(Player caster) {
+        Player target = findNearestEnemy(caster, 10.0);
+        if (target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return;
+        }
+        ItemStack[] storage = target.getInventory().getStorageContents();
+        List<ItemStack> list = new ArrayList<>();
+        Collections.addAll(list, storage);
+        Collections.shuffle(list, rng);
+        target.getInventory().setStorageContents(list.toArray(new ItemStack[0]));
+        caster.playSound(caster.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.7f);
+        target.playSound(target.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.2f);
+    }
+
+    private void cosmicSmash(Player caster) {
+        Location center = caster.getLocation();
+        int r = 2;
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    Location l = center.clone().add(dx, dy, dz);
+                    if (l.distanceSquared(center) > 7.5) continue;
+                    var block = l.getBlock();
+                    if (block.isEmpty()) continue;
+                    Material t = block.getType();
+                    if (t == Material.BEDROCK || t == Material.BARRIER) continue;
+                    if (t.name().contains("CHEST")) continue;
+                    block.setType(Material.AIR, false);
+                }
+            }
+        }
+
+        for (Player p : caster.getWorld().getPlayers()) {
+            if (p == caster) continue;
+            if (!isInSouls(p)) continue;
+            if (!sameContext(caster, p)) continue;
+            if (p.getLocation().distanceSquared(center) > (4.0 * 4.0)) continue;
+            p.damage(4.0, caster); // 2 hearts
+        }
+
+        caster.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.9f, 0.9f);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onCosmicArmorDamage(PlayerItemDamageEvent e) {
+        Player player = e.getPlayer();
+        if (!isInSouls(player)) return;
+        if (getSelected(player) != SoulCharacter.COSMIC_DESTROYER) return;
+        int reduced = (int) Math.floor(e.getDamage() * 0.9);
+        e.setDamage(Math.max(0, reduced));
+    }
+
+    private void cosmicBlackhole(Player caster) {
+        Location center = caster.getLocation().clone();
+        caster.playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 1.0f, 0.7f);
+
+        new org.bukkit.scheduler.BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (!caster.isOnline() || !isInSouls(caster)) {
+                    cancel();
+                    return;
+                }
+                ticks += 5;
+                if (ticks > 20 * 5) { // 5 seconds
+                    cancel();
+                    return;
+                }
+
+                for (Player p : center.getWorld().getPlayers()) {
+                    if (p == caster) continue;
+                    if (!isInSouls(p)) continue;
+                    if (!sameContext(caster, p)) continue;
+                    double dist2 = p.getLocation().distanceSquared(center);
+                    if (dist2 > (12.0 * 12.0)) continue;
+
+                    Vector pull = center.toVector().subtract(p.getLocation().toVector());
+                    if (pull.lengthSquared() > 0.01) {
+                        Vector vel = pull.normalize().multiply(0.55);
+                        vel.setY(Math.min(0.3, Math.max(-0.1, vel.getY())));
+                        p.setVelocity(p.getVelocity().add(vel));
+                    }
+
+                    // Damage enemy armor durability.
+                    damageArmorPieces(p, 2);
+                }
+            }
+        }.runTaskTimer(Craftmen.get(), 0L, 5L);
+    }
+
+    private void damageArmorPieces(Player target, int amount) {
+        if (target == null || amount <= 0) return;
+        ItemStack[] armor = target.getInventory().getArmorContents();
+        boolean changed = false;
+        for (int i = 0; i < armor.length; i++) {
+            ItemStack it = armor[i];
+            if (it == null || it.getType() == Material.AIR) continue;
+            ItemMeta meta = it.getItemMeta();
+            if (!(meta instanceof Damageable dmg)) continue;
+            dmg.setDamage(dmg.getDamage() + amount);
+            it.setItemMeta((ItemMeta) dmg);
+            changed = true;
+        }
+        if (changed) {
+            target.playSound(target.getLocation(), Sound.ITEM_SHIELD_BREAK, 0.7f, 1.4f);
         }
     }
 

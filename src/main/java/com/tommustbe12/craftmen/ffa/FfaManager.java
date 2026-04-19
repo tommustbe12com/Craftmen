@@ -1260,7 +1260,7 @@ public final class FfaManager implements Listener {
 
     private void broadcastBox(FfaInstance inst, String title, List<String> lines) {
         if (inst == null || title == null) return;
-        broadcast(inst, ChatColor.DARK_GRAY + "Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»Â»");
+        broadcast(inst, ChatColor.DARK_GRAY + "»»»»»»»»»»»»»»»»»»»»");
         broadcast(inst, " " + title);
         if (lines != null) {
             for (String l : lines) {
@@ -1268,7 +1268,7 @@ public final class FfaManager implements Listener {
                 broadcast(inst, " " + l);
             }
         }
-        broadcast(inst, ChatColor.DARK_GRAY + "Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«Â«");
+        broadcast(inst, ChatColor.DARK_GRAY + "««««««««««««««««««««");
     }
 
     private boolean tryPopTotem(Player player) {

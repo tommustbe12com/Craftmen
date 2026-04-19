@@ -23,7 +23,14 @@ import java.util.UUID;
 
 public final class PartyTeamsMenu implements Listener {
 
-    private static final String TITLE = "Â§8Party Teams";
+    private static final String TITLE = "§8Party Teams";
+
+    // Right column helper slots (visible at a glance).
+    private static final int SLOT_HELP = 8;
+    private static final int SLOT_TOGGLE_TEAM_MODE = 17;
+    private static final int SLOT_SAVE = 26;
+    private static final int SLOT_RESET = 35;
+    private static final int SLOT_CLOSE = 53;
 
     private final Map<UUID, UUID> editingPartyByLeader = new HashMap<>();
     private final Map<UUID, Map<UUID, Integer>> draftTeamsByLeader = new HashMap<>();
@@ -45,11 +52,19 @@ public final class PartyTeamsMenu implements Listener {
         fill(inv);
 
         boolean enabled = draftEnabledByLeader.getOrDefault(leader.getUniqueId(), false);
-        inv.setItem(4, item(enabled ? Material.LIME_DYE : Material.GRAY_DYE,
-                "Â§eTeam Mode: " + (enabled ? "Â§aON" : "Â§cOFF"),
-                List.of("Â§7If ON: teammates can't hit each other.", "Â§8Click to toggle")));
-
-        inv.setItem(49, item(Material.BARRIER, "Â§cClose", List.of("Â§7Close")));
+        inv.setItem(SLOT_HELP, item(Material.BOOK,
+                "§eHow to use",
+                List.of(
+                        "§7Click a player head to change their team.",
+                        "§8Left-click: team +1",
+                        "§8Right-click: team -1"
+                )));
+        inv.setItem(SLOT_TOGGLE_TEAM_MODE, item(enabled ? Material.LIME_DYE : Material.GRAY_DYE,
+                "§eTeam Mode: " + (enabled ? "§aON" : "§cOFF"),
+                List.of("§7If ON: teammates can't hit each other.", "§8Click to toggle")));
+        inv.setItem(SLOT_SAVE, item(Material.EMERALD_BLOCK, "§aSave", List.of("§7Save teams for party FFA")));
+        inv.setItem(SLOT_RESET, item(Material.BARRIER, "§cReset teams", List.of("§7Set everyone to Team 1")));
+        inv.setItem(SLOT_CLOSE, item(Material.OAK_DOOR, "§cClose", List.of("§7Close")));
 
         // Members list (slots 10..43 typical)
         int[] slots = {
@@ -65,15 +80,13 @@ public final class PartyTeamsMenu implements Listener {
             String name = p != null ? p.getName() : member.toString();
             int team = draft.getOrDefault(member, 1);
             inv.setItem(slots[idx++], item(Material.PLAYER_HEAD,
-                    "Â§f" + name,
+                    "§f" + name,
                     List.of(
-                            "Â§7Team: Â§b" + team,
-                            "Â§8Left-click: team +1",
-                            "Â§8Right-click: team -1"
+                            "§7Team: §b" + team,
+                            "§8Left-click: team +1",
+                            "§8Right-click: team -1"
                     )));
         }
-
-        inv.setItem(45, item(Material.EMERALD_BLOCK, "Â§aSave", List.of("Â§7Save teams for party FFA")));
 
         leader.openInventory(inv);
         leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
@@ -87,30 +100,42 @@ public final class PartyTeamsMenu implements Listener {
         if (stripped == null || !stripped.equals(ChatColor.stripColor(TITLE))) return;
         e.setCancelled(true);
 
+        // Non-interactive helper slots.
+        int slot = e.getRawSlot();
+        if (slot == SLOT_HELP) return;
+
         UUID partyId = editingPartyByLeader.get(leader.getUniqueId());
         if (partyId == null) return;
         Party party = Craftmen.get().getPartyManager().getPartyById(partyId);
         if (party == null) return;
         if (!party.getLeader().equals(leader.getUniqueId())) return;
 
-        int slot = e.getRawSlot();
-        if (slot == 49) {
+        if (slot == SLOT_CLOSE) {
             leader.closeInventory();
             return;
         }
-        if (slot == 4) {
+        if (slot == SLOT_TOGGLE_TEAM_MODE) {
             boolean cur = draftEnabledByLeader.getOrDefault(leader.getUniqueId(), false);
             draftEnabledByLeader.put(leader.getUniqueId(), !cur);
             open(leader, party);
             return;
         }
-        if (slot == 45) {
+        if (slot == SLOT_SAVE) {
             boolean enabled = draftEnabledByLeader.getOrDefault(leader.getUniqueId(), false);
             Map<UUID, Integer> teams = new HashMap<>(draftTeamsByLeader.getOrDefault(leader.getUniqueId(), Map.of()));
             Craftmen.get().getFfaManager().setPendingPartyTeamSettings(party.getId(), enabled, teams);
-            leader.sendMessage("Â§aSaved party teams.");
+            leader.sendMessage("§aSaved party teams.");
             leader.playSound(leader.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.9f, 1.2f);
             leader.closeInventory();
+            return;
+        }
+        if (slot == SLOT_RESET) {
+            Map<UUID, Integer> draft = draftTeamsByLeader.computeIfAbsent(leader.getUniqueId(), k -> new HashMap<>());
+            for (UUID member : party.getMembers()) {
+                draft.put(member, 1);
+            }
+            leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            open(leader, party);
             return;
         }
 
@@ -167,4 +192,3 @@ public final class PartyTeamsMenu implements Listener {
         }
     }
 }
-

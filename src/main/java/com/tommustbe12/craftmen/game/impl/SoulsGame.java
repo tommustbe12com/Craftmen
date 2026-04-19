@@ -20,7 +20,7 @@ import org.bukkit.potion.PotionEffectType;
 public final class SoulsGame extends Game {
 
     public SoulsGame() {
-        super("Souls", new ItemStack(Material.AMETHYST_SHARD));
+        super("Souls", SoulsItems.shardOfSoul());
     }
 
     private Enchantment enchOrNull(String key) {
@@ -121,10 +121,11 @@ public final class SoulsGame extends Game {
 
         Material spearMat = Material.matchMaterial("DIAMOND_SPEAR");
         ItemStack spear = enchItem(spearMat, new Object[][]{
-                {"lunge", 3}
+                {"lunge", 3},
+                {"sharpness", 5}
         });
 
-        ItemStack shard = SoulsItems.shardOfSoul(); // hotbar slot 9
+        ItemStack shard = SoulsItems.shardOfSoul(); // hotbar slot 9 (replaced at runtime per character)
 
         Material paleOakLog = Material.matchMaterial("PALE_OAK_LOG");
         ItemStack logs = new ItemStack(materialOr(paleOakLog, Material.OAK_LOG), 48);

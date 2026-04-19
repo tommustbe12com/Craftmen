@@ -28,8 +28,8 @@ public class QueueCommand implements CommandExecutor {
 
         var party = Craftmen.get().getPartyManager().getParty(player);
         if (party != null) {
-            player.sendMessage("Â§cYou cannot queue normally while in a party.");
-            player.sendMessage("Â§7Party leader: use the Party Activities item in your hotbar.");
+            player.sendMessage("§cYou cannot queue normally while in a party.");
+            player.sendMessage("§7Party leader: use the Party Activities item in your hotbar.");
             return true;
         }
 

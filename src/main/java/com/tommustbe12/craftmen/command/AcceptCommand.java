@@ -1,7 +1,8 @@
 package com.tommustbe12.craftmen.command;
 
 import com.tommustbe12.craftmen.Craftmen;
-import com.tommustbe12.craftmen.match.MatchManager;
+import com.tommustbe12.craftmen.profile.PlayerState;
+import com.tommustbe12.craftmen.profile.Profile;
 import com.tommustbe12.craftmen.queue.QueueManager;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -41,12 +42,27 @@ public class AcceptCommand implements CommandExecutor {
             return true;
         }
 
-        // Remove the request
-        queue.removeDuelRequest(p);
+        // Reject duel accepts if either player is already in a match/queue (prevents dual-match glitches).
+        Profile pProfile = Craftmen.get().getProfileManager().getProfile(p);
+        Profile rProfile = Craftmen.get().getProfileManager().getProfile(requester);
+        boolean pBusy = pProfile == null
+                || pProfile.getState() != PlayerState.LOBBY
+                || Craftmen.get().getMatchManager().getMatch(p) != null;
+        boolean rBusy = rProfile == null
+                || rProfile.getState() != PlayerState.LOBBY
+                || Craftmen.get().getMatchManager().getMatch(requester) != null;
+        if (pBusy || rBusy) {
+            queue.removeDuelRequest(p);
+            if (pBusy) p.sendMessage("§cYou can't accept a duel while in a queue/match.");
+            else p.sendMessage("§cThat player is busy (queue/match).");
+            return true;
+        }
 
-        // Start a match with the selected game
+        // Remove the request and start a duel match.
+        queue.removeDuelRequest(p);
         Craftmen.get().getMatchManager().startDuel(duelRequest.getRequester(), p, duelRequest.getGame());
 
         return true;
     }
 }
+

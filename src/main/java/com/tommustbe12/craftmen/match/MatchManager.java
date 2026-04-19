@@ -17,6 +17,10 @@ public class MatchManager {
     private final List<Match> matches = new ArrayList<>();
 
     public void startMatch(Match match) {
+        // Prevent stale duel requests from being accepted mid-match.
+        Craftmen.get().getQueueManager().cancelDuelRequestsFor(match.getP1());
+        Craftmen.get().getQueueManager().cancelDuelRequestsFor(match.getP2());
+
         matches.add(match);
         SpectateCommand.stopAllSpectatorsOfMatch(match);
         match.start();

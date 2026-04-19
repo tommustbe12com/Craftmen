@@ -39,22 +39,21 @@ public class DuelCommand implements CommandExecutor {
         Profile pProfile = Craftmen.get().getProfileManager().getProfile(p);
         Profile tProfile = Craftmen.get().getProfileManager().getProfile(target);
 
-        if (pProfile.getState() != PlayerState.LOBBY) {
+        if (pProfile == null || pProfile.getState() != PlayerState.LOBBY || Craftmen.get().getMatchManager().getMatch(p) != null) {
             p.sendMessage("§cYou are in a queue or in a match!");
             return true;
         }
-        if (tProfile.getState() != PlayerState.LOBBY) {
+        if (tProfile == null || tProfile.getState() != PlayerState.LOBBY || Craftmen.get().getMatchManager().getMatch(target) != null) {
             p.sendMessage("§cThat player is in queue or in a match!");
             return true;
         }
 
-        // open game selector for sender
+        // Open game selector for sender.
         Craftmen.get().getHubManager().openGameSelector(p, (game) -> {
-            // send duel request after selecting a game
             QueueManager queue = Craftmen.get().getQueueManager();
             boolean sent = queue.addDuelRequest(p, target, game);
             if (!sent) {
-                p.sendMessage("§cYou can duel-request that player again in 45 seconds.");
+                p.sendMessage("§cYou can duel-request that player again in 15 seconds.");
                 p.playSound(p.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                 return;
             }
@@ -75,3 +74,4 @@ public class DuelCommand implements CommandExecutor {
         return true;
     }
 }
+

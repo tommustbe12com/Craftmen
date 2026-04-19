@@ -54,6 +54,15 @@ public class QueueManager {
         duelRequests.remove(target);
     }
 
+    public void cancelDuelRequestsFor(Player player) {
+        if (player == null) return;
+        duelRequests.entrySet().removeIf(e -> {
+            DuelRequest req = e.getValue();
+            if (req == null) return true;
+            return e.getKey().equals(player) || req.requester.equals(player) || req.challenged.equals(player);
+        });
+    }
+
     public boolean isExpired(DuelRequest request) {
         if (request == null) return true;
         return (System.currentTimeMillis() - request.createdAtMillis) > DUEL_REQUEST_COOLDOWN_MILLIS;
@@ -69,8 +78,8 @@ public class QueueManager {
         // Disallow normal 1v1 queuing when the player is in a party.
         var party = Craftmen.get().getPartyManager().getParty(player);
         if (party != null) {
-            player.sendMessage("Â§cYou cannot queue normally while in a party.");
-            player.sendMessage("Â§7Have the party leader start Party FFA / Public FFA / End Fight.");
+            player.sendMessage("§cYou cannot queue normally while in a party.");
+            player.sendMessage("§7Have the party leader start Party FFA / Public FFA / End Fight.");
             return;
         }
 
@@ -108,8 +117,7 @@ public class QueueManager {
 
     public void removePlayer(Player player) {
         queues.values().forEach(q -> q.removePlayer(player));
-        duelRequests.remove(player);
-        duelRequests.values().removeIf(v -> v == player);
+        cancelDuelRequestsFor(player);
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         if (profile != null) profile.setState(PlayerState.LOBBY);
