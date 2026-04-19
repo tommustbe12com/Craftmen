@@ -11,6 +11,8 @@ import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.FluidCollisionMode;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -24,12 +26,14 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
+import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
@@ -71,10 +75,19 @@ public final class SoulsManager implements Listener {
     private static final long MAGNET_STACK_RESET_MS = 2_000L;
     private static final int MAGNET_MAX_SPEED_AMP = 3; // Speed IV max
 
-    // Artificial Genocide passive (random effect every minute).
+    // Code Cracker passive (random effect every minute).
     private final Map<UUID, Long> genocideNextEffectAt = new HashMap<>();
 
     private final Random rng = new Random();
+
+    // Sorcerer passive reach boost.
+    private final Map<UUID, Double> originalReach = new HashMap<>();
+
+    // Archangel passive double jump.
+    private final Map<UUID, Boolean> archangelJumpUsed = new HashMap<>();
+
+    // Archangel special invulnerability restore.
+    private final Map<UUID, Boolean> archangelPrevInvulnerable = new HashMap<>();
 
     private BukkitTask actionbarTask;
     private BukkitTask passiveTask;
@@ -126,7 +139,9 @@ public final class SoulsManager implements Listener {
         if (c == SoulCharacter.DEVILS_FROST
                 || c == SoulCharacter.VOICE_OF_THE_SEA
                 || c == SoulCharacter.ARTIFICIAL_GENOCIDE
-                || c == SoulCharacter.COSMIC_DESTROYER) {
+                || c == SoulCharacter.COSMIC_DESTROYER
+                || c == SoulCharacter.KING_OF_HEAT
+                || c == SoulCharacter.ARCHANGEL) {
             setCooldown(player, "special", System.currentTimeMillis());
         }
     }
@@ -145,7 +160,6 @@ public final class SoulsManager implements Listener {
         switch (c) {
             case GOOP -> {
                 // passive handled in task
-                player.addPotionEffect(new PotionEffect(PotionEffectType.JUMP_BOOST, 20 * 60 * 30, 1, true, false, false));
             }
             case DEVILS_FROST -> {
                 // frost walker passive: apply effect by enchanting boots if present, else ignore
@@ -252,6 +266,21 @@ public final class SoulsManager implements Listener {
             return;
         }
 
+        if (c == SoulCharacter.SORCERER) {
+            if (left) {
+                if (!isCooldownReady(player, "sorc1", BASE_COOLDOWN_MS)) return;
+                if (!sorcererMove(player)) return;
+                setCooldown(player, "sorc1", System.currentTimeMillis());
+                player.sendActionBar("§aUsed [1]");
+            } else {
+                if (!isCooldownReady(player, "sorc2", BASE_COOLDOWN_MS)) return;
+                if (!sorcererRandomTeleport(player)) return;
+                setCooldown(player, "sorc2", System.currentTimeMillis());
+                player.sendActionBar("§bUsed [2]");
+            }
+            return;
+        }
+
         if (left) {
             useBase(player);
             player.sendActionBar("§aUsed [1]");
@@ -342,14 +371,17 @@ public final class SoulsManager implements Listener {
         magnetStacks.remove(id);
         magnetLastHitAt.remove(id);
         genocideNextEffectAt.remove(id);
+        originalReach.remove(id);
+        archangelJumpUsed.remove(id);
+        archangelPrevInvulnerable.remove(id);
     }
 
     private void useBase(Player player) {
         SoulCharacter c = getSelected(player);
         if (c == null) c = SoulCharacter.GOOP;
 
-        // Goop + Magnet are handled by click handler (2 base abilities, no special).
-        if (c == SoulCharacter.GOOP || c == SoulCharacter.MAGNET) return;
+        // Goop + Magnet + Sorcerer are handled by click handler (2 base abilities, no special).
+        if (c == SoulCharacter.GOOP || c == SoulCharacter.MAGNET || c == SoulCharacter.SORCERER) return;
 
         if (!isCooldownReady(player, "base", BASE_COOLDOWN_MS)) return;
 
@@ -359,6 +391,8 @@ public final class SoulsManager implements Listener {
             case VOICE_OF_THE_SEA -> ok = seaRiptideBoost(player);
             case ARTIFICIAL_GENOCIDE -> ok = genocideTeleport(player);
             case COSMIC_DESTROYER -> ok = cosmicSmash(player);
+            case KING_OF_HEAT -> ok = heatFlameJump(player);
+            case ARCHANGEL -> ok = archangelLevitate(player);
             default -> {}
         }
 
@@ -377,6 +411,8 @@ public final class SoulsManager implements Listener {
             case VOICE_OF_THE_SEA -> ok = seaThunderstorm(player);
             case ARTIFICIAL_GENOCIDE -> ok = genocideShuffle(player);
             case COSMIC_DESTROYER -> ok = cosmicBlackhole(player);
+            case KING_OF_HEAT -> ok = heatFlamethrower(player);
+            case ARCHANGEL -> ok = archangelInvulnerable(player);
             default -> player.sendMessage(ChatColor.RED + "No special ability for this soul yet.");
         }
 
@@ -592,21 +628,6 @@ public final class SoulsManager implements Listener {
         return ia != null && ia.equals(ib);
     }
 
-    private boolean tryUseCooldown(Player player, String key, long cooldownMs) {
-        if (player == null) return false;
-        long now = System.currentTimeMillis();
-        long last = cooldowns.getOrDefault(player.getUniqueId() + ":" + key, 0L);
-        long remaining = (last + cooldownMs) - now;
-        if (remaining > 0) {
-            long sec = Math.max(1, (long) Math.ceil(remaining / 1000.0));
-            player.sendMessage(ChatColor.RED + "Cooldown: " + sec + "s");
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 0.6f);
-            return false;
-        }
-        cooldowns.put(player.getUniqueId() + ":" + key, now);
-        return true;
-    }
-
     private boolean isCooldownReady(Player player, String key, long cooldownMs) {
         if (player == null) return false;
         long now = System.currentTimeMillis();
@@ -652,11 +673,17 @@ public final class SoulsManager implements Listener {
 
             String key1 = (c == SoulCharacter.GOOP) ? "goop1" : (c == SoulCharacter.MAGNET) ? "magnet1" : "base";
             String key2 = (c == SoulCharacter.GOOP) ? "goop2" : (c == SoulCharacter.MAGNET) ? "magnet2" : "special";
+            if (c == SoulCharacter.SORCERER) {
+                key1 = "sorc1";
+                key2 = "sorc2";
+            }
 
             long baseRemaining = remaining(player, key1, BASE_COOLDOWN_MS, now);
             long slot2Remaining = (c == SoulCharacter.GOOP)
                     ? remaining(player, key2, GOOP_RIGHT_CLICK_COOLDOWN_MS, now)
                     : (c == SoulCharacter.MAGNET)
+                    ? remaining(player, key2, BASE_COOLDOWN_MS, now)
+                    : (c == SoulCharacter.SORCERER)
                     ? remaining(player, key2, BASE_COOLDOWN_MS, now)
                     : remaining(player, key2, SPECIAL_COOLDOWN_MS, now);
 
@@ -704,7 +731,25 @@ public final class SoulsManager implements Listener {
                 }
                 case MAGNET -> tickMagnetPassive(player);
                 case ARTIFICIAL_GENOCIDE -> tickGenocidePassive(player);
+                case SORCERER -> tickSorcererPassive(player);
+                case KING_OF_HEAT -> player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 60, 0, true, false, false));
+                case ARCHANGEL -> tickArchangelPassive(player);
                 default -> {}
+            }
+        }
+
+        // Restore Sorcerer reach for anyone no longer in Souls / not Sorcerer.
+        for (var entry : new HashMap<>(originalReach).entrySet()) {
+            Player p = Bukkit.getPlayer(entry.getKey());
+            if (p == null || !p.isOnline() || !isInSouls(p) || getSelected(p) != SoulCharacter.SORCERER) {
+                if (p != null && p.isOnline()) {
+                    Attribute reachAttr = Registry.ATTRIBUTE.get(NamespacedKey.minecraft("player.entity_interaction_range"));
+                    if (reachAttr != null) {
+                        AttributeInstance attr = p.getAttribute(reachAttr);
+                        if (attr != null) attr.setBaseValue(entry.getValue());
+                    }
+                }
+                originalReach.remove(entry.getKey());
             }
         }
     }
@@ -743,6 +788,62 @@ public final class SoulsManager implements Listener {
         int amp = rng.nextInt(2); // I-II
         int seconds = 45;
         player.addPotionEffect(new PotionEffect(type, 20 * seconds, amp, true, true, true));
+    }
+
+    private void tickSorcererPassive(Player player) {
+        Attribute reachAttr = Registry.ATTRIBUTE.get(NamespacedKey.minecraft("player.entity_interaction_range"));
+        if (reachAttr == null) return;
+        AttributeInstance attr = player.getAttribute(reachAttr);
+        if (attr == null) return;
+
+        UUID id = player.getUniqueId();
+        originalReach.putIfAbsent(id, attr.getBaseValue());
+
+        double original = originalReach.getOrDefault(id, attr.getBaseValue());
+        double desired = original + 0.5;
+        if (Math.abs(attr.getBaseValue() - desired) > 0.0001) {
+            attr.setBaseValue(desired);
+        }
+    }
+
+    private void tickArchangelPassive(Player player) {
+        // Allow one extra jump mid-air.
+        if (player.isOnGround()) {
+            archangelJumpUsed.put(player.getUniqueId(), false);
+            player.setAllowFlight(true);
+            return;
+        }
+        // In air: keep allowFlight on so PlayerToggleFlightEvent can fire for double jump.
+        player.setAllowFlight(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onArchangelDoubleJump(PlayerToggleFlightEvent e) {
+        Player player = e.getPlayer();
+        if (!isInSouls(player)) return;
+        if (getSelected(player) != SoulCharacter.ARCHANGEL) return;
+
+        // Only in actual fight contexts.
+        var prof = Craftmen.get().getProfileManager().getProfile(player);
+        if (prof == null || (prof.getState() != com.tommustbe12.craftmen.profile.PlayerState.IN_MATCH
+                && prof.getState() != com.tommustbe12.craftmen.profile.PlayerState.FFA_FIGHTING)) {
+            return;
+        }
+
+        boolean used = archangelJumpUsed.getOrDefault(player.getUniqueId(), false);
+        if (used) {
+            e.setCancelled(true);
+            return;
+        }
+
+        e.setCancelled(true);
+        archangelJumpUsed.put(player.getUniqueId(), true);
+        player.setFlying(false);
+
+        Vector v = player.getLocation().getDirection().normalize().multiply(0.6);
+        v.setY(0.9);
+        player.setVelocity(v);
+        player.playSound(player.getLocation(), Sound.ENTITY_PHANTOM_FLAP, 1.0f, 1.4f);
     }
 
     private boolean magnetPull(Player caster) {
@@ -959,6 +1060,172 @@ public final class SoulsManager implements Listener {
         if (changed) {
             target.playSound(target.getLocation(), Sound.ITEM_SHIELD_BREAK, 0.7f, 1.4f);
         }
+    }
+
+    private boolean sorcererMove(Player caster) {
+        Player target = findNearestEnemy(caster, 12.0);
+        if (target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return false;
+        }
+
+        Vector dir = caster.getLocation().getDirection().normalize();
+        caster.playSound(caster.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.1f);
+
+        new org.bukkit.scheduler.BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (!caster.isOnline() || !target.isOnline()) {
+                    cancel();
+                    return;
+                }
+                if (!isInSouls(caster) || !isInSouls(target) || !sameContext(caster, target)) {
+                    cancel();
+                    return;
+                }
+
+                ticks += 2;
+                if (ticks > 20 * 4) {
+                    cancel();
+                    return;
+                }
+
+                Vector v = dir.clone().multiply(0.55);
+                v.setY(dir.getY() * 0.35);
+                target.setVelocity(v);
+            }
+        }.runTaskTimer(Craftmen.get(), 0L, 2L);
+
+        return true;
+    }
+
+    private boolean sorcererRandomTeleport(Player caster) {
+        boolean shifting = caster.isSneaking();
+        Player target = shifting ? caster : findNearestEnemy(caster, 12.0);
+        if (!shifting && target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return false;
+        }
+
+        Location base = target.getLocation().clone();
+        for (int tries = 0; tries < 12; tries++) {
+            double angle = rng.nextDouble() * Math.PI * 2;
+            double dist = 6.0 + rng.nextDouble() * 6.0;
+            Location dest = base.clone().add(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
+            dest.setY(target.getWorld().getHighestBlockYAt(dest) + 1);
+            if (!dest.getBlock().isPassable()) continue;
+            target.teleport(dest);
+            target.playSound(dest, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.2f);
+            return true;
+        }
+
+        return false;
+    }
+
+    private boolean heatFlameJump(Player caster) {
+        Vector dir = caster.getLocation().getDirection().normalize();
+        Vector vel = dir.multiply(1.4);
+        vel.setY(Math.max(0.55, dir.getY() * 0.6 + 0.45));
+        caster.setVelocity(vel);
+
+        // Break a little ground around the caster (same radius idea as cosmic, but smaller).
+        Location center = caster.getLocation();
+        int r = 2;
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dy = -1; dy <= 0; dy++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    Location l = center.clone().add(dx, dy, dz);
+                    if (l.distanceSquared(center) > 7.5) continue;
+                    var block = l.getBlock();
+                    if (block.isEmpty()) continue;
+                    Material t = block.getType();
+                    if (t == Material.BEDROCK || t == Material.BARRIER) continue;
+                    if (t.name().contains("CHEST")) continue;
+                    block.setType(Material.AIR, false);
+                }
+            }
+        }
+
+        caster.getWorld().playSound(center, Sound.ENTITY_BLAZE_SHOOT, 1.0f, 1.1f);
+        caster.getWorld().spawnParticle(org.bukkit.Particle.FLAME, center, 40, 0.6, 0.2, 0.6, 0.02);
+        return true;
+    }
+
+    private boolean heatFlamethrower(Player caster) {
+        Location origin = caster.getLocation().clone();
+        caster.playSound(origin, Sound.ITEM_FIRECHARGE_USE, 1.0f, 1.2f);
+
+        new org.bukkit.scheduler.BukkitRunnable() {
+            int sec = 0;
+
+            @Override
+            public void run() {
+                if (!caster.isOnline() || !isInSouls(caster)) {
+                    cancel();
+                    return;
+                }
+                sec++;
+                if (sec > 10) {
+                    cancel();
+                    return;
+                }
+
+                Location loc = caster.getEyeLocation();
+                Vector look = loc.getDirection().normalize();
+
+                caster.getWorld().spawnParticle(org.bukkit.Particle.FLAME, loc.add(look.clone().multiply(1.2)), 25, 0.35, 0.25, 0.35, 0.01);
+                caster.playSound(caster.getLocation(), Sound.BLOCK_FIRE_AMBIENT, 0.7f, 1.4f);
+
+                for (Player p : caster.getWorld().getPlayers()) {
+                    if (p == caster) continue;
+                    if (!isInSouls(p) || !sameContext(caster, p)) continue;
+                    if (p.getLocation().distanceSquared(caster.getLocation()) > (7.0 * 7.0)) continue;
+
+                    Vector to = p.getEyeLocation().toVector().subtract(caster.getEyeLocation().toVector());
+                    if (to.lengthSquared() < 0.01) continue;
+                    double angle = look.angle(to.normalize());
+                    if (angle > Math.toRadians(55)) continue;
+
+                    p.damage(2.0, caster); // 1 heart per second
+                    p.setFireTicks(Math.max(p.getFireTicks(), 40));
+                }
+            }
+        }.runTaskTimer(Craftmen.get(), 0L, 20L);
+
+        return true;
+    }
+
+    private boolean archangelLevitate(Player caster) {
+        Player target = findNearestEnemy(caster, 10.0);
+        if (target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return false;
+        }
+        target.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 20 * 3, 2, true, false, false));
+        caster.playSound(caster.getLocation(), Sound.ENTITY_ALLAY_AMBIENT_WITHOUT_ITEM, 1.0f, 1.4f);
+        target.playSound(target.getLocation(), Sound.ENTITY_ALLAY_AMBIENT_WITHOUT_ITEM, 1.0f, 1.1f);
+        return true;
+    }
+
+    private boolean archangelInvulnerable(Player caster) {
+        UUID id = caster.getUniqueId();
+        archangelPrevInvulnerable.putIfAbsent(id, caster.isInvulnerable());
+        caster.setInvulnerable(true);
+        caster.playSound(caster.getLocation(), Sound.ITEM_TOTEM_USE, 0.9f, 1.3f);
+
+        Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+            if (!caster.isOnline()) return;
+            Boolean prev = archangelPrevInvulnerable.remove(id);
+            caster.setInvulnerable(prev != null && prev);
+            caster.playSound(caster.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.8f, 0.8f);
+        }, 20L * 10L);
+
+        return true;
     }
 
     private long remaining(Player player, String key, long cooldownMs, long now) {

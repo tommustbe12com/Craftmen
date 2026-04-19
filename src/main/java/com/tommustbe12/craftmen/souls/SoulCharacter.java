@@ -5,8 +5,11 @@ public enum SoulCharacter {
     DEVILS_FROST("The Devil's Frost"),
     VOICE_OF_THE_SEA("Voice of the Sea"),
     MAGNET("Magnet"),
-    ARTIFICIAL_GENOCIDE("Artificial Genocide"),
-    COSMIC_DESTROYER("Cosmic Destroyer");
+    ARTIFICIAL_GENOCIDE("Code Cracker"),
+    COSMIC_DESTROYER("Cosmic Destroyer"),
+    SORCERER("Sorcerer"),
+    KING_OF_HEAT("The Eternal Flame"),
+    ARCHANGEL("Archangel");
 
     private final String displayName;
 

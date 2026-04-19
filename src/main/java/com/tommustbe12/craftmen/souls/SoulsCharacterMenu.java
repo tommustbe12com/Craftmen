@@ -38,7 +38,10 @@ public final class SoulsCharacterMenu implements Listener {
             SoulCharacter.VOICE_OF_THE_SEA,
             SoulCharacter.MAGNET,
             SoulCharacter.ARTIFICIAL_GENOCIDE,
-            SoulCharacter.COSMIC_DESTROYER
+            SoulCharacter.COSMIC_DESTROYER,
+            SoulCharacter.SORCERER,
+            SoulCharacter.KING_OF_HEAT,
+            SoulCharacter.ARCHANGEL
     );
 
     private final Map<UUID, Consumer<SoulCharacter>> callbacks = new HashMap<>();
@@ -170,6 +173,21 @@ public final class SoulsCharacterMenu implements Listener {
                         "§7Base: Break blocks + 2❤ AOE",
                         "§7Passive: -10% armor damage",
                         "§7Special: Blackhole (pull + armor dmg)"
+                );
+                case SORCERER -> List.of(
+                        "§7Base: Push enemy (4s)",
+                        "§7Passive: +0.5 reach",
+                        "§7Base 2: Random TP"
+                );
+                case KING_OF_HEAT -> List.of(
+                        "§7Base: Flame Jump",
+                        "§7Passive: Fire Res",
+                        "§7Special: Flamethrower"
+                );
+                case ARCHANGEL -> List.of(
+                        "§7Base: Levitation III (3s)",
+                        "§7Passive: Double Jump",
+                        "§7Special: Invulnerable (10s)"
                 );
             };
 

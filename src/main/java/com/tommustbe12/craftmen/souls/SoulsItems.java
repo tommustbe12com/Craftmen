@@ -43,6 +43,9 @@ public final class SoulsItems {
             case MAGNET -> materialOr("HEAVY_CORE", Material.IRON_BLOCK);
             case ARTIFICIAL_GENOCIDE -> Material.REPEATING_COMMAND_BLOCK;
             case COSMIC_DESTROYER -> Material.ECHO_SHARD;
+            case SORCERER -> Material.AMETHYST_SHARD;
+            case KING_OF_HEAT -> Material.BLAZE_POWDER;
+            case ARCHANGEL -> Material.FEATHER;
         };
 
         ItemStack item = new ItemStack(mat);
