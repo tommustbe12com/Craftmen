@@ -223,16 +223,15 @@ public final class SoulsManager implements Listener {
         boolean left = (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK);
         if (c == SoulCharacter.GOOP) {
             if (left) {
-                if (!tryUseCooldown(player, "goop1", BASE_COOLDOWN_MS)) return;
-                if (player.isSneaking()) {
-                    goopLaunchSelf(player);
-                } else {
-                    goopBounce(player);
-                }
+                if (!isCooldownReady(player, "goop1", BASE_COOLDOWN_MS)) return;
+                boolean ok = player.isSneaking() ? goopLaunchSelf(player) : goopBounce(player);
+                if (!ok) return;
+                setCooldown(player, "goop1", System.currentTimeMillis());
                 player.sendActionBar("§aUsed [1]");
             } else {
-                if (!tryUseCooldown(player, "goop2", GOOP_RIGHT_CLICK_COOLDOWN_MS)) return;
-                goopFreeze(player);
+                if (!isCooldownReady(player, "goop2", GOOP_RIGHT_CLICK_COOLDOWN_MS)) return;
+                if (!goopFreeze(player)) return;
+                setCooldown(player, "goop2", System.currentTimeMillis());
                 player.sendActionBar("§bUsed [2]");
             }
             return;
@@ -240,12 +239,14 @@ public final class SoulsManager implements Listener {
 
         if (c == SoulCharacter.MAGNET) {
             if (left) {
-                if (!tryUseCooldown(player, "magnet1", BASE_COOLDOWN_MS)) return;
-                magnetPull(player);
+                if (!isCooldownReady(player, "magnet1", BASE_COOLDOWN_MS)) return;
+                if (!magnetPull(player)) return;
+                setCooldown(player, "magnet1", System.currentTimeMillis());
                 player.sendActionBar("§aUsed [1]");
             } else {
-                if (!tryUseCooldown(player, "magnet2", BASE_COOLDOWN_MS)) return;
-                magnetPush(player);
+                if (!isCooldownReady(player, "magnet2", BASE_COOLDOWN_MS)) return;
+                if (!magnetPush(player)) return;
+                setCooldown(player, "magnet2", System.currentTimeMillis());
                 player.sendActionBar("§bUsed [2]");
             }
             return;
@@ -280,15 +281,8 @@ public final class SoulsManager implements Listener {
         boolean cursorShard = SoulsItems.isShardOfSoul(cursor);
         if (!currentShard && !cursorShard) return;
 
-        // Shard of Soul cannot leave the hotbar (slots 0-8). Allow rearranging within hotbar only.
-        int slot = e.getSlot();
-        boolean playerInv = e.getClickedInventory() != null && e.getClickedInventory().getType() == org.bukkit.event.inventory.InventoryType.PLAYER;
-        boolean hotbarSlot = playerInv && slot >= 0 && slot <= 8;
-
-        if (!hotbarSlot || e.isShiftClick()) {
-            e.setCancelled(true);
-            return;
-        }
+        // Soul item is not movable during matches/FFA (kit editor can move/save the placeholder in a separate flow).
+        e.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -307,14 +301,8 @@ public final class SoulsManager implements Listener {
         }
         if (!draggingShard) return;
 
-        // Only allow placing shard into hotbar slots (0-8) within the player inventory.
-        for (int rawSlot : e.getRawSlots()) {
-            // Player inventory hotbar raw slots are 0-8 when the top inventory is the player inventory view.
-            if (rawSlot < 0 || rawSlot > 8) {
-                e.setCancelled(true);
-                return;
-            }
-        }
+        // Soul item is not movable during matches/FFA.
+        e.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -363,72 +351,81 @@ public final class SoulsManager implements Listener {
         // Goop + Magnet are handled by click handler (2 base abilities, no special).
         if (c == SoulCharacter.GOOP || c == SoulCharacter.MAGNET) return;
 
-        if (!tryUseCooldown(player, "base", BASE_COOLDOWN_MS)) return;
+        if (!isCooldownReady(player, "base", BASE_COOLDOWN_MS)) return;
 
+        boolean ok = false;
         switch (c) {
-            case DEVILS_FROST -> frostStun(player);
-            case VOICE_OF_THE_SEA -> seaRiptideBoost(player);
-            case ARTIFICIAL_GENOCIDE -> genocideTeleport(player);
-            case COSMIC_DESTROYER -> cosmicSmash(player);
+            case DEVILS_FROST -> ok = frostStun(player);
+            case VOICE_OF_THE_SEA -> ok = seaRiptideBoost(player);
+            case ARTIFICIAL_GENOCIDE -> ok = genocideTeleport(player);
+            case COSMIC_DESTROYER -> ok = cosmicSmash(player);
             default -> {}
         }
+
+        if (ok) setCooldown(player, "base", System.currentTimeMillis());
     }
 
     private void useSpecial(Player player) {
-        if (!tryUseCooldown(player, "special", SPECIAL_COOLDOWN_MS)) return;
+        if (!isCooldownReady(player, "special", SPECIAL_COOLDOWN_MS)) return;
 
         SoulCharacter c = getSelected(player);
         if (c == null) c = SoulCharacter.GOOP;
 
+        boolean ok = false;
         switch (c) {
-            case DEVILS_FROST -> frostHearts(player);
-            case VOICE_OF_THE_SEA -> seaThunderstorm(player);
-            case ARTIFICIAL_GENOCIDE -> genocideShuffle(player);
-            case COSMIC_DESTROYER -> cosmicBlackhole(player);
+            case DEVILS_FROST -> ok = frostHearts(player);
+            case VOICE_OF_THE_SEA -> ok = seaThunderstorm(player);
+            case ARTIFICIAL_GENOCIDE -> ok = genocideShuffle(player);
+            case COSMIC_DESTROYER -> ok = cosmicBlackhole(player);
             default -> player.sendMessage(ChatColor.RED + "No special ability for this soul yet.");
         }
+
+        if (ok) setCooldown(player, "special", System.currentTimeMillis());
     }
 
-    private void goopBounce(Player caster) {
+    private boolean goopBounce(Player caster) {
         Player target = findNearestEnemy(caster, 8.0);
         if (target == null) {
             caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             caster.sendMessage(ChatColor.RED + "No target in range.");
-            return;
+            return false;
         }
         Vector away = target.getLocation().toVector().subtract(caster.getLocation().toVector()).normalize();
         target.setVelocity(away.multiply(1.6).setY(0.35));
         caster.playSound(caster.getLocation(), Sound.ENTITY_SLIME_JUMP, 1.0f, 1.0f);
         target.playSound(target.getLocation(), Sound.ENTITY_SLIME_JUMP, 1.0f, 0.8f);
+        return true;
     }
 
-    private void goopFreeze(Player caster) {
+    private boolean goopFreeze(Player caster) {
         Player target = findNearestEnemy(caster, 8.0);
         if (target == null) {
             caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             caster.sendMessage(ChatColor.RED + "No target in range.");
-            return;
+            return false;
         }
         freeze(target, 2_000L);
         caster.playSound(caster.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.2f);
         target.playSound(target.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 0.8f);
+        return true;
     }
 
-    private void frostStun(Player caster) {
+    private boolean frostStun(Player caster) {
         Player target = findNearestEnemy(caster, 8.0);
         if (target == null) {
             caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             caster.sendMessage(ChatColor.RED + "No target in range.");
-            return;
+            return false;
         }
         freeze(target, 3_000L);
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20 * 3, 4, true, false, false));
         caster.playSound(caster.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 1.0f);
+        return true;
     }
 
-    private void frostHearts(Player player) {
+    private boolean frostHearts(Player player) {
         var attr = player.getAttribute(Attribute.MAX_HEALTH);
-        if (attr == null) return;
+        if (attr == null) return false;
         originalMaxHealth.putIfAbsent(player.getUniqueId(), attr.getBaseValue());
 
         double original = originalMaxHealth.get(player.getUniqueId());
@@ -454,18 +451,20 @@ public final class SoulsManager implements Listener {
                 }
             }, 20L * 10L);
         }, 20L * 30L);
+        return true;
     }
 
-    private void seaRiptideBoost(Player player) {
+    private boolean seaRiptideBoost(Player player) {
         Vector dir = player.getLocation().getDirection().normalize();
         // Faster/farther dash that can go upward based on look direction.
         Vector vel = dir.multiply(2.4);
         vel.setY(Math.max(dir.getY() * 1.4, 0.25));
         player.setVelocity(vel);
         player.playSound(player.getLocation(), Sound.ITEM_TRIDENT_RIPTIDE_1, 1.0f, 1.1f);
+        return true;
     }
 
-    private void seaThunderstorm(Player player) {
+    private boolean seaThunderstorm(Player player) {
         World world = player.getWorld();
         boolean prevStorm = world.hasStorm();
         boolean prevThundering = world.isThundering();
@@ -545,6 +544,7 @@ public final class SoulsManager implements Listener {
                 player.updateInventory();
             }
         }, 20L * 20L);
+        return true;
     }
 
     private void freeze(Player target, long millis) {
@@ -607,6 +607,20 @@ public final class SoulsManager implements Listener {
         return true;
     }
 
+    private boolean isCooldownReady(Player player, String key, long cooldownMs) {
+        if (player == null) return false;
+        long now = System.currentTimeMillis();
+        long last = cooldowns.getOrDefault(player.getUniqueId() + ":" + key, 0L);
+        long remaining = (last + cooldownMs) - now;
+        if (remaining > 0) {
+            long sec = Math.max(1, (long) Math.ceil(remaining / 1000.0));
+            player.sendMessage(ChatColor.RED + "Cooldown: " + sec + "s");
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 0.6f);
+            return false;
+        }
+        return true;
+    }
+
     private void setCooldown(Player player, String key, long atMillis) {
         cooldowns.put(player.getUniqueId() + ":" + key, atMillis);
     }
@@ -616,13 +630,14 @@ public final class SoulsManager implements Listener {
         passiveTask = Bukkit.getScheduler().runTaskTimer(Craftmen.get(), this::tickPassives, 20L, 20L);
     }
 
-    private void goopLaunchSelf(Player player) {
-        if (player == null) return;
+    private boolean goopLaunchSelf(Player player) {
+        if (player == null) return false;
         Vector dir = player.getLocation().getDirection().normalize();
         Vector vel = dir.multiply(1.8);
         vel.setY(Math.max(dir.getY(), 0.15) + 0.25);
         player.setVelocity(vel);
         player.playSound(player.getLocation(), Sound.ENTITY_SLIME_JUMP, 1.0f, 1.2f);
+        return true;
     }
 
     private void tickActionbar() {
@@ -730,33 +745,36 @@ public final class SoulsManager implements Listener {
         player.addPotionEffect(new PotionEffect(type, 20 * seconds, amp, true, true, true));
     }
 
-    private void magnetPull(Player caster) {
-        Player target = findNearestEnemy(caster, 10.0);
+    private boolean magnetPull(Player caster) {
+        Player target = findNearestEnemy(caster, 14.0);
         if (target == null) {
             caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             caster.sendMessage(ChatColor.RED + "No target in range.");
-            return;
+            return false;
         }
         Vector delta = target.getLocation().toVector().subtract(caster.getLocation().toVector());
         Vector dir = delta.lengthSquared() < 0.01 ? caster.getLocation().getDirection().normalize() : delta.normalize();
-        caster.setVelocity(dir.clone().multiply(1.6).setY(Math.max(dir.getY() * 0.8, 0.1)));
-        target.setVelocity(dir.clone().multiply(-1.6).setY(Math.max(-dir.getY() * 0.8, 0.1)));
+        // Pull is intentionally softer than push.
+        caster.setVelocity(dir.clone().multiply(1.05).setY(Math.max(dir.getY() * 0.65, 0.08)));
+        target.setVelocity(dir.clone().multiply(-1.05).setY(Math.max(-dir.getY() * 0.65, 0.08)));
         caster.playSound(caster.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 1.2f);
         target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 0.9f);
+        return true;
     }
 
-    private void magnetPush(Player caster) {
-        Player target = findNearestEnemy(caster, 10.0);
+    private boolean magnetPush(Player caster) {
+        Player target = findNearestEnemy(caster, 14.0);
         if (target == null) {
             caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             caster.sendMessage(ChatColor.RED + "No target in range.");
-            return;
+            return false;
         }
         Vector away = target.getLocation().toVector().subtract(caster.getLocation().toVector()).normalize();
         caster.setVelocity(away.clone().multiply(-1.4).setY(0.25));
         target.setVelocity(away.clone().multiply(1.8).setY(0.35));
         caster.playSound(caster.getLocation(), Sound.ENTITY_IRON_GOLEM_REPAIR, 1.0f, 1.2f);
         target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_REPAIR, 1.0f, 0.9f);
+        return true;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -774,7 +792,7 @@ public final class SoulsManager implements Listener {
         magnetStacks.put(id, Math.min(1 + MAGNET_MAX_SPEED_AMP, stacks));
     }
 
-    private void genocideTeleport(Player player) {
+    private boolean genocideTeleport(Player player) {
         var world = player.getWorld();
         Vector dir = player.getLocation().getDirection().normalize();
         RayTraceResult hit = world.rayTraceBlocks(player.getEyeLocation(), dir, 10.0, FluidCollisionMode.NEVER, true);
@@ -792,30 +810,54 @@ public final class SoulsManager implements Listener {
 
         if (!dest.getBlock().isPassable()) {
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
-            return;
+            return false;
         }
 
         player.teleport(dest);
         player.playSound(dest, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.2f);
+        return true;
     }
 
-    private void genocideShuffle(Player caster) {
+    private boolean genocideShuffle(Player caster) {
         Player target = findNearestEnemy(caster, 10.0);
         if (target == null) {
             caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             caster.sendMessage(ChatColor.RED + "No target in range.");
-            return;
+            return false;
         }
         ItemStack[] storage = target.getInventory().getStorageContents();
+
+        // Never move the target's soul ability item.
+        Map<Integer, ItemStack> locked = new HashMap<>();
         List<ItemStack> list = new ArrayList<>();
-        Collections.addAll(list, storage);
+        for (int i = 0; i < storage.length; i++) {
+            ItemStack it = storage[i];
+            if (SoulsItems.isShardOfSoul(it)) {
+                locked.put(i, it);
+            } else {
+                list.add(it);
+            }
+        }
         Collections.shuffle(list, rng);
-        target.getInventory().setStorageContents(list.toArray(new ItemStack[0]));
+
+        ItemStack[] shuffled = new ItemStack[storage.length];
+        int idx = 0;
+        for (int i = 0; i < shuffled.length; i++) {
+            ItemStack keep = locked.get(i);
+            if (keep != null) {
+                shuffled[i] = keep;
+            } else {
+                shuffled[i] = idx < list.size() ? list.get(idx++) : null;
+            }
+        }
+
+        target.getInventory().setStorageContents(shuffled);
         caster.playSound(caster.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.7f);
         target.playSound(target.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.2f);
+        return true;
     }
 
-    private void cosmicSmash(Player caster) {
+    private boolean cosmicSmash(Player caster) {
         Location center = caster.getLocation();
         int r = 2;
         for (int dx = -r; dx <= r; dx++) {
@@ -842,6 +884,7 @@ public final class SoulsManager implements Listener {
         }
 
         caster.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.9f, 0.9f);
+        return true;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -853,7 +896,7 @@ public final class SoulsManager implements Listener {
         e.setDamage(Math.max(0, reduced));
     }
 
-    private void cosmicBlackhole(Player caster) {
+    private boolean cosmicBlackhole(Player caster) {
         Location center = caster.getLocation().clone();
         caster.playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 1.0f, 0.7f);
 
@@ -891,6 +934,7 @@ public final class SoulsManager implements Listener {
                 }
             }
         }.runTaskTimer(Craftmen.get(), 0L, 5L);
+        return true;
     }
 
     private void damageArmorPieces(Player target, int amount) {
