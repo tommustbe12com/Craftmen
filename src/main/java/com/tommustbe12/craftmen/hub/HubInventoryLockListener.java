@@ -18,6 +18,8 @@ public final class HubInventoryLockListener implements Listener {
         if (Craftmen.get().getEndFightManager().isInGame(player)) return false;
         if (Craftmen.get().getFfaManager().isInFfa(player)) return false;
         if (Craftmen.get().getMatchManager().getMatch(player) != null) return false;
+        // Allow explicitly allowed builders to manage inventory/build in spawn.
+        if (Craftmen.get().getBuildAllowManager() != null && Craftmen.get().getBuildAllowManager().canBuild(player)) return false;
         // Allow OPs in creative to edit/build and manage inventory in spawn.
         if (player.isOp() && player.getGameMode() == GameMode.CREATIVE) return false;
         return Craftmen.get().getProfileManager().getProfile(player).getState() == PlayerState.LOBBY;

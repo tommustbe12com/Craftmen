@@ -15,6 +15,11 @@ public class PlayerDropListener implements Listener {
 
         if (profile == null) return;
 
+        // Spawn builder bypass
+        if (Craftmen.get().getBuildAllowManager() != null && Craftmen.get().getBuildAllowManager().canBuild(event.getPlayer())) {
+            return;
+        }
+
         if (Craftmen.get().getEndFightManager().isInGame(event.getPlayer())) {
             return;
         }

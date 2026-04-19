@@ -25,6 +25,7 @@ import com.tommustbe12.craftmen.help.command.HelpCommand;
 import com.tommustbe12.craftmen.hub.HubManager;
 import com.tommustbe12.craftmen.hub.SpawnProtectionListener;
 import com.tommustbe12.craftmen.hub.HubInventoryLockListener;
+import com.tommustbe12.craftmen.hub.BuildAllowManager;
 import com.tommustbe12.craftmen.kit.KitManager;
 import com.tommustbe12.craftmen.kit.KitStorage;
 import com.tommustbe12.craftmen.kit.command.KitCommand;
@@ -97,6 +98,7 @@ public final class Craftmen extends JavaPlugin {
     private GemManager gemManager;
     private ShopMenu shopMenu;
     private HelpMenu helpMenu;
+    private BuildAllowManager buildAllowManager;
 
     @Override
     public void onEnable() {
@@ -146,6 +148,7 @@ public final class Craftmen extends JavaPlugin {
         gemManager = new GemManager();
         shopMenu = new ShopMenu();
         helpMenu = new HelpMenu();
+        buildAllowManager = new BuildAllowManager();
 
         gameManager.registerGame(new BoxingGame());
         gameManager.registerGame(new ComboGame());
@@ -188,6 +191,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SnowballHitListener(), this);
         getServer().getPluginManager().registerEvents(new SpawnProtectionListener(), this);
         getServer().getPluginManager().registerEvents(new HubInventoryLockListener(), this);
+        getServer().getPluginManager().registerEvents(buildAllowManager, this);
         getServer().getPluginManager().registerEvents(kitEditorMenu, this);
         getServer().getPluginManager().registerEvents(new KitEditorShortcutListener(), this);
         getServer().getPluginManager().registerEvents(armorTrimMenu, this);
@@ -237,6 +241,9 @@ public final class Craftmen extends JavaPlugin {
         getCommand("top").setExecutor(topCommand);
         getServer().getPluginManager().registerEvents(topCommand, this);
 
+        getCommand("buildallow").setExecutor(new BuildAllowCommand());
+        getCommand("builder").setExecutor(new BuilderCommand());
+
         saveDefaultConfig();
         loadProfiles();
 
@@ -256,6 +263,10 @@ public final class Craftmen extends JavaPlugin {
         if (kitManager != null) kitManager.flushAll();
         if (armorTrimManager != null) armorTrimManager.flushAll();
         if (webServer != null) webServer.stop();
+    }
+
+    public BuildAllowManager getBuildAllowManager() {
+        return buildAllowManager;
     }
 
     public Location getHubLocation() {

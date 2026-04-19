@@ -22,6 +22,8 @@ public class BlockListener implements Listener {
 
         // OP bypass
         if (player.isOp()) return;
+        // Spawn builder bypass
+        if (Craftmen.get().getBuildAllowManager() != null && Craftmen.get().getBuildAllowManager().canBuild(player)) return;
 
         if (Craftmen.get().getEndFightManager().isInGame(player)) return;
 
@@ -56,6 +58,8 @@ public class BlockListener implements Listener {
 
         // op bypass
         if (player.isOp()) return;
+        // Spawn builder bypass
+        if (Craftmen.get().getBuildAllowManager() != null && Craftmen.get().getBuildAllowManager().canBuild(player)) return;
 
         if(Craftmen.get().getEndFightManager().isInGame(e.getPlayer())) return;
 
