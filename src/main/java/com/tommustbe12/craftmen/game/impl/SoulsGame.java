@@ -190,6 +190,12 @@ public final class SoulsGame extends Game {
     }
 
     @Override
+    protected void afterLoadoutApplied(org.bukkit.entity.Player player) {
+        // Replace the kit's placeholder soul item with the player's selected soul character icon.
+        Craftmen.get().getSoulsManager().applySoulLoadout(player);
+    }
+
+    @Override
     public void onStart(Match match) {
         if (match == null) return;
         Craftmen.get().getSoulsManager().onRoundStart(match.getP1());

@@ -137,8 +137,10 @@ public final class SoulsManager implements Listener {
         SoulCharacter c = getSelected(player);
         if (c == null) c = SoulCharacter.GOOP;
 
-        // soul item always in slot 0, and locked by listeners
-        player.getInventory().setItem(0, SoulsItems.soulItem(c));
+        // Replace the placeholder soul item (from kit editor) with the chosen soul icon, preserving its slot.
+        int slot = findSoulItemSlot(player);
+        if (slot < 0) slot = 8; // default hotbar slot 9
+        player.getInventory().setItem(slot, SoulsItems.soulItem(c));
 
         switch (c) {
             case GOOP -> {
@@ -170,6 +172,18 @@ public final class SoulsManager implements Listener {
                 player.getInventory().setItem(1, trident);
             }
         }
+    }
+
+    private int findSoulItemSlot(Player player) {
+        if (player == null) return -1;
+        for (int i = 0; i <= 8; i++) {
+            if (SoulsItems.isShardOfSoul(player.getInventory().getItem(i))) return i;
+        }
+        ItemStack[] storage = player.getInventory().getStorageContents();
+        for (int i = 9; i < storage.length; i++) {
+            if (SoulsItems.isShardOfSoul(storage[i])) return i;
+        }
+        return -1;
     }
 
     @EventHandler
@@ -805,7 +819,7 @@ public final class SoulsManager implements Listener {
         Location center = caster.getLocation();
         int r = 2;
         for (int dx = -r; dx <= r; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
+            for (int dy = -2; dy <= 2; dy++) {
                 for (int dz = -r; dz <= r; dz++) {
                     Location l = center.clone().add(dx, dy, dz);
                     if (l.distanceSquared(center) > 7.5) continue;

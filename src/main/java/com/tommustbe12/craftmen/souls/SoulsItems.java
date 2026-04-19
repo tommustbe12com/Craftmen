@@ -17,8 +17,20 @@ public final class SoulsItems {
     private SoulsItems() {}
 
     public static ItemStack shardOfSoul() {
-        // Default icon (Goop) – replaced at runtime once a character is selected.
-        return soulItem(SoulCharacter.GOOP);
+        // Placeholder item that the kit editor can move/save.
+        // At runtime this is replaced with the selected character's icon.
+        ItemStack item = new ItemStack(Material.AMETHYST_SHARD);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.setDisplayName("§dSoul Ability");
+            meta.setUnbreakable(true);
+            // Glint-only – hidden.
+            meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE, ItemFlag.HIDE_ATTRIBUTES);
+            meta.getPersistentDataContainer().set(SOUL_ITEM_KEY, PersistentDataType.BYTE, (byte) 1);
+            item.setItemMeta(meta);
+        }
+        return item;
     }
 
     public static ItemStack soulItem(SoulCharacter character) {
@@ -74,4 +86,3 @@ public final class SoulsItems {
         return m != null ? m : fallback;
     }
 }
-
