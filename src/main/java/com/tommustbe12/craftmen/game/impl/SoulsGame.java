@@ -114,6 +114,10 @@ public final class SoulsGame extends Game {
                 {"piercing", 4}, {"quick_charge", 3}, {"unbreaking", 3}, {"mending", 1}
         });
 
+        ItemStack pickaxe = enchItem(Material.DIAMOND_PICKAXE, new Object[][]{
+                {"efficiency", 5}, {"unbreaking", 3}, {"mending", 1}
+        });
+
         Material maceMat = Material.matchMaterial("MACE");
         ItemStack mace = enchItem(materialOr(maceMat, Material.DIAMOND_AXE), new Object[][]{
                 {"wind_burst", 1}, {"density", 1}
@@ -162,7 +166,8 @@ public final class SoulsGame extends Game {
         contents[8 + 2] = fireRes.clone();
         contents[8 + 3] = fireRes.clone();
         // 4-9 strength
-        for (int i = 4; i <= 9; i++) contents[8 + i] = strength.clone();
+        contents[8 + 4] = pickaxe;
+        for (int i = 5; i <= 9; i++) contents[8 + i] = strength.clone();
         // 10-12 speed
         for (int i = 10; i <= 12; i++) contents[8 + i] = speed.clone();
         // 13-18 strength

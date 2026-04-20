@@ -8,6 +8,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.FluidCollisionMode;
@@ -84,13 +85,31 @@ public final class SoulsManager implements Listener {
     private final Map<UUID, Double> originalReach = new HashMap<>();
 
     // Archangel passive double jump.
-    private final Map<UUID, Boolean> archangelJumpUsed = new HashMap<>();
+    private final Map<UUID, Integer> archangelJumpsUsed = new HashMap<>();
 
     // Archangel special invulnerability restore.
     private final Map<UUID, Boolean> archangelPrevInvulnerable = new HashMap<>();
 
     private BukkitTask actionbarTask;
     private BukkitTask passiveTask;
+
+    private static void particle(Player player, Particle type, int count, double ox, double oy, double oz, double extra) {
+        if (player == null || !player.isOnline()) return;
+        if (player.getWorld() == null) return;
+        player.getWorld().spawnParticle(type, player.getLocation().clone().add(0, 1.0, 0), count, ox, oy, oz, extra);
+    }
+
+    private static void particleAt(Location loc, Particle type, int count, double ox, double oy, double oz, double extra) {
+        if (loc == null || loc.getWorld() == null) return;
+        loc.getWorld().spawnParticle(type, loc, count, ox, oy, oz, extra);
+    }
+
+    private static void particleItemAt(Location loc, ItemStack item, int count, double ox, double oy, double oz) {
+        if (loc == null || loc.getWorld() == null) return;
+        if (item == null) return;
+        // ITEM particle requires data (an ItemStack); harmless + works across versions.
+        loc.getWorld().spawnParticle(Particle.ITEM, loc, count, ox, oy, oz, 0.0, item);
+    }
 
     public SoulsManager() {
         // SoulsCharacterMenu is its own listener; register it so clicks are handled/cancelled.
@@ -372,7 +391,7 @@ public final class SoulsManager implements Listener {
         magnetLastHitAt.remove(id);
         genocideNextEffectAt.remove(id);
         originalReach.remove(id);
-        archangelJumpUsed.remove(id);
+        archangelJumpsUsed.remove(id);
         archangelPrevInvulnerable.remove(id);
     }
 
@@ -430,6 +449,7 @@ public final class SoulsManager implements Listener {
         target.setVelocity(away.multiply(1.6).setY(0.35));
         caster.playSound(caster.getLocation(), Sound.ENTITY_SLIME_JUMP, 1.0f, 1.0f);
         target.playSound(target.getLocation(), Sound.ENTITY_SLIME_JUMP, 1.0f, 0.8f);
+        particleItemAt(target.getLocation().clone().add(0, 1.0, 0), new ItemStack(Material.SLIME_BALL), 18, 0.4, 0.25, 0.4);
         return true;
     }
 
@@ -443,6 +463,7 @@ public final class SoulsManager implements Listener {
         freeze(target, 2_000L);
         caster.playSound(caster.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.2f);
         target.playSound(target.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 0.8f);
+        particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.SNOWFLAKE, 22, 0.35, 0.35, 0.35, 0.0);
         return true;
     }
 
@@ -456,6 +477,7 @@ public final class SoulsManager implements Listener {
         freeze(target, 3_000L);
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, 20 * 3, 4, true, false, false));
         caster.playSound(caster.getLocation(), Sound.BLOCK_GLASS_BREAK, 1.0f, 1.0f);
+        particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.SNOWFLAKE, 28, 0.45, 0.45, 0.45, 0.0);
         return true;
     }
 
@@ -468,6 +490,7 @@ public final class SoulsManager implements Listener {
         attr.setBaseValue(original + 10.0);
         player.setHealth(Math.min(player.getHealth() + 10.0, attr.getBaseValue()));
         player.playSound(player.getLocation(), Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
+        particle(player, Particle.HEART, 8, 0.5, 0.6, 0.5, 0.0);
 
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
             if (!player.isOnline()) return;
@@ -497,6 +520,7 @@ public final class SoulsManager implements Listener {
         vel.setY(Math.max(dir.getY() * 1.4, 0.25));
         player.setVelocity(vel);
         player.playSound(player.getLocation(), Sound.ITEM_TRIDENT_RIPTIDE_1, 1.0f, 1.1f);
+        particle(player, Particle.SPLASH, 20, 0.45, 0.35, 0.45, 0.0);
         return true;
     }
 
@@ -711,6 +735,7 @@ public final class SoulsManager implements Listener {
                 case GOOP -> {
                     // Passive: Speed I
                     player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, 0, true, false, false));
+                    particleItemAt(player.getLocation().clone().add(0, 1.0, 0), new ItemStack(Material.SLIME_BALL), 4, 0.35, 0.25, 0.35);
                 }
                 case DEVILS_FROST -> {
                     // Frost Walker passive: ensure boots are enchanted while in Souls.
@@ -723,16 +748,21 @@ public final class SoulsManager implements Listener {
                             boots.setItemMeta(meta);
                         }
                     }
+                    particle(player, Particle.SNOWFLAKE, 6, 0.45, 0.35, 0.45, 0.0);
                 }
                 case VOICE_OF_THE_SEA -> {
                     if (player.getWorld().hasStorm()) {
                         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, 1, true, false, false));
                     }
+                    particle(player, Particle.SPLASH, 6, 0.45, 0.25, 0.45, 0.0);
                 }
                 case MAGNET -> tickMagnetPassive(player);
                 case ARTIFICIAL_GENOCIDE -> tickGenocidePassive(player);
                 case SORCERER -> tickSorcererPassive(player);
-                case KING_OF_HEAT -> player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 60, 0, true, false, false));
+                case KING_OF_HEAT -> {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 60, 0, true, false, false));
+                    particle(player, Particle.FLAME, 5, 0.35, 0.2, 0.35, 0.01);
+                }
                 case ARCHANGEL -> tickArchangelPassive(player);
                 default -> {}
             }
@@ -764,6 +794,7 @@ public final class SoulsManager implements Listener {
         int stacks = Math.max(1, magnetStacks.getOrDefault(player.getUniqueId(), 1));
         int amp = Math.min(MAGNET_MAX_SPEED_AMP, stacks - 1);
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, amp, true, false, false));
+        particle(player, Particle.CRIT, 6, 0.35, 0.25, 0.35, 0.0);
     }
 
     private void tickGenocidePassive(Player player) {
@@ -788,6 +819,7 @@ public final class SoulsManager implements Listener {
         int amp = rng.nextInt(2); // I-II
         int seconds = 45;
         player.addPotionEffect(new PotionEffect(type, 20 * seconds, amp, true, true, true));
+        particle(player, Particle.ENCHANT, 20, 0.6, 0.5, 0.6, 0.0);
     }
 
     private void tickSorcererPassive(Player player) {
@@ -804,17 +836,19 @@ public final class SoulsManager implements Listener {
         if (Math.abs(attr.getBaseValue() - desired) > 0.0001) {
             attr.setBaseValue(desired);
         }
+        particle(player, Particle.ENCHANT, 10, 0.5, 0.45, 0.5, 0.0);
     }
 
     private void tickArchangelPassive(Player player) {
         // Allow one extra jump mid-air.
         if (player.isOnGround()) {
-            archangelJumpUsed.put(player.getUniqueId(), false);
+            archangelJumpsUsed.put(player.getUniqueId(), 0);
             player.setAllowFlight(true);
             return;
         }
         // In air: keep allowFlight on so PlayerToggleFlightEvent can fire for double jump.
         player.setAllowFlight(true);
+        particle(player, Particle.END_ROD, 3, 0.35, 0.35, 0.35, 0.0);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -830,18 +864,18 @@ public final class SoulsManager implements Listener {
             return;
         }
 
-        boolean used = archangelJumpUsed.getOrDefault(player.getUniqueId(), false);
-        if (used) {
+        int used = archangelJumpsUsed.getOrDefault(player.getUniqueId(), 0);
+        if (used >= 2) {
             e.setCancelled(true);
             return;
         }
 
         e.setCancelled(true);
-        archangelJumpUsed.put(player.getUniqueId(), true);
+        archangelJumpsUsed.put(player.getUniqueId(), used + 1);
         player.setFlying(false);
 
-        Vector v = player.getLocation().getDirection().normalize().multiply(0.6);
-        v.setY(0.9);
+        Vector v = player.getLocation().getDirection().normalize().multiply(0.45);
+        v.setY(0.55);
         player.setVelocity(v);
         player.playSound(player.getLocation(), Sound.ENTITY_PHANTOM_FLAP, 1.0f, 1.4f);
     }
@@ -860,6 +894,8 @@ public final class SoulsManager implements Listener {
         target.setVelocity(dir.clone().multiply(-1.05).setY(Math.max(-dir.getY() * 0.65, 0.08)));
         caster.playSound(caster.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 1.2f);
         target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 0.9f);
+        particle(caster, Particle.CRIT, 14, 0.45, 0.35, 0.45, 0.0);
+        particle(target, Particle.CRIT, 14, 0.45, 0.35, 0.45, 0.0);
         return true;
     }
 
@@ -875,6 +911,7 @@ public final class SoulsManager implements Listener {
         target.setVelocity(away.clone().multiply(1.8).setY(0.35));
         caster.playSound(caster.getLocation(), Sound.ENTITY_IRON_GOLEM_REPAIR, 1.0f, 1.2f);
         target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_REPAIR, 1.0f, 0.9f);
+        particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.CLOUD, 18, 0.45, 0.25, 0.45, 0.02);
         return true;
     }
 
@@ -916,6 +953,7 @@ public final class SoulsManager implements Listener {
 
         player.teleport(dest);
         player.playSound(dest, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.2f);
+        particleAt(dest.clone().add(0, 1.0, 0), Particle.REVERSE_PORTAL, 18, 0.35, 0.35, 0.35, 0.02);
         return true;
     }
 
@@ -955,6 +993,7 @@ public final class SoulsManager implements Listener {
         target.getInventory().setStorageContents(shuffled);
         caster.playSound(caster.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.7f);
         target.playSound(target.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.2f);
+        particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.ENCHANT, 30, 0.7, 0.5, 0.7, 0.0);
         return true;
     }
 
@@ -985,6 +1024,8 @@ public final class SoulsManager implements Listener {
         }
 
         caster.playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.9f, 0.9f);
+        particleAt(center.clone().add(0, 1.0, 0), Particle.SMOKE, 35, 0.8, 0.35, 0.8, 0.02);
+        particleAt(center.clone().add(0, 1.0, 0), Particle.END_ROD, 12, 0.7, 0.35, 0.7, 0.0);
         return true;
     }
 
@@ -1030,6 +1071,10 @@ public final class SoulsManager implements Listener {
                         p.setVelocity(p.getVelocity().add(vel));
                     }
 
+                    // Black-hole visuals around affected players.
+                    particleAt(p.getLocation().clone().add(0, 1.0, 0), Particle.SMOKE, 10, 0.35, 0.35, 0.35, 0.01);
+                    particleAt(p.getLocation().clone().add(0, 1.0, 0), Particle.SQUID_INK, 6, 0.25, 0.25, 0.25, 0.0);
+
                     // Minor damage + blindness while trapped (kept light).
                     p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 40, 0, true, false, false));
                     if (ticks % 20 == 0) {
@@ -1041,6 +1086,10 @@ public final class SoulsManager implements Listener {
                 }
             }
         }.runTaskTimer(Craftmen.get(), 0L, 5L);
+
+        // Strong swirl at the activation point.
+        particleAt(center.clone().add(0, 1.0, 0), Particle.SMOKE, 45, 1.0, 0.45, 1.0, 0.02);
+        particleAt(center.clone().add(0, 1.0, 0), Particle.SQUID_INK, 25, 0.9, 0.4, 0.9, 0.0);
         return true;
     }
 
@@ -1070,7 +1119,8 @@ public final class SoulsManager implements Listener {
             return false;
         }
 
-        Vector dir = caster.getLocation().getDirection().normalize();
+        // Telekinesis: caster "drags" the target around by aiming their mouse.
+        // Kept intentionally short + not too strong.
         caster.playSound(caster.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 1.0f, 1.1f);
 
         new org.bukkit.scheduler.BukkitRunnable() {
@@ -1088,14 +1138,23 @@ public final class SoulsManager implements Listener {
                 }
 
                 ticks += 2;
-                if (ticks > 20 * 4) {
+                if (ticks > 20 * 3) { // 3s
                     cancel();
                     return;
                 }
 
-                Vector v = dir.clone().multiply(0.55);
-                v.setY(dir.getY() * 0.35);
-                target.setVelocity(v);
+                Vector look = caster.getLocation().getDirection().normalize();
+                Location desired = caster.getLocation().clone().add(look.clone().multiply(6.0));
+                desired.setY(caster.getLocation().getY() + 0.6);
+
+                Vector to = desired.toVector().subtract(target.getLocation().toVector());
+                if (to.lengthSquared() > 0.01) {
+                    Vector vel = to.normalize().multiply(0.65);
+                    vel.setY(Math.max(-0.15, Math.min(0.35, vel.getY())));
+                    target.setVelocity(vel);
+                }
+
+                particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.ENCHANT, 8, 0.45, 0.35, 0.45, 0.0);
             }
         }.runTaskTimer(Craftmen.get(), 0L, 2L);
 
@@ -1112,18 +1171,39 @@ public final class SoulsManager implements Listener {
         }
 
         Location base = target.getLocation().clone();
-        for (int tries = 0; tries < 12; tries++) {
+        int baseY = base.getBlockY();
+        for (int tries = 0; tries < 24; tries++) {
             double angle = rng.nextDouble() * Math.PI * 2;
             double dist = 6.0 + rng.nextDouble() * 6.0;
-            Location dest = base.clone().add(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
-            dest.setY(target.getWorld().getHighestBlockYAt(dest) + 1);
-            if (!dest.getBlock().isPassable()) continue;
-            target.teleport(dest);
-            target.playSound(dest, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.2f);
-            return true;
+            double x = base.getX() + Math.cos(angle) * dist;
+            double z = base.getZ() + Math.sin(angle) * dist;
+
+            // Keep the teleport near the current fighting Y-level to avoid roof/barrier tops.
+            for (int dy = 1; dy >= -2; dy--) {
+                Location dest = new Location(base.getWorld(), x, baseY + dy, z, base.getYaw(), base.getPitch());
+                if (!isSafeTeleportSpot(dest)) continue;
+                target.teleport(dest);
+                target.playSound(dest, Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.2f);
+                particleAt(dest.clone().add(0, 1.0, 0), Particle.REVERSE_PORTAL, 18, 0.35, 0.35, 0.35, 0.02);
+                return true;
+            }
         }
 
         return false;
+    }
+
+    private boolean isSafeTeleportSpot(Location dest) {
+        if (dest == null || dest.getWorld() == null) return false;
+        var feet = dest.getBlock();
+        var head = dest.clone().add(0, 1, 0).getBlock();
+        var below = dest.clone().add(0, -1, 0).getBlock();
+
+        if (!feet.isPassable() || !head.isPassable()) return false;
+        if (below.getType() == Material.BARRIER) return false;
+        if (feet.getType() == Material.BARRIER || head.getType() == Material.BARRIER) return false;
+        // Don't allow mid-air teleports; require solid ground.
+        if (below.isPassable()) return false;
+        return true;
     }
 
     private boolean heatFlameJump(Player caster) {
@@ -1152,6 +1232,7 @@ public final class SoulsManager implements Listener {
 
         caster.getWorld().playSound(center, Sound.ENTITY_BLAZE_SHOOT, 1.0f, 1.1f);
         caster.getWorld().spawnParticle(org.bukkit.Particle.FLAME, center, 40, 0.6, 0.2, 0.6, 0.02);
+        particleAt(center.clone().add(0, 1.0, 0), Particle.LAVA, 6, 0.5, 0.25, 0.5, 0.0);
         return true;
     }
 
@@ -1190,6 +1271,8 @@ public final class SoulsManager implements Listener {
                     double angle = look.angle(to.normalize());
                     if (angle > Math.toRadians(55)) continue;
 
+                    // Force damage even if they're taking frequent hits (invulnerability frames).
+                    p.setNoDamageTicks(0);
                     p.damage(2.0, caster); // 1 heart per second
                     p.setFireTicks(Math.max(p.getFireTicks(), 40));
                 }
@@ -1209,6 +1292,7 @@ public final class SoulsManager implements Listener {
         target.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 20 * 3, 2, true, false, false));
         caster.playSound(caster.getLocation(), Sound.ENTITY_ALLAY_AMBIENT_WITHOUT_ITEM, 1.0f, 1.4f);
         target.playSound(target.getLocation(), Sound.ENTITY_ALLAY_AMBIENT_WITHOUT_ITEM, 1.0f, 1.1f);
+        particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.END_ROD, 18, 0.35, 0.6, 0.35, 0.0);
         return true;
     }
 
@@ -1217,6 +1301,7 @@ public final class SoulsManager implements Listener {
         archangelPrevInvulnerable.putIfAbsent(id, caster.isInvulnerable());
         caster.setInvulnerable(true);
         caster.playSound(caster.getLocation(), Sound.ITEM_TOTEM_USE, 0.9f, 1.3f);
+        particle(caster, Particle.TOTEM_OF_UNDYING, 18, 0.6, 0.7, 0.6, 0.0);
 
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
             if (!caster.isOnline()) return;

@@ -259,7 +259,12 @@ public class EndFightManager {
 
         player.getInventory().setItem(32, new ItemStack(Material.ARROW, 1));
 
-        for (int i = 33; i <= 35; i++) player.getInventory().setItem(i, strength.clone());
+        // Add 2 stacks of golden apples to the diamond kit.
+        player.getInventory().setItem(34, new ItemStack(Material.GOLDEN_APPLE, 64));
+        for (int i = 33; i <= 35; i++) {
+            if (i == 34) continue;
+            player.getInventory().setItem(i, strength.clone());
+        }
 
         ItemStack sword = enchant(new ItemStack(Material.NETHERITE_SWORD),
                 Map.of(Enchantment.SHARPNESS, 5, Enchantment.FIRE_ASPECT, 2,
@@ -349,7 +354,10 @@ public class EndFightManager {
 
         player.getInventory().setItem(32, new ItemStack(Material.SPRUCE_LOG, 64));
 
-        for (int i = 33; i <= 35; i++) player.getInventory().setItem(i, strength.clone());
+        // Extra golden apples for the diamond kit.
+        player.getInventory().setItem(33, new ItemStack(Material.GOLDEN_APPLE, 64));
+        player.getInventory().setItem(34, new ItemStack(Material.GOLDEN_APPLE, 64));
+        player.getInventory().setItem(35, strength.clone());
 
         ItemStack sword = enchant(new ItemStack(Material.DIAMOND_SWORD),
                 Map.of(Enchantment.SHARPNESS, 5, Enchantment.FIRE_ASPECT, 2,
@@ -363,7 +371,7 @@ public class EndFightManager {
 
         player.getInventory().setItem(2, new ItemStack(Material.ENDER_PEARL, 8));
 
-        player.getInventory().setItem(3, new ItemStack(Material.GOLDEN_APPLE, 32));
+        player.getInventory().setItem(3, new ItemStack(Material.GOLDEN_APPLE, 64));
 
         player.getInventory().setItem(4, new ItemStack(Material.WATER_BUCKET));
 
