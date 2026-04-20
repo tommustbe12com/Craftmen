@@ -46,12 +46,16 @@ public final class SoulsItems {
             case SORCERER -> Material.AMETHYST_SHARD;
             case KING_OF_HEAT -> Material.BLAZE_POWDER;
             case ARCHANGEL -> Material.FEATHER;
+            case BOUNTY_HUNTER -> Material.NETHER_STAR;
+            case COPYCAT -> materialOr("MUSIC_DISC_TEARS", Material.MUSIC_DISC_13);
+            case BLOODY_MONARCH -> Material.GHAST_TEAR;
         };
 
         ItemStack item = new ItemStack(mat);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.setDisplayName("§d" + character.getDisplayName());
+            meta.setLore(null);
             meta.setUnbreakable(true);
             // Glint-only – hidden.
             meta.addEnchant(Enchantment.UNBREAKING, 1, true);

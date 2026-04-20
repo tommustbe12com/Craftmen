@@ -41,7 +41,10 @@ public final class SoulsCharacterMenu implements Listener {
             SoulCharacter.COSMIC_DESTROYER,
             SoulCharacter.SORCERER,
             SoulCharacter.KING_OF_HEAT,
-            SoulCharacter.ARCHANGEL
+            SoulCharacter.ARCHANGEL,
+            SoulCharacter.BOUNTY_HUNTER,
+            SoulCharacter.COPYCAT,
+            SoulCharacter.BLOODY_MONARCH
     );
 
     private final Map<UUID, Consumer<SoulCharacter>> callbacks = new HashMap<>();
@@ -143,55 +146,7 @@ public final class SoulsCharacterMenu implements Listener {
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE, ItemFlag.HIDE_ATTRIBUTES);
             meta.getPersistentDataContainer().set(SoulsItems.SOUL_CHARACTER_KEY, PersistentDataType.STRING, c.name());
 
-            List<String> lore = switch (c) {
-                case GOOP -> List.of(
-                        "§7Base: Bounce a player back",
-                        "§7Passive: Speed I",
-                        "§7Base 2: Freeze for 2s"
-                );
-                case DEVILS_FROST -> List.of(
-                        "§7Base: Stun for 3s",
-                        "§7Passive: Frost Walker",
-                        "§7Special: +5 hearts (30s)"
-                );
-                case VOICE_OF_THE_SEA -> List.of(
-                        "§7Base: Dash forward",
-                        "§7Passive: Speed II in rain",
-                        "§7Special: Thunderstorm"
-                );
-                case MAGNET -> List.of(
-                        "§7Base: Pull closest enemy",
-                        "§7Passive: Speed on hit",
-                        "§7Base 2: Push closest enemy"
-                );
-                case ARTIFICIAL_GENOCIDE -> List.of(
-                        "§7Base: TP 10 blocks forward",
-                        "§7Passive: Random effect (1m)",
-                        "§7Special: Shuffle enemy inventory"
-                );
-                case COSMIC_DESTROYER -> List.of(
-                        "§7Base: Break blocks + 2❤ AOE",
-                        "§7Passive: -10% armor damage",
-                        "§7Special: Blackhole (pull + armor dmg)"
-                );
-                case SORCERER -> List.of(
-                        "§7Base: Push enemy (4s)",
-                        "§7Passive: +0.5 reach",
-                        "§7Base 2: Random TP"
-                );
-                case KING_OF_HEAT -> List.of(
-                        "§7Base: Flame Jump",
-                        "§7Passive: Fire Res",
-                        "§7Special: Flamethrower"
-                );
-                case ARCHANGEL -> List.of(
-                        "§7Base: Levitation III (3s)",
-                        "§7Passive: Double Jump",
-                        "§7Special: Invulnerable (10s)"
-                );
-            };
-
-            meta.setLore(lore);
+            meta.setLore(null);
             item.setItemMeta(meta);
         }
         return item;

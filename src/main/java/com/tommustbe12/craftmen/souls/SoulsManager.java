@@ -90,6 +90,15 @@ public final class SoulsManager implements Listener {
     // Archangel special invulnerability restore.
     private final Map<UUID, Boolean> archangelPrevInvulnerable = new HashMap<>();
 
+    // Bounty Hunter special: hide armor by temporarily removing it.
+    private final Map<UUID, ItemStack[]> bountyArmorRestore = new HashMap<>();
+
+    // Copycat passive attack speed.
+    private final Map<UUID, Double> originalAttackSpeed = new HashMap<>();
+
+    // Bloody Monarch passive lifesteal.
+    private final Map<UUID, Long> monarchLastBeamAt = new HashMap<>();
+
     private BukkitTask actionbarTask;
     private BukkitTask passiveTask;
 
@@ -160,7 +169,9 @@ public final class SoulsManager implements Listener {
                 || c == SoulCharacter.ARTIFICIAL_GENOCIDE
                 || c == SoulCharacter.COSMIC_DESTROYER
                 || c == SoulCharacter.KING_OF_HEAT
-                || c == SoulCharacter.ARCHANGEL) {
+                || c == SoulCharacter.ARCHANGEL
+                || c == SoulCharacter.BOUNTY_HUNTER
+                || c == SoulCharacter.BLOODY_MONARCH) {
             setCooldown(player, "special", System.currentTimeMillis());
         }
     }
@@ -300,6 +311,21 @@ public final class SoulsManager implements Listener {
             return;
         }
 
+        if (c == SoulCharacter.COPYCAT) {
+            if (left) {
+                if (!isCooldownReady(player, "copy1", BASE_COOLDOWN_MS)) return;
+                if (!copycatRoll(player)) return;
+                setCooldown(player, "copy1", System.currentTimeMillis());
+                player.sendActionBar("§aUsed [1]");
+            } else {
+                if (!isCooldownReady(player, "copy2", BASE_COOLDOWN_MS)) return;
+                if (!copycatCopySpecial(player)) return;
+                setCooldown(player, "copy2", System.currentTimeMillis());
+                player.sendActionBar("§bUsed [2]");
+            }
+            return;
+        }
+
         if (left) {
             useBase(player);
             player.sendActionBar("§aUsed [1]");
@@ -393,14 +419,17 @@ public final class SoulsManager implements Listener {
         originalReach.remove(id);
         archangelJumpsUsed.remove(id);
         archangelPrevInvulnerable.remove(id);
+        bountyArmorRestore.remove(id);
+        originalAttackSpeed.remove(id);
+        monarchLastBeamAt.remove(id);
     }
 
     private void useBase(Player player) {
         SoulCharacter c = getSelected(player);
         if (c == null) c = SoulCharacter.GOOP;
 
-        // Goop + Magnet + Sorcerer are handled by click handler (2 base abilities, no special).
-        if (c == SoulCharacter.GOOP || c == SoulCharacter.MAGNET || c == SoulCharacter.SORCERER) return;
+        // Goop + Magnet + Sorcerer + Copycat are handled by click handler (2 base abilities, no special).
+        if (c == SoulCharacter.GOOP || c == SoulCharacter.MAGNET || c == SoulCharacter.SORCERER || c == SoulCharacter.COPYCAT) return;
 
         if (!isCooldownReady(player, "base", BASE_COOLDOWN_MS)) return;
 
@@ -412,6 +441,8 @@ public final class SoulsManager implements Listener {
             case COSMIC_DESTROYER -> ok = cosmicSmash(player);
             case KING_OF_HEAT -> ok = heatFlameJump(player);
             case ARCHANGEL -> ok = archangelLevitate(player);
+            case BOUNTY_HUNTER -> ok = bountySmokeBomb(player);
+            case BLOODY_MONARCH -> ok = monarchBeam(player, false);
             default -> {}
         }
 
@@ -432,6 +463,8 @@ public final class SoulsManager implements Listener {
             case COSMIC_DESTROYER -> ok = cosmicBlackhole(player);
             case KING_OF_HEAT -> ok = heatFlamethrower(player);
             case ARCHANGEL -> ok = archangelInvulnerable(player);
+            case BOUNTY_HUNTER -> ok = bountyInvis(player);
+            case BLOODY_MONARCH -> ok = monarchBeam(player, true);
             default -> player.sendMessage(ChatColor.RED + "No special ability for this soul yet.");
         }
 
@@ -701,6 +734,10 @@ public final class SoulsManager implements Listener {
                 key1 = "sorc1";
                 key2 = "sorc2";
             }
+            if (c == SoulCharacter.COPYCAT) {
+                key1 = "copy1";
+                key2 = "copy2";
+            }
 
             long baseRemaining = remaining(player, key1, BASE_COOLDOWN_MS, now);
             long slot2Remaining = (c == SoulCharacter.GOOP)
@@ -708,6 +745,8 @@ public final class SoulsManager implements Listener {
                     : (c == SoulCharacter.MAGNET)
                     ? remaining(player, key2, BASE_COOLDOWN_MS, now)
                     : (c == SoulCharacter.SORCERER)
+                    ? remaining(player, key2, BASE_COOLDOWN_MS, now)
+                    : (c == SoulCharacter.COPYCAT)
                     ? remaining(player, key2, BASE_COOLDOWN_MS, now)
                     : remaining(player, key2, SPECIAL_COOLDOWN_MS, now);
 
@@ -764,6 +803,14 @@ public final class SoulsManager implements Listener {
                     particle(player, Particle.FLAME, 5, 0.35, 0.2, 0.35, 0.01);
                 }
                 case ARCHANGEL -> tickArchangelPassive(player);
+                case BOUNTY_HUNTER -> {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, 60, 1, true, false, false));
+                    particle(player, Particle.SMOKE, 6, 0.45, 0.25, 0.45, 0.01);
+                }
+                case COPYCAT -> tickCopycatPassive(player);
+                case BLOODY_MONARCH -> {
+                    particle(player, Particle.DRIPPING_DRIPSTONE_LAVA, 4, 0.35, 0.25, 0.35, 0.0);
+                }
                 default -> {}
             }
         }
@@ -780,6 +827,18 @@ public final class SoulsManager implements Listener {
                     }
                 }
                 originalReach.remove(entry.getKey());
+            }
+        }
+
+        // Restore Copycat attack speed when not in Souls / not Copycat.
+        for (var entry : new HashMap<>(originalAttackSpeed).entrySet()) {
+            Player p = Bukkit.getPlayer(entry.getKey());
+            if (p == null || !p.isOnline() || !isInSouls(p) || getSelected(p) != SoulCharacter.COPYCAT) {
+                if (p != null && p.isOnline()) {
+                    var attr = p.getAttribute(Attribute.ATTACK_SPEED);
+                    if (attr != null) attr.setBaseValue(entry.getValue());
+                }
+                originalAttackSpeed.remove(entry.getKey());
             }
         }
     }
@@ -851,6 +910,21 @@ public final class SoulsManager implements Listener {
         particle(player, Particle.END_ROD, 3, 0.35, 0.35, 0.35, 0.0);
     }
 
+    private void tickCopycatPassive(Player player) {
+        // "0.5% faster" attack cooldown => tiny attack speed buff.
+        var attr = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attr == null) return;
+
+        UUID id = player.getUniqueId();
+        originalAttackSpeed.putIfAbsent(id, attr.getBaseValue());
+        double base = originalAttackSpeed.getOrDefault(id, attr.getBaseValue());
+        double desired = base * 1.005;
+        if (Math.abs(attr.getBaseValue() - desired) > 0.0001) {
+            attr.setBaseValue(desired);
+        }
+        particle(player, Particle.NOTE, 2, 0.35, 0.25, 0.35, 0.0);
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onArchangelDoubleJump(PlayerToggleFlightEvent e) {
         Player player = e.getPlayer();
@@ -881,7 +955,7 @@ public final class SoulsManager implements Listener {
     }
 
     private boolean magnetPull(Player caster) {
-        Player target = findNearestEnemy(caster, 14.0);
+        Player target = findNearestEnemy(caster, 20.0);
         if (target == null) {
             caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             caster.sendMessage(ChatColor.RED + "No target in range.");
@@ -922,12 +996,21 @@ public final class SoulsManager implements Listener {
         if (!isInSouls(damager) || !isInSouls(victim)) return;
         if (!sameContext(damager, victim)) return;
 
-        if (getSelected(damager) != SoulCharacter.MAGNET) return;
-
-        UUID id = damager.getUniqueId();
-        magnetLastHitAt.put(id, System.currentTimeMillis());
-        int stacks = magnetStacks.getOrDefault(id, 0) + 1;
-        magnetStacks.put(id, Math.min(1 + MAGNET_MAX_SPEED_AMP, stacks));
+        SoulCharacter c = getSelected(damager);
+        if (c == SoulCharacter.MAGNET) {
+            UUID id = damager.getUniqueId();
+            magnetLastHitAt.put(id, System.currentTimeMillis());
+            int stacks = magnetStacks.getOrDefault(id, 0) + 1;
+            magnetStacks.put(id, Math.min(1 + MAGNET_MAX_SPEED_AMP, stacks));
+        } else if (c == SoulCharacter.BLOODY_MONARCH) {
+            // Lifesteal: heal 25% of damage dealt.
+            double heal = e.getFinalDamage() * 0.25;
+            if (heal > 0) {
+                double newHp = Math.min(damager.getHealth() + heal, damager.getMaxHealth());
+                damager.setHealth(newHp);
+                particle(damager, Particle.HEART, 1, 0.25, 0.35, 0.25, 0.0);
+            }
+        }
     }
 
     private boolean genocideTeleport(Player player) {
@@ -1264,7 +1347,7 @@ public final class SoulsManager implements Listener {
                 for (Player p : caster.getWorld().getPlayers()) {
                     if (p == caster) continue;
                     if (!isInSouls(p) || !sameContext(caster, p)) continue;
-                    if (p.getLocation().distanceSquared(caster.getLocation()) > (7.0 * 7.0)) continue;
+                    if (p.getLocation().distanceSquared(caster.getLocation()) > (11.0 * 11.0)) continue;
 
                     Vector to = p.getEyeLocation().toVector().subtract(caster.getEyeLocation().toVector());
                     if (to.lengthSquared() < 0.01) continue;
@@ -1273,7 +1356,7 @@ public final class SoulsManager implements Listener {
 
                     // Force damage even if they're taking frequent hits (invulnerability frames).
                     p.setNoDamageTicks(0);
-                    p.damage(2.0, caster); // 1 heart per second
+                    p.damage(6.0, caster); // 3 hearts per second
                     p.setFireTicks(Math.max(p.getFireTicks(), 40));
                 }
             }
@@ -1309,6 +1392,135 @@ public final class SoulsManager implements Listener {
             caster.setInvulnerable(prev != null && prev);
             caster.playSound(caster.getLocation(), Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.8f, 0.8f);
         }, 20L * 10L);
+
+        return true;
+    }
+
+    private boolean bountySmokeBomb(Player caster) {
+        Location c = caster.getLocation().clone().add(0, 1.0, 0);
+        particleAt(c, Particle.SMOKE, 70, 1.2, 0.6, 1.2, 0.05);
+        particleAt(c, Particle.CLOUD, 35, 1.0, 0.4, 1.0, 0.02);
+        caster.playSound(caster.getLocation(), Sound.ENTITY_CREEPER_PRIMED, 0.7f, 1.4f);
+
+        // Brief blindness to nearby enemies (soft CC).
+        for (Player p : caster.getWorld().getPlayers()) {
+            if (p == caster) continue;
+            if (!isInSouls(p) || !sameContext(caster, p)) continue;
+            if (p.getLocation().distanceSquared(caster.getLocation()) > (8.0 * 8.0)) continue;
+            p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 20 * 2, 0, true, false, false));
+        }
+        return true;
+    }
+
+    private boolean bountyInvis(Player caster) {
+        UUID id = caster.getUniqueId();
+
+        // Remove armor to make them truly invisible (armor included).
+        if (!bountyArmorRestore.containsKey(id)) {
+            bountyArmorRestore.put(id, caster.getInventory().getArmorContents());
+        }
+        caster.getInventory().setArmorContents(new ItemStack[4]);
+
+        caster.addPotionEffect(new PotionEffect(PotionEffectType.INVISIBILITY, 20 * 10, 0, true, false, false));
+        particle(caster, Particle.SMOKE, 30, 0.8, 0.6, 0.8, 0.02);
+        caster.playSound(caster.getLocation(), Sound.ENTITY_ENDERMAN_TELEPORT, 0.8f, 1.6f);
+
+        Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+            if (!caster.isOnline()) return;
+            ItemStack[] restore = bountyArmorRestore.remove(id);
+            if (restore != null) caster.getInventory().setArmorContents(restore);
+        }, 20L * 10L);
+
+        return true;
+    }
+
+    private boolean copycatRoll(Player caster) {
+        boolean good = rng.nextBoolean();
+        if (good) {
+            caster.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, 20 * 30, 2, true, true, true)); // Str III
+            caster.playSound(caster.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.6f);
+            particle(caster, Particle.HAPPY_VILLAGER, 10, 0.6, 0.45, 0.6, 0.0);
+        } else {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 1.2f);
+            particle(caster, Particle.SMOKE, 12, 0.6, 0.45, 0.6, 0.02);
+        }
+        return true;
+    }
+
+    private boolean copycatCopySpecial(Player caster) {
+        Player target = findNearestEnemy(caster, 12.0);
+        if (target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return false;
+        }
+
+        SoulCharacter copied = getSelected(target);
+        if (copied == null) return false;
+
+        boolean ok = switch (copied) {
+            case DEVILS_FROST -> frostHearts(caster);
+            case VOICE_OF_THE_SEA -> seaThunderstorm(caster);
+            case ARTIFICIAL_GENOCIDE -> genocideShuffle(caster);
+            case COSMIC_DESTROYER -> cosmicBlackhole(caster);
+            case KING_OF_HEAT -> heatFlamethrower(caster);
+            case ARCHANGEL -> archangelInvulnerable(caster);
+            case BOUNTY_HUNTER -> bountyInvis(caster);
+            case BLOODY_MONARCH -> monarchBeam(caster, true);
+            default -> false;
+        };
+
+        if (ok) {
+            particle(caster, Particle.ENCHANT, 25, 0.8, 0.6, 0.8, 0.0);
+            caster.playSound(caster.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.8f, 1.6f);
+        }
+        return ok;
+    }
+
+    private boolean monarchBeam(Player caster, boolean mega) {
+        long now = System.currentTimeMillis();
+        long last = monarchLastBeamAt.getOrDefault(caster.getUniqueId(), 0L);
+        if (now - last < 200) return false; // tiny debounce for spammy ray traces
+        monarchLastBeamAt.put(caster.getUniqueId(), now);
+
+        double range = mega ? 22.0 : 18.0;
+        var world = caster.getWorld();
+        var start = caster.getEyeLocation();
+        Vector dir = start.getDirection().normalize();
+
+        RayTraceResult hit = world.rayTraceEntities(start, dir, range, ent -> ent instanceof Player p
+                && p != caster
+                && p.isOnline()
+                && isInSouls(p)
+                && sameContext(caster, p));
+
+        Location end = start.clone().add(dir.clone().multiply(range));
+        Player target = null;
+        if (hit != null) {
+            end = hit.getHitPosition() != null
+                    ? new Location(world, hit.getHitPosition().getX(), hit.getHitPosition().getY(), hit.getHitPosition().getZ())
+                    : end;
+            if (hit.getHitEntity() instanceof Player p) target = p;
+        }
+
+        // Beam particles along the path (vanilla red dust).
+        int steps = (int) Math.max(6, range * 2);
+        for (int i = 0; i <= steps; i++) {
+            double t = i / (double) steps;
+            Location p = start.clone().add(dir.clone().multiply(range * t));
+            Particle.DustOptions dust = new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 0, 0), mega ? 1.8f : 1.2f);
+            world.spawnParticle(Particle.DUST, p, 2, 0.03, 0.03, 0.03, 0.0, dust);
+            if (mega && i % 4 == 0) world.spawnParticle(Particle.DRIPPING_DRIPSTONE_LAVA, p, 1, 0.02, 0.02, 0.02, 0.0);
+        }
+
+        caster.playSound(caster.getLocation(), Sound.ENTITY_WITHER_SHOOT, 0.8f, mega ? 0.6f : 0.9f);
+
+        if (target != null) {
+            target.setNoDamageTicks(0);
+            double dmg = mega ? 12.0 : 5.0; // 6 hearts vs 2.5 hearts
+            target.damage(dmg, caster);
+            particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.DRIPPING_DRIPSTONE_LAVA, mega ? 18 : 10, 0.5, 0.35, 0.5, 0.0);
+        }
 
         return true;
     }

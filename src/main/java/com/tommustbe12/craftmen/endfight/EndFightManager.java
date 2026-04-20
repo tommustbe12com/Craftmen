@@ -259,12 +259,8 @@ public class EndFightManager {
 
         player.getInventory().setItem(32, new ItemStack(Material.ARROW, 1));
 
-        // Add 2 stacks of golden apples to the diamond kit.
-        player.getInventory().setItem(34, new ItemStack(Material.GOLDEN_APPLE, 64));
-        for (int i = 33; i <= 35; i++) {
-            if (i == 34) continue;
-            player.getInventory().setItem(i, strength.clone());
-        }
+        // Inventory fill.
+        for (int i = 33; i <= 35; i++) player.getInventory().setItem(i, strength.clone());
 
         ItemStack sword = enchant(new ItemStack(Material.NETHERITE_SWORD),
                 Map.of(Enchantment.SHARPNESS, 5, Enchantment.FIRE_ASPECT, 2,
@@ -294,6 +290,13 @@ public class EndFightManager {
         ItemStack shield = enchant(new ItemStack(Material.SHIELD),
                 Map.of(Enchantment.UNBREAKING, 3, Enchantment.MENDING, 1));
         player.getInventory().setItem(8, shield);
+
+        // Replace last strength potion with a knockback sword (same stats as main sword + Knockback I).
+        ItemStack kbSword = enchant(new ItemStack(Material.NETHERITE_SWORD),
+                Map.of(Enchantment.SHARPNESS, 5, Enchantment.FIRE_ASPECT, 2,
+                        Enchantment.UNBREAKING, 3, Enchantment.MENDING, 1,
+                        Enchantment.KNOCKBACK, 1));
+        player.getInventory().setItem(35, kbSword);
     }
 
     private static Game resolveEditableKitGame(int idx) {

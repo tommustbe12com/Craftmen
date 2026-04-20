@@ -9,7 +9,10 @@ public enum SoulCharacter {
     COSMIC_DESTROYER("Cosmic Destroyer"),
     SORCERER("Sorcerer"),
     KING_OF_HEAT("The Eternal Flame"),
-    ARCHANGEL("Archangel");
+    ARCHANGEL("Archangel"),
+    BOUNTY_HUNTER("Bounty Hunter"),
+    COPYCAT("Copycat"),
+    BLOODY_MONARCH("Bloody Monarch");
 
     private final String displayName;
 
