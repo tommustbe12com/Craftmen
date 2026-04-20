@@ -318,7 +318,7 @@ public final class SoulsManager implements Listener {
                 setCooldown(player, "copy1", System.currentTimeMillis());
                 player.sendActionBar("§aUsed [1]");
             } else {
-                if (!isCooldownReady(player, "copy2", BASE_COOLDOWN_MS)) return;
+                if (!isCooldownReady(player, "copy2", 60_000L)) return;
                 if (!copycatCopySpecial(player)) return;
                 setCooldown(player, "copy2", System.currentTimeMillis());
                 player.sendActionBar("§bUsed [2]");
@@ -1316,6 +1316,16 @@ public final class SoulsManager implements Listener {
         caster.getWorld().playSound(center, Sound.ENTITY_BLAZE_SHOOT, 1.0f, 1.1f);
         caster.getWorld().spawnParticle(org.bukkit.Particle.FLAME, center, 40, 0.6, 0.2, 0.6, 0.02);
         particleAt(center.clone().add(0, 1.0, 0), Particle.LAVA, 6, 0.5, 0.25, 0.5, 0.0);
+
+        // Slight extra fire pressure nearby.
+        for (Player p : caster.getWorld().getPlayers()) {
+            if (p == caster) continue;
+            if (!isInSouls(p) || !sameContext(caster, p)) continue;
+            if (p.getLocation().distanceSquared(center) > (4.0 * 4.0)) continue;
+            p.setNoDamageTicks(0);
+            p.damage(1.0, caster); // 0.5 heart
+            p.setFireTicks(Math.max(p.getFireTicks(), 80));
+        }
         return true;
     }
 
@@ -1357,7 +1367,7 @@ public final class SoulsManager implements Listener {
                     // Force damage even if they're taking frequent hits (invulnerability frames).
                     p.setNoDamageTicks(0);
                     p.damage(6.0, caster); // 3 hearts per second
-                    p.setFireTicks(Math.max(p.getFireTicks(), 40));
+                    p.setFireTicks(Math.max(p.getFireTicks(), 80));
                 }
             }
         }.runTaskTimer(Craftmen.get(), 0L, 20L);
@@ -1520,6 +1530,33 @@ public final class SoulsManager implements Listener {
             double dmg = mega ? 12.0 : 5.0; // 6 hearts vs 2.5 hearts
             target.damage(dmg, caster);
             particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.DRIPPING_DRIPSTONE_LAVA, mega ? 18 : 10, 0.5, 0.35, 0.5, 0.0);
+
+            // Stronger knockback for base beam.
+            if (!mega) {
+                Vector kb = target.getLocation().toVector().subtract(caster.getLocation().toVector()).normalize().multiply(1.25);
+                kb.setY(0.35);
+                target.setVelocity(kb);
+            } else {
+                // Mega beam: explode/break ground at the hit location.
+                Location center = target.getLocation().clone();
+                int r = 3;
+                for (int dx = -r; dx <= r; dx++) {
+                    for (int dy = -1; dy <= 0; dy++) {
+                        for (int dz = -r; dz <= r; dz++) {
+                            Location l = center.clone().add(dx, dy, dz);
+                            if (l.distanceSquared(center) > (r * r + 1)) continue;
+                            var block = l.getBlock();
+                            if (block.isEmpty()) continue;
+                            Material t = block.getType();
+                            if (t == Material.BEDROCK || t == Material.BARRIER) continue;
+                            if (t.name().contains("CHEST")) continue;
+                            block.setType(Material.AIR, false);
+                        }
+                    }
+                }
+                particleAt(center.clone().add(0, 1.0, 0), Particle.SMOKE, 45, 1.0, 0.4, 1.0, 0.02);
+                center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.9f, 0.8f);
+            }
         }
 
         return true;
@@ -1530,4 +1567,3 @@ public final class SoulsManager implements Listener {
         return (last + cooldownMs) - now;
     }
 }
-
