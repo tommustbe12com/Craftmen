@@ -970,6 +970,8 @@ public final class SoulsManager implements Listener {
         target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 0.9f);
         particle(caster, Particle.CRIT, 14, 0.45, 0.35, 0.45, 0.0);
         particle(target, Particle.CRIT, 14, 0.45, 0.35, 0.45, 0.0);
+        particleAt(caster.getLocation().clone().add(0, 1.0, 0), Particle.ELECTRIC_SPARK, 25, 0.6, 0.45, 0.6, 0.02);
+        particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.ELECTRIC_SPARK, 25, 0.6, 0.45, 0.6, 0.02);
         return true;
     }
 
@@ -986,6 +988,8 @@ public final class SoulsManager implements Listener {
         caster.playSound(caster.getLocation(), Sound.ENTITY_IRON_GOLEM_REPAIR, 1.0f, 1.2f);
         target.playSound(target.getLocation(), Sound.ENTITY_IRON_GOLEM_REPAIR, 1.0f, 0.9f);
         particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.CLOUD, 18, 0.45, 0.25, 0.45, 0.02);
+        particleAt(caster.getLocation().clone().add(0, 1.0, 0), Particle.ELECTRIC_SPARK, 25, 0.6, 0.45, 0.6, 0.02);
+        particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.ELECTRIC_SPARK, 25, 0.6, 0.45, 0.6, 0.02);
         return true;
     }
 
@@ -1564,9 +1568,9 @@ public final class SoulsManager implements Listener {
         for (int i = 0; i <= steps; i++) {
             double t = i / (double) steps;
             Location p = start.clone().add(dir.clone().multiply(range * t));
-            Particle.DustOptions dust = new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 0, 0), mega ? 1.8f : 1.2f);
-            world.spawnParticle(Particle.DUST, p, 2, 0.03, 0.03, 0.03, 0.0, dust);
-            if (mega && i % 4 == 0) world.spawnParticle(Particle.DRIPPING_DRIPSTONE_LAVA, p, 1, 0.02, 0.02, 0.02, 0.0);
+            Particle.DustOptions dust = new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 0, 0), mega ? 3.2f : 2.2f);
+            world.spawnParticle(Particle.DUST, p, mega ? 6 : 4, 0.08, 0.08, 0.08, 0.0, dust);
+            world.spawnParticle(Particle.DRIPPING_DRIPSTONE_LAVA, p, mega ? 2 : 1, 0.05, 0.05, 0.05, 0.0);
         }
 
         caster.playSound(caster.getLocation(), Sound.ENTITY_WITHER_SHOOT, 0.8f, mega ? 0.6f : 0.9f);
