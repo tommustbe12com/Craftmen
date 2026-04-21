@@ -34,13 +34,13 @@ public final class PartyFfaMenu implements Listener {
 
     private static final int MAX_TEAMS = 4;
     private static final int TEAM_AREA_SIZE = 36; // 4 rows * 9 columns
+    private static final int TEAM_LABEL_COL = 8; // far-right column in each team row
 
     private final Map<UUID, UUID> pendingPartyByLeader = new HashMap<>();
     private final Map<UUID, Game> pendingGameByLeader = new HashMap<>();
     private final Map<UUID, Integer> pendingRoundsByLeader = new HashMap<>();
     private final Map<UUID, Boolean> pendingTeamsEnabledByLeader = new HashMap<>();
     private final Map<UUID, Map<UUID, Integer>> pendingTeamsByLeader = new HashMap<>();
-    private final Map<UUID, Boolean> pendingTeamsCustomizeByLeader = new HashMap<>();
     private final Map<UUID, Map<Integer, Game>> pendingKitByTeamByLeader = new HashMap<>();
 
     private static final String TEAM_KITS_TITLE = ChatColor.DARK_GRAY + "Party FFA Team Kits";
@@ -50,7 +50,6 @@ public final class PartyFfaMenu implements Listener {
         pendingPartyByLeader.put(leader.getUniqueId(), party.getId());
         pendingRoundsByLeader.putIfAbsent(leader.getUniqueId(), 1);
         pendingTeamsEnabledByLeader.putIfAbsent(leader.getUniqueId(), false);
-        pendingTeamsCustomizeByLeader.putIfAbsent(leader.getUniqueId(), false);
         openPrivateSetup(leader);
     }
 
@@ -76,18 +75,12 @@ public final class PartyFfaMenu implements Listener {
         boolean teamsEnabled = pendingTeamsEnabledByLeader.getOrDefault(leader.getUniqueId(), false);
 
         inv.setItem(11, make(Material.NETHER_STAR, ChatColor.AQUA + "" + ChatColor.BOLD + "Game", game == null ? (ChatColor.GRAY + "Not selected") : (ChatColor.WHITE + game.getName()), Sound.UI_BUTTON_CLICK));
-        inv.setItem(13, make(Material.COMPARATOR, ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Rounds", ChatColor.WHITE + "" + rounds + ChatColor.GRAY + " (1-10)", Sound.UI_BUTTON_CLICK));
+        inv.setItem(13, make(Material.COMPARATOR, ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Rounds", ChatColor.WHITE + "" + rounds + ChatColor.GRAY + " (click to +1, 10 -> 1)", Sound.UI_BUTTON_CLICK));
         inv.setItem(15, make(Material.EMERALD_BLOCK, ChatColor.GREEN + "" + ChatColor.BOLD + "Start", ChatColor.GRAY + "Start party FFA", Sound.UI_TOAST_CHALLENGE_COMPLETE));
         inv.setItem(17, make(teamsEnabled ? Material.LIME_DYE : Material.GRAY_DYE,
                 ChatColor.YELLOW + "" + ChatColor.BOLD + "Teams",
                 teamsEnabled ? (ChatColor.GREEN + "Enabled") : (ChatColor.GRAY + "Disabled"),
                 Sound.UI_BUTTON_CLICK));
-
-        // Quick round buttons
-        for (int i = 1; i <= 10; i++) {
-            Material mat = (i == rounds) ? Material.LIME_STAINED_GLASS_PANE : Material.GRAY_STAINED_GLASS_PANE;
-            inv.setItem(i - 1, make(mat, ChatColor.YELLOW + "" + i, (i == rounds) ? (ChatColor.GREEN + "Selected") : (ChatColor.GRAY + "Click to set"), Sound.UI_BUTTON_CLICK));
-        }
 
         leader.openInventory(inv);
     }
@@ -195,9 +188,25 @@ public final class PartyFfaMenu implements Listener {
 
         if (slot < 0 || slot >= e.getInventory().getSize()) return;
 
-        // round buttons (0..9)
-        if (slot >= 0 && slot <= 9) {
-            int rounds = slot + 1;
+        // game selector (nether star)
+        if (slot == 11) {
+            Craftmen.get().getHubManager().openGameSelector(leader, picked -> {
+                if (picked == null) return;
+                pendingGameByLeader.put(leaderId, picked);
+
+                // Default team kits to the chosen game (leader can customize per-team afterwards).
+                Map<Integer, Game> kitByTeam = pendingKitByTeamByLeader.computeIfAbsent(leaderId, k -> new HashMap<>());
+                for (int t = 1; t <= MAX_TEAMS; t++) kitByTeam.put(t, picked);
+
+                Bukkit.getScheduler().runTask(Craftmen.get(), () -> openSettings(leader));
+            });
+            return;
+        }
+
+        // rounds button (click to increment 1..10, roll back)
+        if (slot == 13) {
+            int rounds = pendingRoundsByLeader.getOrDefault(leaderId, 1);
+            rounds = (rounds >= 10) ? 1 : (rounds + 1);
             pendingRoundsByLeader.put(leaderId, rounds);
             leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
             openSettings(leader);
@@ -211,7 +220,6 @@ public final class PartyFfaMenu implements Listener {
             leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
             if (!enabled) {
                 initTeamsIfMissing(leader);
-                pendingTeamsCustomizeByLeader.put(leaderId, false);
                 openTeams(leader);
             } else {
                 openSettings(leader);
@@ -400,22 +408,27 @@ public final class PartyFfaMenu implements Listener {
 
         initTeamsIfMissing(leader);
         Map<UUID, Integer> teams = pendingTeamsByLeader.get(leaderId);
-        boolean customize = pendingTeamsCustomizeByLeader.getOrDefault(leaderId, false);
+        Map<Integer, Game> kitByTeam = pendingKitByTeamByLeader.getOrDefault(leaderId, java.util.Collections.emptyMap());
+        Game fallbackGame = pendingGameByLeader.get(leaderId);
 
         Inventory inv = Bukkit.createInventory(null, 54, TEAMS_TITLE);
         fill(inv);
         for (int i = 0; i < TEAM_AREA_SIZE; i++) inv.setItem(i, null);
 
         inv.setItem(45, make(Material.ARROW, ChatColor.YELLOW + "Back", ChatColor.GRAY + "Return to settings", Sound.UI_BUTTON_CLICK));
-        inv.setItem(47, make(customize ? Material.LIME_DYE : Material.GRAY_DYE,
-                ChatColor.YELLOW + "" + ChatColor.BOLD + "Customize Teams",
-                customize ? (ChatColor.GREEN + "ON") : (ChatColor.GRAY + "OFF"),
-                Sound.UI_BUTTON_CLICK));
         inv.setItem(49, make(Material.NETHER_STAR, ChatColor.AQUA + "Randomize", ChatColor.GRAY + "Shuffle into 4 teams", Sound.UI_BUTTON_CLICK));
         inv.setItem(51, make(Material.EMERALD_BLOCK, ChatColor.GREEN + "" + ChatColor.BOLD + "Confirm", ChatColor.GRAY + "Save & lock in teams", Sound.UI_TOAST_CHALLENGE_COMPLETE));
         inv.setItem(53, make(Material.BARRIER, ChatColor.RED + "Close", ChatColor.GRAY + "Close", Sound.UI_BUTTON_CLICK));
 
-        // 4 rows (teams 1-4): slots 0..35. Heads can only be moved within this area when customize is ON.
+        // 4 rows (teams 1-4): slots 0..35. Right-most column is a colored label per team.
+        for (int team = 1; team <= MAX_TEAMS; team++) {
+            int slot = ((team - 1) * 9) + TEAM_LABEL_COL;
+            Game kit = kitByTeam.getOrDefault(team, fallbackGame);
+            inv.setItem(slot, make(teamConcrete(team),
+                    teamName(team),
+                    ChatColor.GRAY + "Kit: " + ChatColor.AQUA + (kit == null ? "None" : kit.getName()),
+                    Sound.UI_BUTTON_CLICK));
+        }
 
         Set<UUID> placed = new HashSet<>();
         for (int team = 1; team <= MAX_TEAMS; team++) {
@@ -424,9 +437,9 @@ public final class PartyFfaMenu implements Listener {
             for (UUID memberId : party.getMembers()) {
                 if (placed.contains(memberId)) continue;
                 if (teams.getOrDefault(memberId, 1) != team) continue;
-                if (col >= 9) break;
+                if (col >= TEAM_LABEL_COL) break;
 
-                inv.setItem(rowStart + col, makeMemberHead(memberId, teams.getOrDefault(memberId, 1), customize));
+                inv.setItem(rowStart + col, makeMemberHead(memberId, teams.getOrDefault(memberId, 1)));
                 placed.add(memberId);
                 col++;
             }
@@ -438,7 +451,7 @@ public final class PartyFfaMenu implements Listener {
             if (firstEmpty < 0) break;
             int team = (firstEmpty / 9) + 1;
             teams.put(memberId, team);
-            inv.setItem(firstEmpty, makeMemberHead(memberId, team, customize));
+            inv.setItem(firstEmpty, makeMemberHead(memberId, team));
             placed.add(memberId);
         }
 
@@ -456,13 +469,6 @@ public final class PartyFfaMenu implements Listener {
             clearCursorIfMemberHead(e);
             leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
             openSettings(leader);
-            return;
-        }
-        if (rawSlot == 47) {
-            boolean cur = pendingTeamsCustomizeByLeader.getOrDefault(leaderId, false);
-            pendingTeamsCustomizeByLeader.put(leaderId, !cur);
-            leader.playSound(leader.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
-            openTeams(leader);
             return;
         }
         if (rawSlot == 49) {
@@ -489,11 +495,9 @@ public final class PartyFfaMenu implements Listener {
             return;
         }
 
-        boolean customize = pendingTeamsCustomizeByLeader.getOrDefault(leaderId, false);
-        if (!customize) return;
-
         // Team area: rows 0..3 (slots 0..35)
         if (rawSlot < 0 || rawSlot >= TEAM_AREA_SIZE) return;
+        if (isTeamLabelSlot(rawSlot)) return;
 
         ItemStack cursor = e.getCursor();
         ItemStack clicked = e.getCurrentItem();
@@ -558,7 +562,7 @@ public final class PartyFfaMenu implements Listener {
         if (isMemberHead(cursor)) e.setCursor(null);
     }
 
-    private ItemStack makeMemberHead(UUID memberId, int team, boolean customize) {
+    private ItemStack makeMemberHead(UUID memberId, int team) {
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
         ItemMeta meta = head.getItemMeta();
         if (meta instanceof org.bukkit.inventory.meta.SkullMeta sm) {
@@ -567,7 +571,7 @@ public final class PartyFfaMenu implements Listener {
             sm.setDisplayName(ChatColor.WHITE + (name == null ? memberId.toString() : name));
             sm.setLore(List.of(
                     ChatColor.GRAY + "Team: " + ChatColor.GREEN + team,
-                    customize ? (ChatColor.YELLOW + "Drag between rows to change teams") : (ChatColor.YELLOW + "Enable Customize to move")
+                    ChatColor.YELLOW + "Click to pick up, then click to place"
             ));
             head.setItemMeta(sm);
         }
@@ -576,6 +580,7 @@ public final class PartyFfaMenu implements Listener {
 
     private static int firstEmptyTeamSlot(Inventory inv) {
         for (int i = 0; i < TEAM_AREA_SIZE; i++) {
+            if (isTeamLabelSlot(i)) continue;
             ItemStack it = inv.getItem(i);
             if (it == null || it.getType() == Material.AIR) return i;
         }
@@ -596,7 +601,30 @@ public final class PartyFfaMenu implements Listener {
         teams.put(memberId, team);
 
         // Refresh lore (team number) on the moved head.
-        head.setItemMeta(makeMemberHead(memberId, team, true).getItemMeta());
+        head.setItemMeta(makeMemberHead(memberId, team).getItemMeta());
+    }
+
+    private static boolean isTeamLabelSlot(int slot) {
+        if (slot < 0 || slot >= TEAM_AREA_SIZE) return false;
+        return (slot % 9) == TEAM_LABEL_COL;
+    }
+
+    private static Material teamConcrete(int team) {
+        return switch (team) {
+            case 1 -> Material.RED_CONCRETE;
+            case 2 -> Material.BLUE_CONCRETE;
+            case 3 -> Material.GREEN_CONCRETE;
+            default -> Material.YELLOW_CONCRETE;
+        };
+    }
+
+    private static String teamName(int team) {
+        return switch (team) {
+            case 1 -> ChatColor.RED + "" + ChatColor.BOLD + "Team 1";
+            case 2 -> ChatColor.BLUE + "" + ChatColor.BOLD + "Team 2";
+            case 3 -> ChatColor.GREEN + "" + ChatColor.BOLD + "Team 3";
+            default -> ChatColor.YELLOW + "" + ChatColor.BOLD + "Team 4";
+        };
     }
 
     private boolean validateTeams(Player leader) {

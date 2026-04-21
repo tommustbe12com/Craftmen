@@ -1072,10 +1072,9 @@ public final class FfaManager implements Listener {
         }
 
         if (e.getFinalDamage() >= damaged.getHealth()) {
-            if (tryPopTotem(damaged)) {
-                e.setCancelled(true);
-                return;
-            }
+            // Let vanilla totem pop logic handle saves (only when held in hand like normal vanilla behavior).
+            if (hasHandTotem(damaged)) return;
+
             e.setCancelled(true);
             handleFfaLethal(damaged, source);
         }
@@ -1149,10 +1148,8 @@ public final class FfaManager implements Listener {
         if (e.isCancelled()) return;
         if (e.getFinalDamage() < damaged.getHealth()) return;
 
-        if (tryPopTotem(damaged)) {
-            e.setCancelled(true);
-            return;
-        }
+        // Let vanilla totem pop logic handle saves (only when held in hand).
+        if (hasHandTotem(damaged)) return;
 
         Player killer = null;
         UUID lastId = lastDamagerByVictim.get(damaged.getUniqueId());
@@ -1271,64 +1268,12 @@ public final class FfaManager implements Listener {
         broadcast(inst, ChatColor.DARK_GRAY + "««««««««««««««««««««");
     }
 
-    private boolean tryPopTotem(Player player) {
+    private boolean hasHandTotem(Player player) {
         if (player == null) return false;
-
-        // Vanilla behavior: prefer offhand, then mainhand, then any inventory slot.
-        int slot = -1;
+        ItemStack main = player.getInventory().getItemInMainHand();
         ItemStack off = player.getInventory().getItemInOffHand();
-        if (off != null && off.getType() == Material.TOTEM_OF_UNDYING) {
-            slot = -2; // offhand sentinel
-        } else {
-            ItemStack main = player.getInventory().getItemInMainHand();
-            if (main != null && main.getType() == Material.TOTEM_OF_UNDYING) {
-                slot = -3; // mainhand sentinel
-            } else {
-                ItemStack[] contents = player.getInventory().getContents();
-                for (int i = 0; i < contents.length; i++) {
-                    ItemStack it = contents[i];
-                    if (it != null && it.getType() == Material.TOTEM_OF_UNDYING) {
-                        slot = i;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (slot == -1) return false;
-
-        // Consume one totem
-        if (slot == -2) {
-            consumeOne(player.getInventory().getItemInOffHand(), it -> player.getInventory().setItemInOffHand(it));
-        } else if (slot == -3) {
-            consumeOne(player.getInventory().getItemInMainHand(), it -> player.getInventory().setItemInMainHand(it));
-        } else {
-            final int targetSlot = slot;
-            ItemStack it = player.getInventory().getItem(slot);
-            consumeOne(it, updated -> player.getInventory().setItem(targetSlot, updated));
-        }
-
-        // Apply vanilla-like effects
-        player.setHealth(1.0);
-        player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 20 * 45, 1, true, false, true));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.ABSORPTION, 20 * 5, 1, true, false, true));
-        player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 20 * 40, 0, true, false, true));
-        player.playSound(player.getLocation(), org.bukkit.Sound.ITEM_TOTEM_USE, 1.0f, 1.0f);
-        player.spawnParticle(org.bukkit.Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
-        player.updateInventory();
-        return true;
-    }
-
-    private interface ItemSetter { void set(ItemStack item); }
-
-    private static void consumeOne(ItemStack stack, ItemSetter setter) {
-        if (stack == null) return;
-        if (stack.getAmount() <= 1) setter.set(null);
-        else {
-            ItemStack clone = stack.clone();
-            clone.setAmount(stack.getAmount() - 1);
-            setter.set(clone);
-        }
+        return (main != null && main.getType() == Material.TOTEM_OF_UNDYING)
+                || (off != null && off.getType() == Material.TOTEM_OF_UNDYING);
     }
 
     private void handleFfaLethal(Player dead, Player killer) {
