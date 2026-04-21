@@ -10,6 +10,8 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 public class AcceptCommand implements CommandExecutor {
 
     @Override
@@ -60,9 +62,34 @@ public class AcceptCommand implements CommandExecutor {
 
         // Remove the request and start a duel match.
         queue.removeDuelRequest(p);
-        Craftmen.get().getMatchManager().startDuel(duelRequest.getRequester(), p, duelRequest.getGame());
+        if (Craftmen.get().getSoulsManager().isSoulsGame(duelRequest.getGame())) {
+            Player daRequester = duelRequest.getRequester();
+
+            // Both players pick a soul before the duel starts.
+            AtomicReference<com.tommustbe12.craftmen.souls.SoulCharacter> reqPick = new AtomicReference<>();
+            AtomicReference<com.tommustbe12.craftmen.souls.SoulCharacter> accPick = new AtomicReference<>();
+
+            Runnable tryStart = () -> {
+                if (reqPick.get() == null || accPick.get() == null) return;
+                if (!daRequester.isOnline() || !p.isOnline()) return;
+                Craftmen.get().getMatchManager().startDuel(daRequester, p, duelRequest.getGame());
+            };
+
+            daRequester.sendMessage("§ePick your Soul for this duel.");
+            p.sendMessage("§ePick your Soul for this duel.");
+
+            Craftmen.get().getSoulsManager().openCharacterSelect(daRequester, picked -> {
+                reqPick.set(picked);
+                tryStart.run();
+            });
+            Craftmen.get().getSoulsManager().openCharacterSelect(p, picked -> {
+                accPick.set(picked);
+                tryStart.run();
+            });
+        } else {
+            Craftmen.get().getMatchManager().startDuel(duelRequest.getRequester(), p, duelRequest.getGame());
+        }
 
         return true;
     }
 }
-

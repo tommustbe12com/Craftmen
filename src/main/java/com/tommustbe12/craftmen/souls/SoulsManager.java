@@ -1125,6 +1125,28 @@ public final class SoulsManager implements Listener {
         Location center = caster.getLocation().clone();
         caster.playSound(center, Sound.BLOCK_RESPAWN_ANCHOR_CHARGE, 1.0f, 0.7f);
 
+        // Initial "space rupture" around the cast point.
+        {
+            int r = 3;
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dy = -2; dy <= 2; dy++) {
+                    for (int dz = -r; dz <= r; dz++) {
+                        Location l = center.clone().add(dx, dy, dz);
+                        if (l.distanceSquared(center) > (r * r + 2)) continue;
+                        var block = l.getBlock();
+                        if (block.isEmpty()) continue;
+                        Material t = block.getType();
+                        if (t == Material.BEDROCK || t == Material.BARRIER) continue;
+                        if (t.name().contains("CHEST")) continue;
+                        block.setType(Material.AIR, false);
+                    }
+                }
+            }
+            particleAt(center.clone().add(0, 1.0, 0), Particle.SMOKE, 70, 1.4, 0.6, 1.4, 0.03);
+            particleAt(center.clone().add(0, 1.0, 0), Particle.SQUID_INK, 40, 1.2, 0.5, 1.2, 0.0);
+            center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.9f, 0.6f);
+        }
+
         new org.bukkit.scheduler.BukkitRunnable() {
             int ticks = 0;
 
@@ -1136,6 +1158,28 @@ public final class SoulsManager implements Listener {
                 }
                 ticks += 5;
                 if (ticks > 20 * 5) { // 5 seconds
+                    // Final burst: extra damage + fling players out.
+                    for (Player p : center.getWorld().getPlayers()) {
+                        if (p == caster) continue;
+                        if (!isInSouls(p)) continue;
+                        if (!sameContext(caster, p)) continue;
+                        double dist2 = p.getLocation().distanceSquared(center);
+                        if (dist2 > (12.0 * 12.0)) continue;
+
+                        p.setNoDamageTicks(0);
+                        p.damage(4.0, caster); // 2 hearts final pop
+
+                        Vector out = p.getLocation().toVector().subtract(center.toVector());
+                        if (out.lengthSquared() < 0.01) out = new Vector(rng.nextDouble() - 0.5, 0, rng.nextDouble() - 0.5);
+                        out = out.normalize().multiply(1.6);
+                        out.setY(0.65);
+                        // Add randomness so they get scattered.
+                        out.add(new Vector((rng.nextDouble() - 0.5) * 0.6, 0, (rng.nextDouble() - 0.5) * 0.6));
+                        p.setVelocity(out);
+                    }
+
+                    particleAt(center.clone().add(0, 1.0, 0), Particle.SMOKE, 90, 1.8, 0.7, 1.8, 0.05);
+                    center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.85f);
                     cancel();
                     return;
                 }
@@ -1160,6 +1204,7 @@ public final class SoulsManager implements Listener {
 
                     // Minor damage + blindness while trapped (kept light).
                     p.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 40, 0, true, false, false));
+                    p.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 20, 0, true, false, false));
                     if (ticks % 20 == 0) {
                         p.damage(1.0, caster); // 0.5 heart per second
                     }
@@ -1451,6 +1496,7 @@ public final class SoulsManager implements Listener {
             caster.playSound(caster.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.6f);
             particle(caster, Particle.HAPPY_VILLAGER, 10, 0.6, 0.45, 0.6, 0.0);
         } else {
+            caster.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 20 * 30, 0, true, true, true)); // Weakness I
             caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.8f, 1.2f);
             particle(caster, Particle.SMOKE, 12, 0.6, 0.45, 0.6, 0.02);
         }
@@ -1527,7 +1573,7 @@ public final class SoulsManager implements Listener {
 
         if (target != null) {
             target.setNoDamageTicks(0);
-            double dmg = mega ? 12.0 : 5.0; // 6 hearts vs 2.5 hearts
+            double dmg = mega ? 16.0 : 3.0; // 8 hearts vs 1.5 hearts
             target.damage(dmg, caster);
             particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.DRIPPING_DRIPSTONE_LAVA, mega ? 18 : 10, 0.5, 0.35, 0.5, 0.0);
 
@@ -1539,9 +1585,9 @@ public final class SoulsManager implements Listener {
             } else {
                 // Mega beam: explode/break ground at the hit location.
                 Location center = target.getLocation().clone();
-                int r = 3;
+                int r = 5;
                 for (int dx = -r; dx <= r; dx++) {
-                    for (int dy = -1; dy <= 0; dy++) {
+                    for (int dy = -2; dy <= 1; dy++) {
                         for (int dz = -r; dz <= r; dz++) {
                             Location l = center.clone().add(dx, dy, dz);
                             if (l.distanceSquared(center) > (r * r + 1)) continue;
@@ -1554,8 +1600,8 @@ public final class SoulsManager implements Listener {
                         }
                     }
                 }
-                particleAt(center.clone().add(0, 1.0, 0), Particle.SMOKE, 45, 1.0, 0.4, 1.0, 0.02);
-                center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 0.9f, 0.8f);
+                particleAt(center.clone().add(0, 1.0, 0), Particle.SMOKE, 85, 1.8, 0.6, 1.8, 0.05);
+                center.getWorld().playSound(center, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 0.75f);
             }
         }
 
