@@ -40,6 +40,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.bukkit.util.RayTraceResult;
+import org.bukkit.entity.TNTPrimed;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -98,6 +99,14 @@ public final class SoulsManager implements Listener {
 
     // Bloody Monarch passive lifesteal.
     private final Map<UUID, Long> monarchLastBeamAt = new HashMap<>();
+
+    // Dark Knight [1]: shadow marker.
+    private final Map<UUID, Location> darkKnightShadow = new HashMap<>();
+    private final Map<UUID, Long> darkKnightShadowExpiresAt = new HashMap<>();
+    private static final long DARK_KNIGHT_SHADOW_TTL_MS = 15_000L;
+
+    // Railgun: tag TNT spawned by ability to reduce damage.
+    private final NamespacedKey railgunTntKey = new NamespacedKey(Craftmen.get(), "railgun_tnt");
 
     private BukkitTask actionbarTask;
     private BukkitTask passiveTask;
@@ -171,7 +180,8 @@ public final class SoulsManager implements Listener {
                 || c == SoulCharacter.KING_OF_HEAT
                 || c == SoulCharacter.ARCHANGEL
                 || c == SoulCharacter.BOUNTY_HUNTER
-                || c == SoulCharacter.BLOODY_MONARCH) {
+                || c == SoulCharacter.BLOODY_MONARCH
+                || c == SoulCharacter.RAILGUN) {
             setCooldown(player, "special", System.currentTimeMillis());
         }
     }
@@ -326,6 +336,17 @@ public final class SoulsManager implements Listener {
             return;
         }
 
+        if (c == SoulCharacter.DARK_KNIGHT) {
+            if (left) {
+                if (!darkKnightShadowStep(player)) return;
+            } else {
+                if (!isCooldownReady(player, "dk2", BASE_COOLDOWN_MS)) return;
+                if (!darkKnightBackstab(player)) return;
+                setCooldown(player, "dk2", System.currentTimeMillis());
+            }
+            return;
+        }
+
         if (left) {
             useBase(player);
             player.sendActionBar("§aUsed [1]");
@@ -422,6 +443,8 @@ public final class SoulsManager implements Listener {
         bountyArmorRestore.remove(id);
         originalAttackSpeed.remove(id);
         monarchLastBeamAt.remove(id);
+        darkKnightShadow.remove(id);
+        darkKnightShadowExpiresAt.remove(id);
     }
 
     private void useBase(Player player) {
@@ -443,6 +466,7 @@ public final class SoulsManager implements Listener {
             case ARCHANGEL -> ok = archangelLevitate(player);
             case BOUNTY_HUNTER -> ok = bountySmokeBomb(player);
             case BLOODY_MONARCH -> ok = monarchBeam(player, false);
+            case RAILGUN -> ok = railgunNuke(player);
             default -> {}
         }
 
@@ -465,6 +489,7 @@ public final class SoulsManager implements Listener {
             case ARCHANGEL -> ok = archangelInvulnerable(player);
             case BOUNTY_HUNTER -> ok = bountyInvis(player);
             case BLOODY_MONARCH -> ok = monarchBeam(player, true);
+            case RAILGUN -> ok = railgunStabShot(player);
             default -> player.sendMessage(ChatColor.RED + "No special ability for this soul yet.");
         }
 
@@ -738,6 +763,10 @@ public final class SoulsManager implements Listener {
                 key1 = "copy1";
                 key2 = "copy2";
             }
+            if (c == SoulCharacter.DARK_KNIGHT) {
+                key1 = "dk1";
+                key2 = "dk2";
+            }
 
             long baseRemaining = remaining(player, key1, BASE_COOLDOWN_MS, now);
             long slot2Remaining = (c == SoulCharacter.GOOP)
@@ -747,6 +776,8 @@ public final class SoulsManager implements Listener {
                     : (c == SoulCharacter.SORCERER)
                     ? remaining(player, key2, BASE_COOLDOWN_MS, now)
                     : (c == SoulCharacter.COPYCAT)
+                    ? remaining(player, key2, BASE_COOLDOWN_MS, now)
+                    : (c == SoulCharacter.DARK_KNIGHT)
                     ? remaining(player, key2, BASE_COOLDOWN_MS, now)
                     : remaining(player, key2, SPECIAL_COOLDOWN_MS, now);
 
@@ -1014,7 +1045,165 @@ public final class SoulsManager implements Listener {
                 damager.setHealth(newHp);
                 particle(damager, Particle.HEART, 1, 0.25, 0.35, 0.25, 0.0);
             }
+        } else if (c == SoulCharacter.DARK_KNIGHT) {
+            // Passive: 25% chance to blind on hit.
+            if (rng.nextDouble() <= 0.25) {
+                victim.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 20 * 2, 0, true, false, false));
+                particleAt(victim.getLocation().clone().add(0, 1.0, 0), Particle.SMOKE, 10, 0.35, 0.35, 0.35, 0.02);
+            }
         }
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onRailgunTntDamageReduce(EntityDamageByEntityEvent e) {
+        if (!(e.getEntity() instanceof Player victim)) return;
+        if (!(e.getDamager() instanceof TNTPrimed tnt)) return;
+        Byte tagged = tnt.getPersistentDataContainer().get(railgunTntKey, org.bukkit.persistence.PersistentDataType.BYTE);
+        if (tagged == null || tagged != (byte) 1) return;
+
+        // Nerf TNT damage from Railgun [1].
+        e.setDamage(e.getDamage() * 0.25);
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onRailgunTntImmunity(EntityDamageEvent e) {
+        if (!(e.getEntity() instanceof Player player)) return;
+        if (!isInSouls(player)) return;
+        if (getSelected(player) != SoulCharacter.RAILGUN) return;
+        if (e.getCause() != EntityDamageEvent.DamageCause.ENTITY_EXPLOSION
+                && e.getCause() != EntityDamageEvent.DamageCause.BLOCK_EXPLOSION) {
+            return;
+        }
+        e.setCancelled(true);
+    }
+
+    private boolean darkKnightShadowStep(Player caster) {
+        UUID id = caster.getUniqueId();
+        long now = System.currentTimeMillis();
+
+        Location shadow = darkKnightShadow.get(id);
+        long expires = darkKnightShadowExpiresAt.getOrDefault(id, 0L);
+        if (shadow != null && expires > now) {
+            if (!isCooldownReady(caster, "dk1", BASE_COOLDOWN_MS)) return false;
+            caster.teleport(shadow);
+            caster.playSound(shadow, Sound.ENTITY_ENDERMAN_TELEPORT, 0.9f, 1.2f);
+            particleAt(shadow.clone().add(0, 1.0, 0), Particle.SMOKE, 35, 0.5, 0.45, 0.5, 0.02);
+
+            darkKnightShadow.remove(id);
+            darkKnightShadowExpiresAt.remove(id);
+            setCooldown(caster, "dk1", now);
+            return true;
+        }
+
+        // Set shadow (no cooldown yet).
+        Location mark = caster.getLocation().clone();
+        darkKnightShadow.put(id, mark);
+        darkKnightShadowExpiresAt.put(id, now + DARK_KNIGHT_SHADOW_TTL_MS);
+        caster.playSound(mark, Sound.BLOCK_AMETHYST_BLOCK_CHIME, 0.8f, 0.9f);
+        particleAt(mark.clone().add(0, 1.0, 0), Particle.SQUID_INK, 18, 0.35, 0.35, 0.35, 0.0);
+
+        Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+            long until = darkKnightShadowExpiresAt.getOrDefault(id, 0L);
+            if (until <= System.currentTimeMillis()) {
+                darkKnightShadow.remove(id);
+                darkKnightShadowExpiresAt.remove(id);
+            }
+        }, DARK_KNIGHT_SHADOW_TTL_MS / 50L);
+        return true;
+    }
+
+    private boolean darkKnightBackstab(Player caster) {
+        Player target = findNearestEnemy(caster, 12.0);
+        if (target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return false;
+        }
+
+        Vector behind = target.getLocation().getDirection().normalize().multiply(-1.2);
+        Location dest = target.getLocation().clone().add(behind);
+        dest.setYaw(target.getLocation().getYaw());
+        dest.setPitch(caster.getLocation().getPitch());
+        if (!dest.getBlock().isPassable()) {
+            dest = target.getLocation().clone().add(0, 0.1, 0);
+        }
+
+        caster.teleport(dest);
+        caster.playSound(dest, Sound.ENTITY_ENDERMAN_TELEPORT, 0.9f, 1.6f);
+        particleAt(dest.clone().add(0, 1.0, 0), Particle.REVERSE_PORTAL, 18, 0.35, 0.35, 0.35, 0.02);
+        target.addPotionEffect(new PotionEffect(PotionEffectType.DARKNESS, 20 * 2, 0, true, false, false));
+        return true;
+    }
+
+    private boolean railgunNuke(Player caster) {
+        Player target = findNearestEnemy(caster, 18.0);
+        if (target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return false;
+        }
+
+        Location center = target.getLocation().clone();
+        World world = center.getWorld();
+        if (world == null) return false;
+
+        caster.playSound(caster.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.6f);
+        particleAt(center.clone().add(0, 1.0, 0), Particle.SMOKE, 35, 1.2, 0.6, 1.2, 0.02);
+
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
+                Location spawn = center.clone().add(dx + 0.5, 8.0, dz + 0.5);
+                TNTPrimed tnt = world.spawn(spawn, TNTPrimed.class, ent -> {
+                    ent.setFuseTicks(35 + rng.nextInt(10));
+                    ent.setYield(1.5f);
+                    ent.setIsIncendiary(false);
+                    ent.setSource(caster);
+                    ent.getPersistentDataContainer().set(railgunTntKey, org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1);
+                });
+                if (tnt != null) {
+                    world.spawnParticle(Particle.CLOUD, spawn, 6, 0.15, 0.15, 0.15, 0.01);
+                }
+            }
+        }
+        return true;
+    }
+
+    private boolean railgunStabShot(Player caster) {
+        Player target = findNearestEnemy(caster, 20.0);
+        if (target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return false;
+        }
+
+        Location lock = target.getLocation().clone();
+        World world = lock.getWorld();
+        if (world == null) return false;
+
+        caster.playSound(caster.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.7f, 1.6f);
+        for (int i = 0; i < 6; i++) {
+            int delay = i * 4;
+            Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+                if (!caster.isOnline() || !target.isOnline()) return;
+                if (!isInSouls(caster) || !isInSouls(target)) return;
+                if (!sameContext(caster, target)) return;
+
+                Location cur = target.getLocation().clone();
+                Location from = cur.clone().add(0, 12.0, 0);
+                Vector dir = cur.toVector().subtract(from.toVector()).normalize();
+
+                for (int step = 0; step <= 12; step++) {
+                    Location p = from.clone().add(dir.clone().multiply(step));
+                    world.spawnParticle(Particle.END_ROD, p, 1, 0, 0, 0, 0);
+                }
+
+                target.setNoDamageTicks(0);
+                target.damage(3.0, caster);
+                world.playSound(cur, Sound.ITEM_TRIDENT_THUNDER, 0.4f, 1.6f);
+            }, delay);
+        }
+
+        return true;
     }
 
     private boolean genocideTeleport(Player player) {
@@ -1442,6 +1631,7 @@ public final class SoulsManager implements Listener {
         UUID id = caster.getUniqueId();
         archangelPrevInvulnerable.putIfAbsent(id, caster.isInvulnerable());
         caster.setInvulnerable(true);
+        caster.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 20 * 10, 0, true, false, false));
         caster.playSound(caster.getLocation(), Sound.ITEM_TOTEM_USE, 0.9f, 1.3f);
         particle(caster, Particle.TOTEM_OF_UNDYING, 18, 0.6, 0.7, 0.6, 0.0);
 
@@ -1548,7 +1738,8 @@ public final class SoulsManager implements Listener {
         var start = caster.getEyeLocation();
         Vector dir = start.getDirection().normalize();
 
-        RayTraceResult hit = world.rayTraceEntities(start, dir, range, ent -> ent instanceof Player p
+        // 2x2 (big) beam hitbox.
+        RayTraceResult hit = world.rayTraceEntities(start, dir, range, 1.0, ent -> ent instanceof Player p
                 && p != caster
                 && p.isOnline()
                 && isInSouls(p)
@@ -1568,8 +1759,8 @@ public final class SoulsManager implements Listener {
         for (int i = 0; i <= steps; i++) {
             double t = i / (double) steps;
             Location p = start.clone().add(dir.clone().multiply(range * t));
-            Particle.DustOptions dust = new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 0, 0), mega ? 3.2f : 2.2f);
-            world.spawnParticle(Particle.DUST, p, mega ? 6 : 4, 0.08, 0.08, 0.08, 0.0, dust);
+            Particle.DustOptions dust = new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 0, 0), mega ? 4.5f : 3.5f);
+            world.spawnParticle(Particle.DUST, p, mega ? 8 : 6, 0.12, 0.12, 0.12, 0.0, dust);
             world.spawnParticle(Particle.DRIPPING_DRIPSTONE_LAVA, p, mega ? 2 : 1, 0.05, 0.05, 0.05, 0.0);
         }
 

@@ -33,6 +33,9 @@ public class Profile {
     private final Set<String> purchasedCosmetics = new HashSet<>();
     private String selectedChatColor; // legacy & code like "&b"
 
+    private String selectedNameColor; // & color like "&f" (default white)
+    private String selectedNameStyles; // concatenated style codes, e.g. "&l&o" (no &k)
+
     private String selectedKillEffect; // e.g. "kill.lightning"
     private String selectedDeathEffect; // e.g. "death.explosion"
     private String selectedKillSound; // e.g. "ENTITY_PLAYER_LEVELUP"
@@ -113,6 +116,12 @@ public class Profile {
 
     public String getSelectedChatColor() { return selectedChatColor; }
     public void setSelectedChatColor(String selectedChatColor) { this.selectedChatColor = selectedChatColor; }
+
+    public String getSelectedNameColor() { return selectedNameColor; }
+    public void setSelectedNameColor(String selectedNameColor) { this.selectedNameColor = selectedNameColor; }
+
+    public String getSelectedNameStyles() { return selectedNameStyles; }
+    public void setSelectedNameStyles(String selectedNameStyles) { this.selectedNameStyles = selectedNameStyles; }
 
     public String getSelectedKillEffect() { return selectedKillEffect; }
     public void setSelectedKillEffect(String selectedKillEffect) { this.selectedKillEffect = selectedKillEffect; }

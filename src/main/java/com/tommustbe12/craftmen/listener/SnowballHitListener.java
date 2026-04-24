@@ -11,9 +11,22 @@ import org.bukkit.entity.Snowball;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.ProjectileHitEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
+import java.util.concurrent.ThreadLocalRandom;
+
 public class SnowballHitListener implements Listener {
+
+    private static boolean isSpleef(Player player) {
+        if (player == null) return false;
+
+        Match match = Craftmen.get().getMatchManager().getMatch(player);
+        if (match != null && match.getGame() != null && "Spleef".equalsIgnoreCase(match.getGame().getName())) return true;
+
+        var ffaGame = Craftmen.get().getFfaManager().getGame(player);
+        return ffaGame != null && "Spleef".equalsIgnoreCase(ffaGame.getName());
+    }
 
     @EventHandler
     public void onSnowballHit(ProjectileHitEvent e) {
@@ -24,8 +37,7 @@ public class SnowballHitListener implements Listener {
         if (!(projectile.getShooter() instanceof Player shooter)) return;
 
         if (e.getHitEntity() instanceof Player target) {
-            Match match = Craftmen.get().getMatchManager().getMatch(target);
-            if (match == null || !(match.getGame() instanceof SpleefGame)) return;
+            if (!isSpleef(shooter) || !isSpleef(target)) return;
 
             target.setNoDamageTicks(1);
 
@@ -37,13 +49,18 @@ public class SnowballHitListener implements Listener {
         Block hitBlock = e.getHitBlock();
         if (hitBlock == null) return;
 
-        Match match = Craftmen.get().getMatchManager().getMatch(shooter);
-        if (match == null || !(match.getGame() instanceof SpleefGame)) return;
+        if (!isSpleef(shooter)) return;
 
         if (hitBlock.getType() == Material.SNOW_BLOCK ||
                 hitBlock.getType() == Material.SNOW ||
                 hitBlock.getType() == Material.POWDER_SNOW) {
             hitBlock.setType(Material.AIR);
+
+            // 10% chance to refund 4 snowballs when breaking snow via projectile (most common in Spleef).
+            if (ThreadLocalRandom.current().nextDouble() < 0.10) {
+                shooter.getInventory().addItem(new ItemStack(Material.SNOWBALL, 4));
+                shooter.updateInventory();
+            }
         }
     }
 }

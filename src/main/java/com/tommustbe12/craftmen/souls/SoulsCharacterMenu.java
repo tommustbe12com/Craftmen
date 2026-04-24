@@ -44,7 +44,9 @@ public final class SoulsCharacterMenu implements Listener {
             SoulCharacter.ARCHANGEL,
             SoulCharacter.BOUNTY_HUNTER,
             SoulCharacter.COPYCAT,
-            SoulCharacter.BLOODY_MONARCH
+            SoulCharacter.BLOODY_MONARCH,
+            SoulCharacter.DARK_KNIGHT,
+            SoulCharacter.RAILGUN
     );
 
     private final Map<UUID, Consumer<SoulCharacter>> callbacks = new HashMap<>();
@@ -66,7 +68,6 @@ public final class SoulsCharacterMenu implements Listener {
         Inventory inv = Bukkit.createInventory(null, INV_SIZE, title);
         fill(inv);
 
-        // Nav + close
         if (page > 0) inv.setItem(SLOT_PREV, arrow(true));
         if (page < totalPages - 1) inv.setItem(SLOT_NEXT, arrow(false));
         inv.setItem(SLOT_CLOSE, button(Material.BARRIER, "§cClose", List.of("§7Close")));
@@ -138,15 +139,12 @@ public final class SoulsCharacterMenu implements Listener {
     }
 
     private ItemStack characterButton(SoulCharacter c) {
-        // Menu icons match the in-game soul item icons (glint-only; enchants hidden).
         ItemStack item = SoulsItems.soulItem(c);
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             meta.addEnchant(Enchantment.UNBREAKING, 1, true);
             meta.addItemFlags(ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE, ItemFlag.HIDE_ATTRIBUTES);
             meta.getPersistentDataContainer().set(SoulsItems.SOUL_CHARACTER_KEY, PersistentDataType.STRING, c.name());
-
-            meta.setLore(null);
             item.setItemMeta(meta);
         }
         return item;
@@ -180,3 +178,4 @@ public final class SoulsCharacterMenu implements Listener {
         }
     }
 }
+

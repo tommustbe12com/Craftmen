@@ -12,7 +12,9 @@ public enum SoulCharacter {
     ARCHANGEL("Archangel"),
     BOUNTY_HUNTER("Bounty Hunter"),
     COPYCAT("Copycat"),
-    BLOODY_MONARCH("Bloody Monarch");
+    BLOODY_MONARCH("Bloody Monarch"),
+    DARK_KNIGHT("Dark Knight"),
+    RAILGUN("Railgun");
 
     private final String displayName;
 

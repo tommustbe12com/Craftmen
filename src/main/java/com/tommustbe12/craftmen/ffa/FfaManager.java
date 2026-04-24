@@ -190,8 +190,7 @@ public final class FfaManager implements Listener {
 
         joinIntoInstance(player, instance);
 
-        game.applyLoadout(player);
-        player.updateInventory();
+        applyLoadoutAndHandleSoulsPick(player, game);
 
         broadcast(instance, ChatColor.GREEN + player.getName() + " joined FFA (" + instance.players.size() + "/" + MAX_PLAYERS_PER_INSTANCE + ").");
     }
@@ -380,11 +379,10 @@ public final class FfaManager implements Listener {
             }
         }
 
-        if (inst.players.isEmpty()) {
-            destroyInstance(inst);
-            instancesById.remove(inst.id);
-            privatePartyInstances.remove(partyId);
-        }
+        // Always reset the map after a party FFA ends, even if player tracking glitched.
+        destroyInstance(inst);
+        instancesById.remove(inst.id);
+        privatePartyInstances.remove(partyId);
 
         if (leaderId != null) {
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -449,8 +447,7 @@ public final class FfaManager implements Listener {
             p.getInventory().clear();
             setParticipant(p);
             Game kitGame = resolveKitForPlayer(inst, session, p);
-            kitGame.applyLoadout(p);
-            p.updateInventory();
+            applyLoadoutAndHandleSoulsPick(p, kitGame);
 
             // Team spawns: keep teammates near each other (private party FFA only).
             Location spawn = null;
@@ -616,9 +613,8 @@ public final class FfaManager implements Listener {
             PlayerReset.clearTransientState(p);
             leave(p, false);
             joinIntoInstance(p, inst);
-            game.applyLoadout(p);
+            applyLoadoutAndHandleSoulsPick(p, game);
             Craftmen.get().getArmorTrimManager().apply(p);
-            p.updateInventory();
         }
 
         broadcast(inst, ChatColor.GREEN + "Party joined FFA (" + inst.players.size() + "/" + MAX_PLAYERS_PER_INSTANCE + ").");
@@ -632,6 +628,21 @@ public final class FfaManager implements Listener {
         if (profile != null) profile.setState(PlayerState.FFA_FIGHTING);
 
         teleportToSafeSpawn(player, instance);
+    }
+
+    private void applyLoadoutAndHandleSoulsPick(Player player, Game game) {
+        if (player == null || game == null) return;
+        game.applyLoadout(player);
+        player.updateInventory();
+
+        if ("Souls".equalsIgnoreCase(game.getName())) {
+            Craftmen.get().getSoulsManager().openCharacterSelect(player, picked -> {
+                if (player.isOnline()) {
+                    Craftmen.get().getSoulsManager().applySoulLoadout(player);
+                    player.updateInventory();
+                }
+            });
+        }
     }
 
     private FfaInstance pickOrCreatePublicInstance(Game game) {
@@ -797,8 +808,6 @@ public final class FfaManager implements Listener {
             Player p = Bukkit.getPlayer(uuid);
             if (p == null) continue;
             teleportToSafeSpawn(p, inst);
-            inst.game.applyLoadout(p);
-            p.updateInventory();
             p.sendMessage(ChatColor.YELLOW + "FFA arena refreshed.");
         }
     }

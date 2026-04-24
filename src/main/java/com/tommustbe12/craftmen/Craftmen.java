@@ -200,6 +200,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(partyFfaMenu, this);
         getServer().getPluginManager().registerEvents(shopMenu, this);
         getServer().getPluginManager().registerEvents(new ChatColorListener(), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.craftmen.listener.ChatFormatListener(), this);
         getServer().getPluginManager().registerEvents(new KillDeathCosmeticsListener(), this);
         getServer().getPluginManager().registerEvents(cosmeticsDamageListener, this);
         getServer().getPluginManager().registerEvents(helpMenu, this);
@@ -318,6 +319,8 @@ public final class Craftmen extends JavaPlugin {
             getConfig().set(path + ".claimed_win_streak_rewards", profile.getClaimedWinStreakRewards().stream().toList());
             getConfig().set(path + ".purchased_cosmetics", profile.getPurchasedCosmetics().stream().toList());
             getConfig().set(path + ".selected_chat_color", profile.getSelectedChatColor());
+            getConfig().set(path + ".selected_name_color", profile.getSelectedNameColor());
+            getConfig().set(path + ".selected_name_styles", profile.getSelectedNameStyles());
             getConfig().set(path + ".selected_kill_effect", profile.getSelectedKillEffect());
             getConfig().set(path + ".selected_death_effect", profile.getSelectedDeathEffect());
             getConfig().set(path + ".selected_kill_sound", profile.getSelectedKillSound());
@@ -391,6 +394,8 @@ public final class Craftmen extends JavaPlugin {
         profile.getPurchasedCosmetics().clear();
         profile.getPurchasedCosmetics().addAll(getConfig().getStringList(path + ".purchased_cosmetics"));
         profile.setSelectedChatColor(getConfig().getString(path + ".selected_chat_color"));
+        profile.setSelectedNameColor(getConfig().getString(path + ".selected_name_color"));
+        profile.setSelectedNameStyles(getConfig().getString(path + ".selected_name_styles"));
         profile.setSelectedKillEffect(getConfig().getString(path + ".selected_kill_effect"));
         profile.setSelectedDeathEffect(getConfig().getString(path + ".selected_death_effect"));
         profile.setSelectedKillSound(getConfig().getString(path + ".selected_kill_sound"));
@@ -427,6 +432,8 @@ public final class Craftmen extends JavaPlugin {
         getConfig().set(path + ".claimed_win_streak_rewards", profile.getClaimedWinStreakRewards().stream().toList());
         getConfig().set(path + ".purchased_cosmetics", profile.getPurchasedCosmetics().stream().toList());
         getConfig().set(path + ".selected_chat_color", profile.getSelectedChatColor());
+        getConfig().set(path + ".selected_name_color", profile.getSelectedNameColor());
+        getConfig().set(path + ".selected_name_styles", profile.getSelectedNameStyles());
         getConfig().set(path + ".selected_kill_effect", profile.getSelectedKillEffect());
         getConfig().set(path + ".selected_death_effect", profile.getSelectedDeathEffect());
         getConfig().set(path + ".selected_kill_sound", profile.getSelectedKillSound());

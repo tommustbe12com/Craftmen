@@ -16,6 +16,8 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -208,6 +210,29 @@ public class ArenaManager {
         int minZ = min.getBlockZ();
         int maxZ = max.getBlockZ();
 
+        // Remove ALL non-player entities in/near the arena so explosives/crystals/projectiles don't leak into the next match.
+        int margin = 6;
+        int entMinX = Math.min(minX, maxX) - margin;
+        int entMaxX = Math.max(minX, maxX) + margin;
+        int entMinY = Math.min(minY, maxY) - margin;
+        int entMaxY = Math.max(minY, maxY) + margin;
+        int entMinZ = Math.min(minZ, maxZ) - margin;
+        int entMaxZ = Math.max(minZ, maxZ) + margin;
+
+        int entitiesRemoved = 0;
+        for (Entity ent : new ArrayList<>(world.getEntities())) {
+            if (ent instanceof Player) continue;
+            Location l = ent.getLocation();
+            int x = l.getBlockX();
+            int y = l.getBlockY();
+            int z = l.getBlockZ();
+            if (x < entMinX || x > entMaxX) continue;
+            if (y < entMinY || y > entMaxY) continue;
+            if (z < entMinZ || z > entMaxZ) continue;
+            ent.remove();
+            entitiesRemoved++;
+        }
+
         int blocksCleared = 0;
 
         for (int x = minX; x <= maxX; x++) {
@@ -225,7 +250,7 @@ public class ArenaManager {
         }
 
         Bukkit.getLogger().info("[ArenaManager] Finished removing arena '" + arenaName +
-                "'. Blocks cleared: " + blocksCleared);
+                "'. Blocks cleared: " + blocksCleared + ", entities removed: " + entitiesRemoved);
     }
 
     public boolean isAreaEmpty(Location loc, int width, int length, World world) {

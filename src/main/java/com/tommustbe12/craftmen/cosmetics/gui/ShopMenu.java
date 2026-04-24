@@ -2,8 +2,8 @@ package com.tommustbe12.craftmen.cosmetics.gui;
 
 import com.tommustbe12.craftmen.Craftmen;
 import com.tommustbe12.craftmen.cosmetics.CosmeticsShop;
-import com.tommustbe12.craftmen.profile.Profile;
 import com.tommustbe12.craftmen.profile.PlayerState;
+import com.tommustbe12.craftmen.profile.Profile;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
@@ -18,12 +18,14 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public final class ShopMenu implements Listener {
 
     private static final String TITLE = "§8Cosmetics Shop";
     private static final String TITLE_CHAT = "§8Chat Colors";
+    private static final String TITLE_NAME = "§8Name Styles";
     private static final String TITLE_GADGETS = "§8Spawn Gadgets";
     private static final String TITLE_KD = "§8Kill/Death Cosmetics";
 
@@ -33,7 +35,7 @@ public final class ShopMenu implements Listener {
         fill(inv);
         inv.setItem(11, item(Material.NAME_TAG, "§b§lChat Color", List.of("§7Purchase and select a chat color.", "§8Click to view")));
         inv.setItem(12, item(Material.FIREWORK_ROCKET, "§d§lKill/Death Effects", List.of("§7Kill effects + sounds.", "§8Click to view")));
-        // 13 intentionally left as border fill
+        inv.setItem(13, item(Material.GLOW_INK_SAC, "§e§lName Styles", List.of("§7Customize your name color + styles.", "§8Click to view")));
         inv.setItem(14, item(Material.SMITHING_TABLE, "§d§lArmor Trims", List.of("§7Purchase trim patterns + ores.", "§810 gems each", "§8Click to customize")));
         inv.setItem(15, item(Material.ELYTRA, "§a§lSpawn Gadgets", List.of("§7Permanent hub gadgets.", "§8Click to view")));
         player.openInventory(inv);
@@ -82,6 +84,32 @@ public final class ShopMenu implements Listener {
         player.openInventory(inv);
     }
 
+    private void openName(Player player) {
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        Inventory inv = Bukkit.createInventory(null, 54, TITLE_NAME);
+        fill(inv);
+        inv.setItem(49, item(Material.BARRIER, "§cBack", List.of("§7Return to shop")));
+
+        inv.setItem(10, nameColorItem("&f", "§fWhite", 25, profile));
+        inv.setItem(11, nameColorItem("&c", "§cRed", 75, profile));
+        inv.setItem(12, nameColorItem("&b", "§bAqua", 75, profile));
+        inv.setItem(13, nameColorItem("&a", "§aGreen", 75, profile));
+        inv.setItem(14, nameColorItem("&e", "§eYellow", 75, profile));
+        inv.setItem(15, nameColorItem("&d", "§dPink", 75, profile));
+        inv.setItem(16, nameColorItem("&6", "§6Gold", 75, profile));
+        inv.setItem(19, nameColorItem("&9", "§9Blue", 75, profile));
+        inv.setItem(20, nameColorItem("&5", "§5Purple", 75, profile));
+        inv.setItem(21, nameColorItem("&7", "§7Gray", 50, profile));
+
+        inv.setItem(28, nameStyleItem("&l", "§fBold (§lExample§r§f)", 75, profile));
+        inv.setItem(29, nameStyleItem("&n", "§fUnderline (§nExample§r§f)", 75, profile));
+        inv.setItem(30, nameStyleItem("&o", "§fItalic (§oExample§r§f)", 75, profile));
+        inv.setItem(31, nameStyleItem("&m", "§fStrikethrough (§mExample§r§f)", 75, profile));
+        inv.setItem(32, item(Material.MILK_BUCKET, "§fClear Styles", List.of("§7Resets to normal name.", "§eClick to clear")));
+
+        player.openInventory(inv);
+    }
+
     private void openGadgets(Player player) {
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         Inventory inv = Bukkit.createInventory(null, 54, TITLE_GADGETS);
@@ -111,11 +139,11 @@ public final class ShopMenu implements Listener {
         if (stripped == null) return;
         boolean isShop = stripped.equals(ChatColor.stripColor(TITLE));
         boolean isChat = stripped.equals(ChatColor.stripColor(TITLE_CHAT));
+        boolean isName = stripped.equals(ChatColor.stripColor(TITLE_NAME));
         boolean isGadgets = stripped.equals(ChatColor.stripColor(TITLE_GADGETS));
         boolean isKD = stripped.equals(ChatColor.stripColor(TITLE_KD));
-        if (!isShop && !isChat && !isGadgets && !isKD) return;
+        if (!isShop && !isChat && !isName && !isGadgets && !isKD) return;
 
-        // Always cancel interactions in our menus (including shift-clicking from bottom inventory).
         e.setCancelled(true);
 
         ItemStack clicked = e.getCurrentItem();
@@ -125,6 +153,7 @@ public final class ShopMenu implements Listener {
         if (isShop) {
             if (slot == 11) openChat(player);
             else if (slot == 12) openKillDeath(player);
+            else if (slot == 13) openName(player);
             else if (slot == 14) Craftmen.get().getArmorTrimMenu().openMain(player);
             else if (slot == 15) openGadgets(player);
             else player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 0.8f);
@@ -138,6 +167,21 @@ public final class ShopMenu implements Listener {
 
         if (isChat) {
             handleChatColorClick(player, clicked);
+            return;
+        }
+
+        if (isName) {
+            if (slot == 32) {
+                Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+                if (profile != null) {
+                    profile.setSelectedNameStyles("");
+                    Craftmen.get().saveProfile(profile);
+                }
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+                openName(player);
+                return;
+            }
+            handleNameClick(player, clicked);
             return;
         }
 
@@ -158,6 +202,7 @@ public final class ShopMenu implements Listener {
         if (stripped == null) return;
         if (stripped.equals(ChatColor.stripColor(TITLE))
                 || stripped.equals(ChatColor.stripColor(TITLE_CHAT))
+                || stripped.equals(ChatColor.stripColor(TITLE_NAME))
                 || stripped.equals(ChatColor.stripColor(TITLE_GADGETS))
                 || stripped.equals(ChatColor.stripColor(TITLE_KD))) {
             e.setCancelled(true);
@@ -170,12 +215,12 @@ public final class ShopMenu implements Listener {
         String lore0 = ChatColor.stripColor(meta.getLore().get(0));
         if (lore0 == null) return;
 
-        // Lore format: "Color: &b"
         String code = lore0.replace("Color: ", "").trim();
         int cost = parseCost(meta.getLore());
         String cosmeticId = "chatcolor." + code;
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        if (profile == null) return;
         if (!profile.hasCosmetic(cosmeticId)) {
             if (!CosmeticsShop.purchase(player, cosmeticId, cost)) return;
         }
@@ -187,13 +232,52 @@ public final class ShopMenu implements Listener {
         openChat(player);
     }
 
+    private void handleNameClick(Player player, ItemStack clicked) {
+        ItemMeta meta = clicked.getItemMeta();
+        if (meta == null || meta.getLore() == null) return;
+        String idLine = ChatColor.stripColor(meta.getLore().get(0));
+        if (idLine == null) return;
+        String cosmeticId = idLine.replace("ID: ", "").trim();
+        int cost = parseCost(meta.getLore());
+
+        Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        if (profile == null) return;
+
+        if (!profile.hasCosmetic(cosmeticId)) {
+            if (!CosmeticsShop.purchase(player, cosmeticId, cost)) return;
+        }
+
+        if (cosmeticId.startsWith("namecolor.")) {
+            String code = cosmeticId.replace("namecolor.", "").trim();
+            profile.setSelectedNameColor(code);
+        } else if (cosmeticId.startsWith("namestyle.")) {
+            String code = cosmeticId.replace("namestyle.", "").trim();
+            if ("&k".equalsIgnoreCase(code)) return;
+
+            String styles = profile.getSelectedNameStyles();
+            if (styles == null) styles = "";
+            styles = styles.replace("&k", "").replace("&K", "");
+
+            boolean has = styles.toLowerCase().contains(code.toLowerCase());
+            if (has) {
+                styles = styles.replace(code, "").replace(code.toLowerCase(), "").replace(code.toUpperCase(), "");
+            } else {
+                styles = styles + code;
+            }
+            profile.setSelectedNameStyles(styles);
+        }
+
+        Craftmen.get().saveProfile(profile);
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 1.0f, 1.2f);
+        openName(player);
+    }
+
     private void handleGadgetClick(Player player, ItemStack clicked) {
         ItemMeta meta = clicked.getItemMeta();
         if (meta == null || meta.getLore() == null) return;
         String idLine = ChatColor.stripColor(meta.getLore().get(0));
         if (idLine == null) return;
 
-        // Lore format: "ID: gadget.elytra"
         String cosmeticId = idLine.replace("ID: ", "").trim();
         int cost = parseCost(meta.getLore());
         boolean purchased = CosmeticsShop.purchase(player, cosmeticId, cost);
@@ -215,11 +299,11 @@ public final class ShopMenu implements Listener {
         int cost = parseCost(meta.getLore());
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
+        if (profile == null) return;
         if (!profile.hasCosmetic(cosmeticId)) {
             if (!CosmeticsShop.purchase(player, cosmeticId, cost)) return;
         }
 
-        // Apply selection
         switch (cosmeticId) {
             case "kill.lightning", "kill.firework" -> profile.setSelectedKillEffect(cosmeticId);
             case "death.lightning", "death.firework" -> profile.setSelectedDeathEffect(cosmeticId);
@@ -234,7 +318,7 @@ public final class ShopMenu implements Listener {
 
     private ItemStack cosmeticSelectItem(String id, Material mat, String name, int cost, Profile profile, boolean selected) {
         boolean owned = profile != null && profile.hasCosmetic(id);
-        List<String> lore = new java.util.ArrayList<>();
+        List<String> lore = new ArrayList<>();
         lore.add("§7ID: §f" + id);
         if (owned) {
             lore.add("§aOwned" + (selected ? " §6(Selected)" : ""));
@@ -274,9 +358,39 @@ public final class ShopMenu implements Listener {
         return item(mat, name, lore);
     }
 
+    private ItemStack nameColorItem(String code, String display, int cost, Profile profile) {
+        String id = "namecolor." + code;
+        boolean owned = profile != null && profile.hasCosmetic(id);
+        String selectedCode = profile == null ? null : profile.getSelectedNameColor();
+        if (selectedCode == null || selectedCode.isBlank()) selectedCode = "&f";
+        boolean selected = code.equalsIgnoreCase(selectedCode);
+
+        Material mat = owned ? Material.LIME_DYE : Material.GRAY_DYE;
+        String name = display + (selected ? " §6(Selected)" : "");
+        List<String> lore = owned
+                ? List.of("§7ID: §f" + id, "§7Color: §f" + code, "§aOwned", "§eClick to select")
+                : List.of("§7ID: §f" + id, "§7Color: §f" + code, "§7Cost: §b" + cost + " gems", "§eClick to purchase");
+        return item(mat, name, lore);
+    }
+
+    private ItemStack nameStyleItem(String code, String display, int cost, Profile profile) {
+        String id = "namestyle." + code;
+        boolean owned = profile != null && profile.hasCosmetic(id);
+        String styles = profile == null ? "" : (profile.getSelectedNameStyles() == null ? "" : profile.getSelectedNameStyles());
+        styles = styles.replace("&k", "").replace("&K", "");
+        boolean selected = styles.toLowerCase().contains(code.toLowerCase());
+
+        Material mat = owned ? Material.LIME_DYE : Material.GRAY_DYE;
+        String name = display + (selected ? " §6(Enabled)" : "");
+        List<String> lore = owned
+                ? List.of("§7ID: §f" + id, "§7Style: §f" + code, "§aOwned", "§eClick to toggle")
+                : List.of("§7ID: §f" + id, "§7Style: §f" + code, "§7Cost: §b" + cost + " gems", "§eClick to purchase");
+        return item(mat, name, lore);
+    }
+
     private ItemStack gadgetItem(String id, Material mat, String name, int cost, Profile profile, List<String> extra) {
         boolean owned = profile != null && profile.hasCosmetic(id);
-        List<String> lore = new java.util.ArrayList<>();
+        List<String> lore = new ArrayList<>();
         lore.add("§7ID: §f" + id);
         lore.addAll(extra);
         if (owned) {
@@ -312,3 +426,4 @@ public final class ShopMenu implements Listener {
         }
     }
 }
+
