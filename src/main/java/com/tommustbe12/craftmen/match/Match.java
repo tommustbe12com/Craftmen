@@ -47,15 +47,31 @@ public class Match {
         Random rand = new Random();
 
         // find a random empty location
-        Location pasteLoc;
+        Location hub = Craftmen.get().getHubLocation();
+        int minDistFromHub = 2000;
+        int minCoord = 2500; // keep arenas out of spawn area (same quadrant as before: +X,+Z)
+        int maxCoord = 500_000;
+
+        // Default/fallback: far away, same (+,+) quadrant.
+        int fallbackX = maxCoord - width - 32;
+        int fallbackZ = maxCoord - length - 32;
+        int fallbackY = Math.max(world.getMinHeight() + 5, world.getHighestBlockYAt(fallbackX, fallbackZ) + 5);
+        Location pasteLoc = new Location(world, fallbackX, fallbackY, fallbackZ);
         boolean found = false;
-        do {
-            int x = rand.nextInt(500) + 500;
-            int z = rand.nextInt(500) + 500;
-            int y = 64; // default ground level
+
+        for (int tries = 0; tries < 2500; tries++) {
+            int x = rand.nextInt(maxCoord - minCoord) + minCoord;
+            int z = rand.nextInt(maxCoord - minCoord) + minCoord;
+            int y = Math.max(world.getMinHeight() + 5, world.getHighestBlockYAt(x, z) + 5);
             pasteLoc = new Location(world, x, y, z);
+
+            if (hub != null && hub.getWorld() != null && hub.getWorld().equals(world)) {
+                if (pasteLoc.distanceSquared(hub) < (double) minDistFromHub * minDistFromHub) continue;
+            }
+
             found = Craftmen.get().getArenaManager().isAreaEmpty(pasteLoc, width, length, world);
-        } while (!found);
+            if (found) break;
+        }
 
         // paste arena
         Craftmen.get().getArenaManager().pasteArena(arena.getCategory(), arena.getName(), pasteLoc, this);

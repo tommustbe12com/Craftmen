@@ -211,7 +211,7 @@ public class ArenaManager {
         int maxZ = max.getBlockZ();
 
         // Remove ALL non-player entities in/near the arena so explosives/crystals/projectiles don't leak into the next match.
-        int margin = 6;
+        int margin = 16; // previous 6 + requested extra 10 blocks
         int entMinX = Math.min(minX, maxX) - margin;
         int entMaxX = Math.max(minX, maxX) + margin;
         int entMinY = Math.min(minY, maxY) - margin;
@@ -235,9 +235,17 @@ public class ArenaManager {
 
         int blocksCleared = 0;
 
-        for (int x = minX; x <= maxX; x++) {
-            for (int y = minY; y <= maxY; y++) {
-                for (int z = minZ; z <= maxZ; z++) {
+        int blockMargin = 10;
+        int bMinX = Math.min(minX, maxX) - blockMargin;
+        int bMaxX = Math.max(minX, maxX) + blockMargin;
+        int bMinY = Math.max(world.getMinHeight(), Math.min(minY, maxY) - blockMargin);
+        int bMaxY = Math.min(world.getMaxHeight() - 1, Math.max(minY, maxY) + blockMargin);
+        int bMinZ = Math.min(minZ, maxZ) - blockMargin;
+        int bMaxZ = Math.max(minZ, maxZ) + blockMargin;
+
+        for (int x = bMinX; x <= bMaxX; x++) {
+            for (int y = bMinY; y <= bMaxY; y++) {
+                for (int z = bMinZ; z <= bMaxZ; z++) {
 
                     Block block = world.getBlockAt(x, y, z);
 

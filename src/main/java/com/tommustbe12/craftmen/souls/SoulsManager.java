@@ -2026,7 +2026,9 @@ public final class SoulsManager implements Listener {
 
         if (target != null) {
             target.setNoDamageTicks(0);
-            double dmg = mega ? 28.0 : 10.0;
+            // Requested tuning: main = 1.5 hearts, special = 4 hearts.
+            // (1 heart = 2.0 damage)
+            double dmg = mega ? 8.0 : 3.0;
             target.damage(dmg, caster);
             particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.DRIPPING_DRIPSTONE_LAVA, mega ? 18 : 10, 0.5, 0.35, 0.5, 0.0);
 
