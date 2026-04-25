@@ -29,6 +29,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -1094,15 +1095,56 @@ public final class SoulsManager implements Listener {
                             return;
                         }
                         ticks++;
-                        if (ticks > 45) {
+                        if (ticks > 80) {
                             cancel();
                             return;
                         }
-                        if (!victim.getLocation().getBlock().isPassable()) {
-                            Location boom = victim.getLocation().clone();
-                            boom.getWorld().createExplosion(boom, 2.4f, false, true, damager);
+                        if (!victim.isOnGround()) return;
+
+                        Location boom = victim.getLocation().clone();
+                        World w = boom.getWorld();
+                        if (w == null) {
                             cancel();
+                            return;
                         }
+
+                        // Reduced, controlled "TNT-ish" landing blast (don’t rely on vanilla explosion damage).
+                        w.spawnParticle(Particle.EXPLOSION, boom.clone().add(0, 0.2, 0), 1, 0.0, 0.0, 0.0, 0.0);
+                        w.spawnParticle(Particle.CLOUD, boom.clone().add(0, 0.2, 0), 35, 0.8, 0.25, 0.8, 0.03);
+                        w.playSound(boom, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.05f);
+
+                        // Crack a small patch of floor where they land.
+                        int y = boom.getBlockY() - 1;
+                        int r = 2;
+                        for (int dx = -r; dx <= r; dx++) {
+                            for (int dz = -r; dz <= r; dz++) {
+                                if (dx * dx + dz * dz > (r * r)) continue;
+                                Location b = new Location(w, boom.getBlockX() + dx, y, boom.getBlockZ() + dz);
+                                var block = b.getBlock();
+                                if (block.isEmpty()) continue;
+                                Material type = block.getType();
+                                if (type == Material.BEDROCK || type == Material.BARRIER) continue;
+                                if (type.name().contains("CHEST")) continue;
+                                block.setType(Material.AIR, false);
+                            }
+                        }
+
+                        // Damage: decent, but not full vanilla TNT. Hits nearby enemies (including the thrown victim).
+                        double radius = 4.0;
+                        for (Player p : w.getPlayers()) {
+                            if (!p.isOnline() || p.isDead()) continue;
+                            if (!isInSouls(p)) continue;
+                            if (!sameContext(damager, p)) continue;
+                            if (p.getLocation().distanceSquared(boom) > radius * radius) continue;
+
+                            p.setNoDamageTicks(0);
+                            double dist = Math.max(0.0, p.getLocation().distance(boom));
+                            double scale = Math.max(0.25, 1.0 - (dist / radius));
+                            double dmg = 10.0 * scale; // up to 5 hearts close, down to ~1.25 hearts at edge
+                            p.damage(dmg, damager);
+                        }
+
+                        cancel();
                     }
                 }.runTaskTimer(Craftmen.get(), 1L, 1L);
             }, 10L);
@@ -1205,10 +1247,13 @@ public final class SoulsManager implements Listener {
             return false;
         }
 
-        Location upC = caster.getLocation().clone().add(0, 10.0, 0);
-        Location upT = target.getLocation().clone().add(0, 10.0, 0);
-        caster.teleport(upC);
-        target.teleport(upT);
+        // Anti-cheat friendly lift: use Levitation instead of teleporting into the air.
+        caster.setFallDistance(0);
+        target.setFallDistance(0);
+        caster.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 20 * 2, 1, true, false, false));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 20 * 2, 1, true, false, false));
+        caster.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 20 * 4, 0, true, false, false));
+        target.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 20 * 4, 0, true, false, false));
 
         freeze(caster, 10_000L);
         freeze(target, 10_000L);
@@ -1232,8 +1277,37 @@ public final class SoulsManager implements Listener {
         Byte tagged = tnt.getPersistentDataContainer().get(railgunTntKey, org.bukkit.persistence.PersistentDataType.BYTE);
         if (tagged == null || tagged != (byte) 1) return;
 
-        // Railgun [1] TNT is visual (damage handled directly on cast).
-        e.setDamage(0.0);
+        // Railgun [1] TNT damage should happen on explosion, but be reduced.
+        double reduced = e.getDamage() * 0.55;
+        e.setDamage(Math.max(2.0, reduced));
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onRailgunTntExplode(EntityExplodeEvent e) {
+        if (!(e.getEntity() instanceof TNTPrimed tnt)) return;
+        Byte tagged = tnt.getPersistentDataContainer().get(railgunTntKey, org.bukkit.persistence.PersistentDataType.BYTE);
+        if (tagged == null || tagged != (byte) 1) return;
+
+        e.blockList().clear();
+
+        Location c = tnt.getLocation();
+        World world = c.getWorld();
+        if (world == null) return;
+
+        int y = c.getBlockY() - 1;
+        int r = 2;
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dz = -r; dz <= r; dz++) {
+                if (dx * dx + dz * dz > (r * r)) continue;
+                Location b = new Location(world, c.getBlockX() + dx, y, c.getBlockZ() + dz);
+                var block = b.getBlock();
+                if (block.isEmpty()) continue;
+                Material type = block.getType();
+                if (type == Material.BEDROCK || type == Material.BARRIER) continue;
+                if (type.name().contains("CHEST")) continue;
+                block.setType(Material.AIR, false);
+            }
+        }
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -1321,16 +1395,14 @@ public final class SoulsManager implements Listener {
         caster.playSound(caster.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.6f);
         particleAt(center.clone().add(0, 1.0, 0), Particle.SMOKE, 35, 1.2, 0.6, 1.2, 0.02);
 
-        // Deal only ~2 hearts total from the nuke (TNT is mostly visual).
-        target.setNoDamageTicks(0);
-        target.damage(4.0, caster);
+        // Damage should come from the TNT *when it explodes* (not instantly on cast).
 
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                 Location spawn = center.clone().add(dx + 0.5, 8.0, dz + 0.5);
                 TNTPrimed tnt = world.spawn(spawn, TNTPrimed.class, ent -> {
-                    ent.setFuseTicks(35 + rng.nextInt(10));
-                    ent.setYield(0.0f);
+                    ent.setFuseTicks(36 + rng.nextInt(10));
+                    ent.setYield(2.8f);
                     ent.setIsIncendiary(false);
                     ent.setSource(caster);
                     ent.getPersistentDataContainer().set(railgunTntKey, org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1);
@@ -1912,29 +1984,41 @@ public final class SoulsManager implements Listener {
         var start = caster.getEyeLocation();
         Vector dir = start.getDirection().normalize();
 
-        // 2x2 (big) beam hitbox.
-        RayTraceResult hit = world.rayTraceEntities(start, dir, range, 1.0, ent -> ent instanceof Player p
-                && p != caster
-                && p.isOnline()
-                && isInSouls(p)
-                && sameContext(caster, p));
-
-        Location end = start.clone().add(dir.clone().multiply(range));
+        // 2x2-ish (big) beam hitbox: do our own targeting to avoid ray-trace edge cases.
+        double beamRadius = mega ? 1.10 : 0.90;
         Player target = null;
-        if (hit != null) {
-            end = hit.getHitPosition() != null
-                    ? new Location(world, hit.getHitPosition().getX(), hit.getHitPosition().getY(), hit.getHitPosition().getZ())
-                    : end;
-            if (hit.getHitEntity() instanceof Player p) target = p;
+        double bestT = range + 1.0;
+
+        for (Player p : world.getPlayers()) {
+            if (p == caster) continue;
+            if (!p.isOnline() || p.isDead()) continue;
+            if (!isInSouls(p)) continue;
+            if (!sameContext(caster, p)) continue;
+
+            Location aim = p.getLocation().clone().add(0, 1.0, 0);
+            Vector to = aim.toVector().subtract(start.toVector());
+            double t = to.dot(dir);
+            if (t < 0.0 || t > range) continue;
+
+            Vector closest = start.toVector().add(dir.clone().multiply(t));
+            double distSq = aim.toVector().distanceSquared(closest);
+            if (distSq > (beamRadius * beamRadius)) continue;
+
+            if (t < bestT) {
+                bestT = t;
+                target = p;
+            }
         }
+
+        Location end = start.clone().add(dir.clone().multiply(target != null ? bestT : range));
 
         // Beam particles along the path (vanilla red dust).
         int steps = (int) Math.max(6, range * 2);
         for (int i = 0; i <= steps; i++) {
             double t = i / (double) steps;
             Location p = start.clone().add(dir.clone().multiply(range * t));
-            Particle.DustOptions dust = new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 0, 0), mega ? 4.5f : 3.5f);
-            world.spawnParticle(Particle.DUST, p, mega ? 8 : 6, 0.12, 0.12, 0.12, 0.0, dust);
+            Particle.DustOptions dust = new Particle.DustOptions(org.bukkit.Color.fromRGB(200, 0, 0), mega ? 6.0f : 4.5f);
+            world.spawnParticle(Particle.DUST, p, mega ? 14 : 10, mega ? 0.22 : 0.16, mega ? 0.22 : 0.16, mega ? 0.22 : 0.16, 0.0, dust);
             world.spawnParticle(Particle.DRIPPING_DRIPSTONE_LAVA, p, mega ? 2 : 1, 0.05, 0.05, 0.05, 0.0);
         }
 
@@ -1942,7 +2026,7 @@ public final class SoulsManager implements Listener {
 
         if (target != null) {
             target.setNoDamageTicks(0);
-            double dmg = mega ? 16.0 : 3.0; // 8 hearts vs 1.5 hearts
+            double dmg = mega ? 28.0 : 10.0;
             target.damage(dmg, caster);
             particleAt(target.getLocation().clone().add(0, 1.0, 0), Particle.DRIPPING_DRIPSTONE_LAVA, mega ? 18 : 10, 0.5, 0.35, 0.5, 0.0);
 
