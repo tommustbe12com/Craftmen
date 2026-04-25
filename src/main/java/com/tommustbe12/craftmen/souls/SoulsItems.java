@@ -52,6 +52,7 @@ public final class SoulsItems {
             case BLOODY_MONARCH -> Material.GHAST_TEAR;
             case DARK_KNIGHT -> Material.NAUTILUS_SHELL;
             case RAILGUN -> Material.FISHING_ROD;
+            case UNTAMED_BEAST -> Material.IRON_SWORD;
         };
 
         ItemStack item = new ItemStack(mat);
@@ -229,6 +230,16 @@ public final class SoulsItems {
                 lore.add(ChatColor.YELLOW + "Passive");
                 lore.add(ChatColor.GRAY + "- Immune to TNT explosions.");
             }
+            case UNTAMED_BEAST -> {
+                lore.add(ChatColor.GREEN + "[1] Disarm");
+                lore.add(ChatColor.GRAY + "- Nearest enemy's weapons/tools become " + ChatColor.WHITE + "wood" + ChatColor.GRAY + " for " + ChatColor.WHITE + "2s" + ChatColor.GRAY + ".");
+                lore.add(ChatColor.AQUA + "[2] Beast Duel");
+                lore.add(ChatColor.GRAY + "- Launch you + enemy " + ChatColor.WHITE + "10 blocks" + ChatColor.GRAY + " up and freeze.");
+                lore.add(ChatColor.GRAY + "- Punch to unleash an impact explosion.");
+                lore.add(" ");
+                lore.add(ChatColor.YELLOW + "Passive");
+                lore.add(ChatColor.GRAY + "- Deal " + ChatColor.WHITE + "10%" + ChatColor.GRAY + " more damage at " + ChatColor.WHITE + "2 hearts" + ChatColor.GRAY + " or less.");
+            }
         }
 
         lore.add(" ");
@@ -241,4 +252,3 @@ public final class SoulsItems {
         return m != null ? m : fallback;
     }
 }
-

@@ -28,6 +28,7 @@ public class PlayerListener implements Listener {
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         Craftmen.get().loadProfile(profile);
+        validateSelectedBadge(profile);
 
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
             if (player.isOnline()) {
@@ -49,6 +50,28 @@ public class PlayerListener implements Listener {
             Craftmen.get().getHubManager().giveHubItems(player);
             Craftmen.get().getScoreboardManager().update(player);
         }, 3L);
+    }
+
+    private void validateSelectedBadge(Profile profile) {
+        if (profile == null) return;
+        if (profile.getSelectedBadgeId() == null) return;
+
+        var badge = Craftmen.get().getBadgeManager().getBadges().stream()
+                .filter(b -> b.getId().equals(profile.getSelectedBadgeId()))
+                .findFirst()
+                .orElse(null);
+        if (badge == null) {
+            profile.setSelectedBadgeId(null);
+            Craftmen.get().saveProfile(profile);
+            return;
+        }
+
+        var req = com.tommustbe12.craftmen.badge.BadgeRequirement.parse(badge.getRequirement());
+        boolean ok = req.map(r -> r.matches(profile)).orElse(false);
+        if (!ok) {
+            profile.setSelectedBadgeId(null);
+            Craftmen.get().saveProfile(profile);
+        }
     }
 
     @EventHandler

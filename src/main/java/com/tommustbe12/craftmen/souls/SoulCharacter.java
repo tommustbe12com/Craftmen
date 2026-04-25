@@ -14,7 +14,8 @@ public enum SoulCharacter {
     COPYCAT("Copycat"),
     BLOODY_MONARCH("Bloody Monarch"),
     DARK_KNIGHT("Dark Knight"),
-    RAILGUN("Railgun");
+    RAILGUN("Railgun"),
+    UNTAMED_BEAST("Untamed Beast");
 
     private final String displayName;
 

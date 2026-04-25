@@ -46,7 +46,8 @@ public final class SoulsCharacterMenu implements Listener {
             SoulCharacter.COPYCAT,
             SoulCharacter.BLOODY_MONARCH,
             SoulCharacter.DARK_KNIGHT,
-            SoulCharacter.RAILGUN
+            SoulCharacter.RAILGUN,
+            SoulCharacter.UNTAMED_BEAST
     );
 
     private final Map<UUID, Consumer<SoulCharacter>> callbacks = new HashMap<>();
@@ -178,4 +179,3 @@ public final class SoulsCharacterMenu implements Listener {
         }
     }
 }
-

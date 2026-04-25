@@ -29,6 +29,7 @@ public class Profile {
     // one-time claim tracking
     private final Set<java.util.UUID> claimedBadgeRewards = new HashSet<>();
     private final Set<Integer> claimedWinStreakRewards = new HashSet<>();
+    private final Set<String> claimedWarpedSignRewards = new HashSet<>();
 
     private final Set<String> purchasedCosmetics = new HashSet<>();
     private String selectedChatColor; // legacy & code like "&b"
@@ -109,6 +110,10 @@ public class Profile {
     public Set<Integer> getClaimedWinStreakRewards() { return claimedWinStreakRewards; }
     public boolean hasClaimedWinStreakReward(int streak) { return claimedWinStreakRewards.contains(streak); }
     public void claimWinStreakReward(int streak) { claimedWinStreakRewards.add(streak); }
+
+    public Set<String> getClaimedWarpedSignRewards() { return claimedWarpedSignRewards; }
+    public boolean hasClaimedWarpedSignReward(String key) { return key != null && claimedWarpedSignRewards.contains(key); }
+    public void claimWarpedSignReward(String key) { if (key != null && !key.isBlank()) claimedWarpedSignRewards.add(key); }
 
     public Set<String> getPurchasedCosmetics() { return purchasedCosmetics; }
     public boolean hasCosmetic(String id) { return id != null && purchasedCosmetics.contains(id); }

@@ -10,17 +10,24 @@ import org.bukkit.block.BlockState;
 import org.bukkit.block.Container;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.Bukkit;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.vehicle.VehicleDamageEvent;
 import org.bukkit.event.vehicle.VehicleDestroyEvent;
+import org.bukkit.event.block.SignChangeEvent;
+import io.papermc.paper.event.player.PlayerOpenSignEvent;
 
 public final class HubSafetyListener implements Listener {
 
@@ -39,12 +46,6 @@ public final class HubSafetyListener implements Listener {
         return Craftmen.get().getProfileManager().getProfile(player).getState() == PlayerState.LOBBY;
     }
 
-    private static boolean isAnySign(Material type) {
-        if (type == null) return false;
-        String n = type.name();
-        return n.endsWith("_SIGN") || n.endsWith("_WALL_SIGN");
-    }
-
     private static boolean isDoorOrTrapdoor(Material type) {
         if (type == null) return false;
         String n = type.name();
@@ -61,18 +62,14 @@ public final class HubSafetyListener implements Listener {
 
         Material type = clicked.getType();
 
-        // Block editing any sign in survival (prevents opening the sign editor / modifying text).
-        if (isAnySign(type)) {
+        // Don't allow wind charges to toggle doors/trapdoors (but allow wind charge propulsion elsewhere).
+        if (isDoorOrTrapdoor(type) && e.getItem() != null && e.getItem().getType() == Material.WIND_CHARGE) {
             e.setCancelled(true);
             return;
         }
 
         // Allow doors/trapdoors to be opened/closed normally...
-        // ...but block WIND_CHARGE interactions from toggling them.
         if (isDoorOrTrapdoor(type)) {
-            if (e.getItem() != null && e.getItem().getType() == Material.WIND_CHARGE) {
-                e.setCancelled(true);
-            }
             return;
         }
 
@@ -129,10 +126,60 @@ public final class HubSafetyListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onProjectileLaunch(ProjectileLaunchEvent e) {
+        Projectile proj = e.getEntity();
+        if (!(proj.getShooter() instanceof Player player)) return;
+        if (!shouldProtect(player)) return;
+
+        // Allow wind charges to launch (propel players). Protections are handled by explode/hanging hooks.
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onExplode(EntityExplodeEvent e) {
+        if (e.getEntity() == null) return;
+        if (e.getEntityType() != null && e.getEntityType().name().equalsIgnoreCase("WIND_CHARGE")) {
+            // Wind charge explosions can break hanging entities / mess with builds.
+            e.blockList().clear();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onSignOpen(PlayerOpenSignEvent e) {
+        if (!shouldProtect(e.getPlayer())) return;
+        e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onSignChange(SignChangeEvent e) {
+        if (!shouldProtect(e.getPlayer())) return;
+        e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onHangingBreak(HangingBreakByEntityEvent e) {
         if (!(e.getRemover() instanceof Player player)) return;
         if (!shouldProtect(player)) return;
         e.setCancelled(true);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onHangingBreakAny(HangingBreakEvent e) {
+        // Wind charges and other physics/explosions can break item frames/paintings without a player remover.
+        if (e.getCause() == HangingBreakEvent.RemoveCause.EXPLOSION
+                || e.getCause() == HangingBreakEvent.RemoveCause.PHYSICS
+                || e.getCause() == HangingBreakEvent.RemoveCause.OBSTRUCTION) {
+            // Only protect if the entity is in our protected spawn region-ish by checking nearby players:
+            // If any online player in LOBBY is within range and shouldProtect would apply, cancel.
+            // (Cheap heuristic without needing exact region bounds here.)
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (!shouldProtect(p)) continue;
+                if (p.getWorld() != null && p.getWorld().equals(e.getEntity().getWorld())
+                        && p.getLocation().distanceSquared(e.getEntity().getLocation()) < (120.0 * 120.0)) {
+                    e.setCancelled(true);
+                    return;
+                }
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -149,4 +196,3 @@ public final class HubSafetyListener implements Listener {
         e.setCancelled(true);
     }
 }
-

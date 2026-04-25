@@ -116,7 +116,14 @@ public final class FfaManager implements Listener {
         UUID instId = playerInstance.get(player.getUniqueId());
         if (instId == null) return null;
         FfaInstance inst = instancesById.get(instId);
-        return inst == null ? null : inst.game;
+        if (inst == null) return null;
+        if (inst.isPrivate) {
+            PartyFfaSession session = getSession(inst);
+            if (session != null) {
+                return resolveKitForPlayer(inst, session, player);
+            }
+        }
+        return inst.game;
     }
 
     public UUID getPlayerInstanceId(Player player) {

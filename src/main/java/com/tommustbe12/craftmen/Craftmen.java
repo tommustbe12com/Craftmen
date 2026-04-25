@@ -319,6 +319,7 @@ public final class Craftmen extends JavaPlugin {
             getConfig().set(path + ".losses_in_a_row", profile.getLossesInARow());
             getConfig().set(path + ".claimed_badge_rewards", profile.getClaimedBadgeRewards().stream().map(UUID::toString).toList());
             getConfig().set(path + ".claimed_win_streak_rewards", profile.getClaimedWinStreakRewards().stream().toList());
+            getConfig().set(path + ".claimed_warped_sign_rewards", profile.getClaimedWarpedSignRewards().stream().toList());
             getConfig().set(path + ".purchased_cosmetics", profile.getPurchasedCosmetics().stream().toList());
             getConfig().set(path + ".selected_chat_color", profile.getSelectedChatColor());
             getConfig().set(path + ".selected_name_color", profile.getSelectedNameColor());
@@ -393,6 +394,9 @@ public final class Craftmen extends JavaPlugin {
             }
         }
 
+        profile.getClaimedWarpedSignRewards().clear();
+        profile.getClaimedWarpedSignRewards().addAll(getConfig().getStringList(path + ".claimed_warped_sign_rewards"));
+
         profile.getPurchasedCosmetics().clear();
         profile.getPurchasedCosmetics().addAll(getConfig().getStringList(path + ".purchased_cosmetics"));
         profile.setSelectedChatColor(getConfig().getString(path + ".selected_chat_color"));
@@ -432,6 +436,7 @@ public final class Craftmen extends JavaPlugin {
         getConfig().set(path + ".losses_in_a_row", profile.getLossesInARow());
         getConfig().set(path + ".claimed_badge_rewards", profile.getClaimedBadgeRewards().stream().map(UUID::toString).toList());
         getConfig().set(path + ".claimed_win_streak_rewards", profile.getClaimedWinStreakRewards().stream().toList());
+        getConfig().set(path + ".claimed_warped_sign_rewards", profile.getClaimedWarpedSignRewards().stream().toList());
         getConfig().set(path + ".purchased_cosmetics", profile.getPurchasedCosmetics().stream().toList());
         getConfig().set(path + ".selected_chat_color", profile.getSelectedChatColor());
         getConfig().set(path + ".selected_name_color", profile.getSelectedNameColor());

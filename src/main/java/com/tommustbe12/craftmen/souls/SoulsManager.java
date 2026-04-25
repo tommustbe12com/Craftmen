@@ -69,7 +69,7 @@ public final class SoulsManager implements Listener {
 
     private final Map<UUID, Double> originalMaxHealth = new HashMap<>();
     private final Map<UUID, Long> specialWeatherUntil = new HashMap<>();
-    private final Map<UUID, ItemStack> seaTridentRestore = new HashMap<>();
+    // (Voice of the Sea no longer swaps in tridents; ability works without item injection.)
 
     // Magnet passive (speed stacks while attacking).
     private final Map<UUID, Integer> magnetStacks = new HashMap<>();
@@ -107,6 +107,11 @@ public final class SoulsManager implements Listener {
 
     // Railgun: tag TNT spawned by ability to reduce damage.
     private final NamespacedKey railgunTntKey = new NamespacedKey(Craftmen.get(), "railgun_tnt");
+
+    // Untamed Beast tracking.
+    private final Map<UUID, ItemStack[]> beastDisarmRestore = new HashMap<>();
+    private final Map<UUID, UUID> beastDuelTarget = new HashMap<>(); // caster -> target
+    private final Map<UUID, Long> railgunDeathBoomAt = new HashMap<>();
 
     private BukkitTask actionbarTask;
     private BukkitTask passiveTask;
@@ -177,7 +182,6 @@ public final class SoulsManager implements Listener {
                 || c == SoulCharacter.VOICE_OF_THE_SEA
                 || c == SoulCharacter.ARTIFICIAL_GENOCIDE
                 || c == SoulCharacter.COSMIC_DESTROYER
-                || c == SoulCharacter.KING_OF_HEAT
                 || c == SoulCharacter.ARCHANGEL
                 || c == SoulCharacter.BOUNTY_HUNTER
                 || c == SoulCharacter.BLOODY_MONARCH
@@ -214,16 +218,7 @@ public final class SoulsManager implements Listener {
                 }
             }
             case VOICE_OF_THE_SEA -> {
-                ItemStack trident = new ItemStack(org.bukkit.Material.TRIDENT);
-                ItemMeta meta = trident.getItemMeta();
-                if (meta != null) {
-                    meta.setDisplayName("§bRiptide Trident");
-                    meta.setUnbreakable(true);
-                    meta.addEnchant(org.bukkit.enchantments.Enchantment.RIPTIDE, 3, true);
-                    meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS, org.bukkit.inventory.ItemFlag.HIDE_UNBREAKABLE, org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES);
-                    trident.setItemMeta(meta);
-                }
-                player.getInventory().setItem(1, trident);
+                // No extra trident given (ability works without it).
             }
         }
     }
@@ -328,7 +323,7 @@ public final class SoulsManager implements Listener {
                 setCooldown(player, "copy1", System.currentTimeMillis());
                 player.sendActionBar("§aUsed [1]");
             } else {
-                if (!isCooldownReady(player, "copy2", 60_000L)) return;
+                if (!isCooldownReady(player, "copy2", 120_000L)) return;
                 if (!copycatCopySpecial(player)) return;
                 setCooldown(player, "copy2", System.currentTimeMillis());
                 player.sendActionBar("§bUsed [2]");
@@ -347,12 +342,34 @@ public final class SoulsManager implements Listener {
             return;
         }
 
+        if (c == SoulCharacter.UNTAMED_BEAST) {
+            if (left) {
+                if (!isCooldownReady(player, "beast1", BASE_COOLDOWN_MS)) return;
+                if (!beastDisarm(player)) return;
+                setCooldown(player, "beast1", System.currentTimeMillis());
+                player.sendActionBar("§aUsed [1]");
+            } else {
+                if (!isCooldownReady(player, "beast2", BASE_COOLDOWN_MS)) return;
+                if (!beastDuel(player)) return;
+                setCooldown(player, "beast2", System.currentTimeMillis());
+                player.sendActionBar("§bUsed [2]");
+            }
+            return;
+        }
+
         if (left) {
             useBase(player);
             player.sendActionBar("§aUsed [1]");
         } else {
-            useSpecial(player);
-            player.sendActionBar("§bUsed [2]");
+            if (c == SoulCharacter.KING_OF_HEAT) {
+                if (!isCooldownReady(player, "heat2", BASE_COOLDOWN_MS)) return;
+                if (!heatFlamethrower(player)) return;
+                setCooldown(player, "heat2", System.currentTimeMillis());
+                player.sendActionBar("§bUsed [2]");
+            } else {
+                useSpecial(player);
+                player.sendActionBar("§bUsed [2]");
+            }
         }
     }
 
@@ -433,7 +450,6 @@ public final class SoulsManager implements Listener {
         selectedCharacter.remove(id);
         originalMaxHealth.remove(id);
         specialWeatherUntil.remove(id);
-        seaTridentRestore.remove(id);
         magnetStacks.remove(id);
         magnetLastHitAt.remove(id);
         genocideNextEffectAt.remove(id);
@@ -452,7 +468,7 @@ public final class SoulsManager implements Listener {
         if (c == null) c = SoulCharacter.GOOP;
 
         // Goop + Magnet + Sorcerer + Copycat are handled by click handler (2 base abilities, no special).
-        if (c == SoulCharacter.GOOP || c == SoulCharacter.MAGNET || c == SoulCharacter.SORCERER || c == SoulCharacter.COPYCAT) return;
+        if (c == SoulCharacter.GOOP || c == SoulCharacter.MAGNET || c == SoulCharacter.SORCERER || c == SoulCharacter.COPYCAT || c == SoulCharacter.UNTAMED_BEAST) return;
 
         if (!isCooldownReady(player, "base", BASE_COOLDOWN_MS)) return;
 
@@ -597,23 +613,6 @@ public final class SoulsManager implements Listener {
         UUID id = player.getUniqueId();
         specialWeatherUntil.put(id, System.currentTimeMillis() + 20_000L);
 
-        // Give caster a Channeling trident for the duration (restore previous slot after).
-        if (!seaTridentRestore.containsKey(id)) {
-            seaTridentRestore.put(id, player.getInventory().getItem(1));
-            ItemStack trident = new ItemStack(org.bukkit.Material.TRIDENT);
-            ItemMeta meta = trident.getItemMeta();
-            if (meta != null) {
-                meta.setDisplayName("§bChanneling Trident");
-                meta.setUnbreakable(true);
-                meta.addEnchant(org.bukkit.enchantments.Enchantment.CHANNELING, 1, true);
-                meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 3, true);
-                meta.addEnchant(org.bukkit.enchantments.Enchantment.MENDING, 1, true);
-                meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS, org.bukkit.inventory.ItemFlag.HIDE_UNBREAKABLE, org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES);
-                trident.setItemMeta(meta);
-            }
-            player.getInventory().setItem(1, trident);
-        }
-
         Bukkit.getScheduler().runTaskTimer(Craftmen.get(), task -> {
             if (!player.isOnline()) {
                 task.cancel();
@@ -654,13 +653,6 @@ public final class SoulsManager implements Listener {
             world.setThundering(prevThundering);
             world.setWeatherDuration(prevDuration);
             world.setThunderDuration(prevThunderDuration);
-
-            // Restore slot 1 item
-            ItemStack restore = seaTridentRestore.remove(id);
-            if (player.isOnline()) {
-                player.getInventory().setItem(1, restore);
-                player.updateInventory();
-            }
         }, 20L * 20L);
         return true;
     }
@@ -767,6 +759,13 @@ public final class SoulsManager implements Listener {
                 key1 = "dk1";
                 key2 = "dk2";
             }
+            if (c == SoulCharacter.UNTAMED_BEAST) {
+                key1 = "beast1";
+                key2 = "beast2";
+            }
+            if (c == SoulCharacter.KING_OF_HEAT) {
+                key2 = "heat2";
+            }
 
             long baseRemaining = remaining(player, key1, BASE_COOLDOWN_MS, now);
             long slot2Remaining = (c == SoulCharacter.GOOP)
@@ -778,6 +777,10 @@ public final class SoulsManager implements Listener {
                     : (c == SoulCharacter.COPYCAT)
                     ? remaining(player, key2, BASE_COOLDOWN_MS, now)
                     : (c == SoulCharacter.DARK_KNIGHT)
+                    ? remaining(player, key2, BASE_COOLDOWN_MS, now)
+                    : (c == SoulCharacter.UNTAMED_BEAST)
+                    ? remaining(player, key2, BASE_COOLDOWN_MS, now)
+                    : (c == SoulCharacter.KING_OF_HEAT)
                     ? remaining(player, key2, BASE_COOLDOWN_MS, now)
                     : remaining(player, key2, SPECIAL_COOLDOWN_MS, now);
 
@@ -839,11 +842,14 @@ public final class SoulsManager implements Listener {
                     particle(player, Particle.SMOKE, 6, 0.45, 0.25, 0.45, 0.01);
                 }
                 case COPYCAT -> tickCopycatPassive(player);
-                case BLOODY_MONARCH -> {
-                    particle(player, Particle.DRIPPING_DRIPSTONE_LAVA, 4, 0.35, 0.25, 0.35, 0.0);
-                }
-                default -> {}
+            case BLOODY_MONARCH -> {
+                particle(player, Particle.DRIPPING_DRIPSTONE_LAVA, 4, 0.35, 0.25, 0.35, 0.0);
             }
+            case UNTAMED_BEAST -> {
+                particle(player, Particle.CRIT, 5, 0.35, 0.25, 0.35, 0.0);
+            }
+            default -> {}
+        }
         }
 
         // Restore Sorcerer reach for anyone no longer in Souls / not Sorcerer.
@@ -1051,7 +1057,172 @@ public final class SoulsManager implements Listener {
                 victim.addPotionEffect(new PotionEffect(PotionEffectType.BLINDNESS, 20 * 2, 0, true, false, false));
                 particleAt(victim.getLocation().clone().add(0, 1.0, 0), Particle.SMOKE, 10, 0.35, 0.35, 0.35, 0.02);
             }
+        } else if (c == SoulCharacter.UNTAMED_BEAST) {
+            // Passive: 10% more damage at <= 2 hearts (20% hp).
+            double threshold = damager.getMaxHealth() * 0.20;
+            if (damager.getHealth() <= threshold) {
+                // Can't change final damage here (MONITOR), but apply a small extra hit.
+                victim.setNoDamageTicks(0);
+                victim.damage(Math.max(0.1, e.getFinalDamage() * 0.10), damager);
+            }
         }
+
+        // Untamed Beast [2]: punch releases the duel.
+        UUID casterId = damager.getUniqueId();
+        UUID targetId = beastDuelTarget.get(casterId);
+        if (targetId != null && targetId.equals(victim.getUniqueId())) {
+            beastDuelTarget.remove(casterId);
+            unfreeze(damager);
+            unfreeze(victim);
+
+            Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+                if (!damager.isOnline() || !victim.isOnline()) return;
+                if (!isInSouls(damager) || !isInSouls(victim)) return;
+                if (!sameContext(damager, victim)) return;
+
+                Vector v = damager.getLocation().getDirection().normalize().multiply(2.2);
+                v.setY(Math.max(0.35, v.getY()));
+                victim.setVelocity(v);
+
+                new org.bukkit.scheduler.BukkitRunnable() {
+                    int ticks = 0;
+
+                    @Override
+                    public void run() {
+                        if (!victim.isOnline() || !isInSouls(victim)) {
+                            cancel();
+                            return;
+                        }
+                        ticks++;
+                        if (ticks > 45) {
+                            cancel();
+                            return;
+                        }
+                        if (!victim.getLocation().getBlock().isPassable()) {
+                            Location boom = victim.getLocation().clone();
+                            boom.getWorld().createExplosion(boom, 2.4f, false, true, damager);
+                            cancel();
+                        }
+                    }
+                }.runTaskTimer(Craftmen.get(), 1L, 1L);
+            }, 10L);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onBeastDamageBoost(org.bukkit.event.entity.EntityDamageByEntityEvent e) {
+        if (!(e.getDamager() instanceof Player damager)) return;
+        if (!(e.getEntity() instanceof Player victim)) return;
+        if (!isInSouls(damager) || !isInSouls(victim)) return;
+        if (!sameContext(damager, victim)) return;
+        if (getSelected(damager) != SoulCharacter.UNTAMED_BEAST) return;
+
+        double threshold = damager.getMaxHealth() * 0.20;
+        if (damager.getHealth() <= threshold) {
+            e.setDamage(e.getDamage() * 1.10);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onRailgunDeathBoom(EntityDamageEvent e) {
+        if (!(e.getEntity() instanceof Player player)) return;
+        if (!isInSouls(player)) return;
+        if (getSelected(player) != SoulCharacter.RAILGUN) return;
+        if (!sameContext(player, player)) return;
+
+        double finalHp = player.getHealth() - e.getFinalDamage();
+        if (finalHp > 0) return;
+
+        long now = System.currentTimeMillis();
+        long last = railgunDeathBoomAt.getOrDefault(player.getUniqueId(), 0L);
+        if (now - last < 1500L) return;
+        railgunDeathBoomAt.put(player.getUniqueId(), now);
+
+        Location loc = player.getLocation().clone();
+        loc.getWorld().createExplosion(loc, 2.8f, false, true, player);
+    }
+
+    private boolean beastDisarm(Player caster) {
+        Player target = findNearestEnemy(caster, 10.0);
+        if (target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return false;
+        }
+
+        UUID tid = target.getUniqueId();
+        if (!beastDisarmRestore.containsKey(tid)) {
+            beastDisarmRestore.put(tid, target.getInventory().getStorageContents());
+        }
+
+        ItemStack[] contents = target.getInventory().getStorageContents();
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack it = contents[i];
+            if (it == null) continue;
+            if (SoulsItems.isShardOfSoul(it)) continue;
+            Material m = it.getType();
+            Material repl = disarmToWood(m);
+            if (repl == null) continue;
+            contents[i] = new ItemStack(repl, it.getAmount());
+        }
+        target.getInventory().setStorageContents(contents);
+        target.updateInventory();
+
+        caster.playSound(caster.getLocation(), Sound.ENTITY_ZOGLIN_ANGRY, 0.9f, 1.3f);
+        target.playSound(target.getLocation(), Sound.ENTITY_ZOGLIN_ANGRY, 0.9f, 1.0f);
+
+        Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+            if (!target.isOnline()) return;
+            ItemStack[] restore = beastDisarmRestore.remove(tid);
+            if (restore != null) {
+                target.getInventory().setStorageContents(restore);
+                target.updateInventory();
+            }
+        }, 20L * 2L);
+
+        return true;
+    }
+
+    private static Material disarmToWood(Material m) {
+        if (m == null) return null;
+        String n = m.name();
+        if (n.endsWith("_SWORD")) return Material.WOODEN_SWORD;
+        if (n.endsWith("_AXE")) return Material.WOODEN_AXE;
+        if (n.endsWith("_PICKAXE")) return Material.WOODEN_PICKAXE;
+        if (n.endsWith("_SHOVEL")) return Material.WOODEN_SHOVEL;
+        if (n.endsWith("_HOE")) return Material.WOODEN_HOE;
+        if ("MACE".equals(n)) return Material.WOODEN_AXE;
+        if ("TRIDENT".equals(n)) return Material.WOODEN_SWORD;
+        if ("BOW".equals(n) || "CROSSBOW".equals(n)) return Material.BOW;
+        return null;
+    }
+
+    private boolean beastDuel(Player caster) {
+        Player target = findNearestEnemy(caster, 10.0);
+        if (target == null) {
+            caster.playSound(caster.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+            caster.sendMessage(ChatColor.RED + "No target in range.");
+            return false;
+        }
+
+        Location upC = caster.getLocation().clone().add(0, 10.0, 0);
+        Location upT = target.getLocation().clone().add(0, 10.0, 0);
+        caster.teleport(upC);
+        target.teleport(upT);
+
+        freeze(caster, 10_000L);
+        freeze(target, 10_000L);
+        beastDuelTarget.put(caster.getUniqueId(), target.getUniqueId());
+
+        caster.playSound(caster.getLocation(), Sound.ENTITY_RAVAGER_ROAR, 0.8f, 1.1f);
+        target.playSound(target.getLocation(), Sound.ENTITY_RAVAGER_ROAR, 0.8f, 1.0f);
+        return true;
+    }
+
+    private void unfreeze(Player p) {
+        if (p == null) return;
+        frozenUntil.remove(p.getUniqueId());
+        frozenFrom.remove(p.getUniqueId());
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -1061,8 +1232,8 @@ public final class SoulsManager implements Listener {
         Byte tagged = tnt.getPersistentDataContainer().get(railgunTntKey, org.bukkit.persistence.PersistentDataType.BYTE);
         if (tagged == null || tagged != (byte) 1) return;
 
-        // Nerf TNT damage from Railgun [1].
-        e.setDamage(e.getDamage() * 0.25);
+        // Railgun [1] TNT is visual (damage handled directly on cast).
+        e.setDamage(0.0);
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -1150,12 +1321,16 @@ public final class SoulsManager implements Listener {
         caster.playSound(caster.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.6f);
         particleAt(center.clone().add(0, 1.0, 0), Particle.SMOKE, 35, 1.2, 0.6, 1.2, 0.02);
 
+        // Deal only ~2 hearts total from the nuke (TNT is mostly visual).
+        target.setNoDamageTicks(0);
+        target.damage(4.0, caster);
+
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                 Location spawn = center.clone().add(dx + 0.5, 8.0, dz + 0.5);
                 TNTPrimed tnt = world.spawn(spawn, TNTPrimed.class, ent -> {
                     ent.setFuseTicks(35 + rng.nextInt(10));
-                    ent.setYield(1.5f);
+                    ent.setYield(0.0f);
                     ent.setIsIncendiary(false);
                     ent.setSource(caster);
                     ent.getPersistentDataContainer().set(railgunTntKey, org.bukkit.persistence.PersistentDataType.BYTE, (byte) 1);
@@ -1176,32 +1351,31 @@ public final class SoulsManager implements Listener {
             return false;
         }
 
-        Location lock = target.getLocation().clone();
-        World world = lock.getWorld();
-        if (world == null) return false;
+        // Orbital strike cannon: straight line down at aim point to carve a deep hole.
+        World world = caster.getWorld();
+        Location start = caster.getEyeLocation();
+        Vector dir = start.getDirection().normalize();
+        RayTraceResult hit = world.rayTraceBlocks(start, dir, 35.0, FluidCollisionMode.NEVER, true);
+
+        Location impact = (hit != null && hit.getHitPosition() != null)
+                ? new Location(world, hit.getHitPosition().getX(), hit.getHitPosition().getY(), hit.getHitPosition().getZ())
+                : target.getLocation().clone();
+
+        double ix = impact.getX();
+        double iz = impact.getZ();
+        int topY = Math.min(world.getMaxHeight() - 2, impact.getBlockY() + 18);
+        int bottomY = Math.max(world.getMinHeight() + 1, impact.getBlockY() - 28);
 
         caster.playSound(caster.getLocation(), Sound.BLOCK_BEACON_ACTIVATE, 0.7f, 1.6f);
-        for (int i = 0; i < 6; i++) {
-            int delay = i * 4;
-            Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
-                if (!caster.isOnline() || !target.isOnline()) return;
-                if (!isInSouls(caster) || !isInSouls(target)) return;
-                if (!sameContext(caster, target)) return;
-
-                Location cur = target.getLocation().clone();
-                Location from = cur.clone().add(0, 12.0, 0);
-                Vector dir = cur.toVector().subtract(from.toVector()).normalize();
-
-                for (int step = 0; step <= 12; step++) {
-                    Location p = from.clone().add(dir.clone().multiply(step));
-                    world.spawnParticle(Particle.END_ROD, p, 1, 0, 0, 0, 0);
-                }
-
-                target.setNoDamageTicks(0);
-                target.damage(3.0, caster);
-                world.playSound(cur, Sound.ITEM_TRIDENT_THUNDER, 0.4f, 1.6f);
-            }, delay);
+        for (int y = topY; y >= bottomY; y -= 2) {
+            Location ex = new Location(world, ix, y, iz);
+            world.spawnParticle(Particle.END_ROD, ex, 4, 0.1, 0.1, 0.1, 0.0);
+            world.createExplosion(ex, 2.2f, false, true, caster);
         }
+
+        // Damage: 5 hearts.
+        target.setNoDamageTicks(0);
+        target.damage(10.0, caster);
 
         return true;
     }

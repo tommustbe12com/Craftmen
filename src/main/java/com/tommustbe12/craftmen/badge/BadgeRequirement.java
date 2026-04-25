@@ -5,7 +5,7 @@ import com.tommustbe12.craftmen.profile.Profile;
 
 import java.util.*;
 
-final class BadgeRequirement {
+public final class BadgeRequirement {
 
     enum Op { EQ, GT, GTE, LT, LTE }
 
@@ -17,7 +17,7 @@ final class BadgeRequirement {
         this.clauses = clauses;
     }
 
-    static Optional<BadgeRequirement> parse(String raw) {
+    public static Optional<BadgeRequirement> parse(String raw) {
         if (raw == null) return Optional.empty();
         String s = raw.trim();
         if (s.isEmpty()) return Optional.empty();
@@ -84,7 +84,7 @@ final class BadgeRequirement {
         return clauses;
     }
 
-    boolean matches(Profile profile) {
+    public boolean matches(Profile profile) {
         for (Clause c : clauses) {
             int actual = resolve(profile, c.key);
             if (!compare(actual, c.op, c.value)) return false;

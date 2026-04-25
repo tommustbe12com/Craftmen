@@ -75,25 +75,37 @@ public final class BadgeDisplay {
 
     private void applyTeamPrefix(Player player, String badgePrefix) {
         // Nametag visibility is based on the VIEWER's scoreboard, not the target player's scoreboard.
-        // Inject into whatever team other plugins already assigned the target to, for every online viewer.
+        // Do NOT inject into shared rank teams: prefix is shared across all entries and will fight/stack.
+        // Instead, create a per-target team per viewer and copy the rank prefix/suffix from the main scoreboard.
+
+        Team mainRankTeam = null;
+        var mgr = Bukkit.getScoreboardManager();
+        if (mgr != null) {
+            mainRankTeam = mgr.getMainScoreboard().getEntryTeam(player.getName());
+        }
+        String rankPrefix = mainRankTeam == null ? "" : (mainRankTeam.getPrefix() == null ? "" : mainRankTeam.getPrefix());
+        String rankSuffix = mainRankTeam == null ? "" : (mainRankTeam.getSuffix() == null ? "" : mainRankTeam.getSuffix());
         for (Player viewer : Bukkit.getOnlinePlayers()) {
             var board = viewer.getScoreboard();
             if (board == null) continue;
 
-            Team team = board.getEntryTeam(player.getName());
-            if (team == null) continue;
+            String teamName = ("cm_badge_" + player.getUniqueId().toString().replace("-", "")).substring(0, 23);
+            Team team = board.getTeam(teamName);
+            if (team == null) team = board.registerNewTeam(teamName);
 
-            String key = viewer.getUniqueId() + "|" + player.getUniqueId();
-            String injected = lastInjectedTeamPrefix.getOrDefault(key, "");
+            String nextPrefix = badgePrefix + rankPrefix;
+            if (!nextPrefix.equals(team.getPrefix())) team.setPrefix(nextPrefix);
+            if (!rankSuffix.equals(team.getSuffix())) team.setSuffix(rankSuffix);
 
-            String currentPrefix = team.getPrefix();
-            String basePrefix = stripLeading(currentPrefix, injected);
-            String nextPrefix = badgePrefix + basePrefix;
-
-            if (!nextPrefix.equals(currentPrefix)) {
-                team.setPrefix(nextPrefix);
+            if (mainRankTeam != null) {
+                team.setColor(mainRankTeam.getColor());
+                team.setCanSeeFriendlyInvisibles(mainRankTeam.canSeeFriendlyInvisibles());
+                team.setAllowFriendlyFire(mainRankTeam.allowFriendlyFire());
             }
 
+            if (!team.hasEntry(player.getName())) team.addEntry(player.getName());
+
+            String key = viewer.getUniqueId() + "|" + player.getUniqueId();
             lastInjectedTeamPrefix.put(key, badgePrefix);
         }
     }
