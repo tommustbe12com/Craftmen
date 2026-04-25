@@ -191,6 +191,8 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new SnowballHitListener(), this);
         getServer().getPluginManager().registerEvents(new SpawnProtectionListener(), this);
         getServer().getPluginManager().registerEvents(new HubInventoryLockListener(), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.craftmen.hub.HubSafetyListener(), this);
+        getServer().getPluginManager().registerEvents(new com.tommustbe12.craftmen.listener.WarpedSignGemsListener(), this);
         getServer().getPluginManager().registerEvents(buildAllowManager, this);
         getServer().getPluginManager().registerEvents(kitEditorMenu, this);
         getServer().getPluginManager().registerEvents(new KitEditorShortcutListener(), this);
