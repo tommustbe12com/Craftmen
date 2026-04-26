@@ -67,6 +67,7 @@ public final class SoulsManager implements Listener {
 
     private final Map<UUID, Long> frozenUntil = new HashMap<>();
     private final Map<UUID, Location> frozenFrom = new HashMap<>();
+    private final Map<UUID, Boolean> frozenLockLook = new HashMap<>();
 
     private final Map<UUID, Double> originalMaxHealth = new HashMap<>();
     private final Map<UUID, Long> specialWeatherUntil = new HashMap<>();
@@ -438,8 +439,12 @@ public final class SoulsManager implements Listener {
         Location to = e.getTo();
         if (to == null) return;
 
-        // lock x/z and cursor
-        e.setTo(new Location(from.getWorld(), from.getX(), to.getY(), from.getZ(), from.getYaw(), from.getPitch()));
+        boolean lockLook = frozenLockLook.getOrDefault(player.getUniqueId(), true);
+        float yaw = lockLook ? from.getYaw() : to.getYaw();
+        float pitch = lockLook ? from.getPitch() : to.getPitch();
+
+        // lock x/z (optionally lock look too)
+        e.setTo(new Location(from.getWorld(), from.getX(), to.getY(), from.getZ(), yaw, pitch));
     }
 
     @EventHandler
@@ -448,6 +453,7 @@ public final class SoulsManager implements Listener {
         cooldowns.keySet().removeIf(k -> k.startsWith(id + ":"));
         frozenUntil.remove(id);
         frozenFrom.remove(id);
+        frozenLockLook.remove(id);
         selectedCharacter.remove(id);
         originalMaxHealth.remove(id);
         specialWeatherUntil.remove(id);
@@ -659,14 +665,20 @@ public final class SoulsManager implements Listener {
     }
 
     private void freeze(Player target, long millis) {
+        freeze(target, millis, true);
+    }
+
+    private void freeze(Player target, long millis, boolean lockLook) {
         UUID id = target.getUniqueId();
         frozenUntil.put(id, System.currentTimeMillis() + millis);
         frozenFrom.put(id, target.getLocation().clone());
+        frozenLockLook.put(id, lockLook);
         Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
             long until = frozenUntil.getOrDefault(id, 0L);
             if (until <= System.currentTimeMillis()) {
                 frozenUntil.remove(id);
                 frozenFrom.remove(id);
+                frozenLockLook.remove(id);
             }
         }, Math.max(1L, millis / 50L));
     }
@@ -1255,8 +1267,9 @@ public final class SoulsManager implements Listener {
         caster.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 20 * 4, 0, true, false, false));
         target.addPotionEffect(new PotionEffect(PotionEffectType.SLOW_FALLING, 20 * 4, 0, true, false, false));
 
-        freeze(caster, 10_000L);
-        freeze(target, 10_000L);
+        // Lock movement but allow aiming/looking around (the slam direction comes from where you look).
+        freeze(caster, 10_000L, false);
+        freeze(target, 10_000L, false);
         beastDuelTarget.put(caster.getUniqueId(), target.getUniqueId());
 
         caster.playSound(caster.getLocation(), Sound.ENTITY_RAVAGER_ROAR, 0.8f, 1.1f);
@@ -1268,6 +1281,7 @@ public final class SoulsManager implements Listener {
         if (p == null) return;
         frozenUntil.remove(p.getUniqueId());
         frozenFrom.remove(p.getUniqueId());
+        frozenLockLook.remove(p.getUniqueId());
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -1984,8 +1998,9 @@ public final class SoulsManager implements Listener {
         var start = caster.getEyeLocation();
         Vector dir = start.getDirection().normalize();
 
-        // 2x2-ish (big) beam hitbox: do our own targeting to avoid ray-trace edge cases.
-        double beamRadius = mega ? 1.10 : 0.90;
+        // Generous beam hitbox: do our own targeting to avoid ray-trace edge cases.
+        // (Players complained this was "doing no damage" because it was too easy to miss.)
+        double beamRadius = mega ? 1.80 : 1.45;
         Player target = null;
         double bestT = range + 1.0;
 
@@ -1995,14 +2010,26 @@ public final class SoulsManager implements Listener {
             if (!isInSouls(p)) continue;
             if (!sameContext(caster, p)) continue;
 
-            Location aim = p.getLocation().clone().add(0, 1.0, 0);
-            Vector to = aim.toVector().subtract(start.toVector());
-            double t = to.dot(dir);
-            if (t < 0.0 || t > range) continue;
+            // Sample a few points on the target's body (feet->head) and keep the best.
+            double bestDistSq = Double.MAX_VALUE;
+            double bestSampleT = Double.NaN;
+            for (double yOff : new double[]{0.35, 1.0, 1.65}) {
+                Location aim = p.getLocation().clone().add(0, yOff, 0);
+                Vector to = aim.toVector().subtract(start.toVector());
+                double t = to.dot(dir);
+                if (t < 0.0 || t > range) continue;
 
-            Vector closest = start.toVector().add(dir.clone().multiply(t));
-            double distSq = aim.toVector().distanceSquared(closest);
-            if (distSq > (beamRadius * beamRadius)) continue;
+                Vector closest = start.toVector().add(dir.clone().multiply(t));
+                double distSq = aim.toVector().distanceSquared(closest);
+                if (distSq < bestDistSq) {
+                    bestDistSq = distSq;
+                    bestSampleT = t;
+                }
+            }
+
+            if (!(bestDistSq <= (beamRadius * beamRadius))) continue;
+            double t = bestSampleT;
+            if (Double.isNaN(t)) continue;
 
             if (t < bestT) {
                 bestT = t;

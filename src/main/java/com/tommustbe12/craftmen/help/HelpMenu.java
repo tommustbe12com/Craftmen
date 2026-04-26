@@ -145,13 +145,13 @@ public final class HelpMenu implements Listener {
         inv.setItem(17, item(Material.ARROW, "§eBack", List.of("§7Return to help")));
 
         // Ordered list
-        inv.setItem(9, head("TomMustBe12", "§6TomMustBe12", List.of("§7Owner / Developer")));
-        inv.setItem(10, head("BionicleBlaster", "§eBionicleBlaster", List.of("§7Manager")));
-        inv.setItem(11, head("Zembiii", "§dZembiii", List.of("§7Staff / Creative Team")));
-        inv.setItem(12, head("mecringe", "§dmecringe", List.of("§7Staff / Creative Team")));
-        inv.setItem(13, head("Warden_Charlie", "§dWarden_Charlie", List.of("§7Creative Team")));
-        inv.setItem(14, head("nytsom", "§bnytsom", List.of("§7Staff")));
-        inv.setItem(15, head("Rysterio", "§aRysterio", List.of("§7Map Builder")));
+        inv.setItem(9, head("TomMustBe12", "§6TomMustBe12", List.of("§7Main Dev")));
+        inv.setItem(10, head("nytsom", "§bnytsom", List.of("§7Dev")));
+        inv.setItem(11, head("BionicleBlaster", "§eBionicleBlaster", List.of("§7Manager")));
+        inv.setItem(12, head("Rysterio", "§aRysterio", List.of("§7Builder")));
+        inv.setItem(13, head("Zembiii", "§dZembiii", List.of("§7Staff / Creative Team")));
+        inv.setItem(14, head("mecringe", "§dmecringe", List.of("§7Staff / Creative Team")));
+        inv.setItem(15, head("Warden_Charlie", "§dWarden_Charlie", List.of("§7Creative Team")));
 
         inv.setItem(16, item(Material.PAPER, "§f§lNote",
                 List.of("§7Thank you to all beta testers!", "§8We appreciate you.")));

@@ -12,7 +12,6 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.concurrent.ThreadLocalRandom;
 
 public class BlockListener implements Listener {
 
@@ -55,9 +54,15 @@ public class BlockListener implements Listener {
         e.setDropItems(false);
         e.setExpToDrop(0);
 
-        if (ThreadLocalRandom.current().nextDouble() < 0.10) {
-            // 10% chance to refund 4 snowballs (no item drop entities).
-            player.getInventory().addItem(new ItemStack(Material.SNOWBALL, 4));
+        // 20% chance (1 in 5) to refund 4 snowballs when breaking a snow block in Spleef.
+        if (type == Material.SNOW_BLOCK) {
+            int roll = java.util.concurrent.ThreadLocalRandom.current().nextInt(1, 6); // 1-5
+            if (roll == 1) {
+                var leftovers = player.getInventory().addItem(new ItemStack(Material.SNOWBALL, 4));
+                for (ItemStack left : leftovers.values()) {
+                    player.getWorld().dropItemNaturally(player.getLocation(), left);
+                }
+            }
         }
     }
 
