@@ -42,6 +42,10 @@ public class Match {
         p2.setGameMode(GameMode.SURVIVAL);
 
         World world = Bukkit.getWorld("world");
+        if (world == null) {
+            abortStart("World not loaded");
+            return;
+        }
         int width = Craftmen.get().getArenaManager().getSchematicWidth(arena.getCategory(), arena.getName());
         int length = Craftmen.get().getArenaManager().getSchematicLength(arena.getCategory(), arena.getName());
         Random rand = new Random();
@@ -79,40 +83,62 @@ public class Match {
         int height = Craftmen.get().getArenaManager()
                 .getSchematicHeight(arena.getCategory(), arena.getName());
 
-        // Wait 2 ticks to ensure paste is finished
-        Location finalPasteLoc = pasteLoc;
-        Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+        // Ensure chunk is loaded where the arena is pasted/players are teleported.
+        pasteLoc.getChunk().load(true);
 
-            java.util.List<Location> spawns = findIronSpawns(world);
+        // Wait and retry briefly to ensure paste is finished (WorldEdit can be async).
+        Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> new BukkitRunnable() {
+            int tries = 0;
 
-            if (spawns.size() != 2) {
-                Bukkit.getLogger().severe("Arena must contain exactly 2 IRON_BLOCK spawn markers! found: " + spawns.size());
-
-                if (pasteMinLocation != null && pasteMaxLocation != null) {
-                    Craftmen.get().getArenaManager().removeArenaAtLocation(
-                            arena.getName(),
-                            pasteMinLocation,
-                            pasteMaxLocation
-                    );
+            @Override
+            public void run() {
+                if (ended) {
+                    cancel();
+                    return;
                 }
-                return;
+
+                tries++;
+                java.util.List<Location> spawns = findIronSpawns(world);
+
+                if (spawns.size() != 2) {
+                    if (tries < 20) return; // up to ~1s of retries
+                    Bukkit.getLogger().severe("Arena must contain exactly 2 IRON_BLOCK spawn markers! found: " + spawns.size());
+                    abortStart("Bad arena spawn markers");
+                    cancel();
+                    return;
+                }
+
+                // initial teleport to spawn locs (can be cancelled if chunk isn't ready)
+                spawns.get(0).getChunk().load(true);
+                spawns.get(1).getChunk().load(true);
+
+                boolean t1 = p1.isOnline() && p1.teleport(spawns.get(0));
+                boolean t2 = p2.isOnline() && p2.teleport(spawns.get(1));
+                if (!t1 || !t2) {
+                    abortStart("Teleport failed");
+                    cancel();
+                    return;
+                }
+
+                // direction
+                p2.teleport(p2.getLocation().setDirection(p1.getLocation().toVector().subtract(p2.getLocation().toVector())));
+                p1.teleport(p1.getLocation().setDirection(p2.getLocation().toVector().subtract(p1.getLocation().toVector())));
+
+                // freeze players
+                Craftmen.get().getProfileManager().getProfile(p1).setState(PlayerState.COUNTDOWN);
+                Craftmen.get().getProfileManager().getProfile(p2).setState(PlayerState.COUNTDOWN);
+
+                game.startCountdown(Match.this);
+                cancel();
             }
+        }.runTaskTimer(Craftmen.get(), 1L, 1L), 5L);
+    }
 
-            // initial teleport to spawn locs
-            p1.teleport(spawns.get(0));
-            p2.teleport(spawns.get(1));
-
-            // direction
-            p2.teleport(p2.getLocation().setDirection(p1.getLocation().toVector().subtract(p2.getLocation().toVector())));
-            p1.teleport(p1.getLocation().setDirection(p2.getLocation().toVector().subtract(p1.getLocation().toVector())));
-
-            // freeze players
-            Craftmen.get().getProfileManager().getProfile(p1).setState(PlayerState.COUNTDOWN);
-            Craftmen.get().getProfileManager().getProfile(p2).setState(PlayerState.COUNTDOWN);
-
-            game.startCountdown(this);
-
-        }, 2L);
+    private void abortStart(String reason) {
+        if (pasteMinLocation != null && pasteMaxLocation != null) {
+            Craftmen.get().getArenaManager().removeArenaAtLocation(arena.getName(), pasteMinLocation, pasteMaxLocation);
+        }
+        Craftmen.get().getMatchManager().abortMatch(this, reason);
     }
 
     public void end(Player winner) {

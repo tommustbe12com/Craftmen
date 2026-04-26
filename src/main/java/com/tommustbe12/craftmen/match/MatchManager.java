@@ -17,6 +17,7 @@ public class MatchManager {
     private final List<Match> matches = new ArrayList<>();
 
     public void startMatch(Match match) {
+        if (match == null) return;
         // Prevent stale duel requests from being accepted mid-match.
         Craftmen.get().getQueueManager().cancelDuelRequestsFor(match.getP1());
         Craftmen.get().getQueueManager().cancelDuelRequestsFor(match.getP2());
@@ -27,6 +28,27 @@ public class MatchManager {
 
         preparePlayer(match.getP1());
         preparePlayer(match.getP2());
+    }
+
+    public void abortMatch(Match match, String reason) {
+        if (match == null) return;
+        matches.remove(match);
+
+        Player p1 = match.getP1();
+        Player p2 = match.getP2();
+
+        if (p1 != null && p1.isOnline()) {
+            var prof = Craftmen.get().getProfileManager().getProfile(p1);
+            if (prof != null) prof.setState(com.tommustbe12.craftmen.profile.PlayerState.LOBBY);
+            com.tommustbe12.craftmen.player.PlayerReset.resetToHub(p1);
+            if (reason != null && !reason.isBlank()) p1.sendMessage("§cMatch failed to start: " + reason);
+        }
+        if (p2 != null && p2.isOnline()) {
+            var prof = Craftmen.get().getProfileManager().getProfile(p2);
+            if (prof != null) prof.setState(com.tommustbe12.craftmen.profile.PlayerState.LOBBY);
+            com.tommustbe12.craftmen.player.PlayerReset.resetToHub(p2);
+            if (reason != null && !reason.isBlank()) p2.sendMessage("§cMatch failed to start: " + reason);
+        }
     }
 
     public void startDuel(Player p1, Player p2, Game game) {
