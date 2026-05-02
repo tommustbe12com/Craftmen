@@ -11,6 +11,7 @@ import com.sk89q.worldedit.function.operation.Operations;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.session.ClipboardHolder;
 import com.tommustbe12.craftmen.Craftmen;
+import com.tommustbe12.craftmen.arena.ArenaManager;
 import com.tommustbe12.craftmen.player.PlayerReset;
 import com.tommustbe12.craftmen.profile.PlayerState;
 import com.tommustbe12.craftmen.profile.Profile;
@@ -35,6 +36,11 @@ public class HideSeekManager {
     private static final long PRE_START_WAIT_TICKS = 30L * 20L;
     private static final long HIDERS_HIDE_TICKS = 20L * 20L;
     private static final long TAUNT_COOLDOWN_MILLIS = 10_000L;
+    // Reserved paste region in the main world (kept far from other arenas).
+    private static final int BASE_PASTE_X = 10000;
+    private static final int BASE_PASTE_Y = 80;
+    private static final int BASE_PASTE_Z = 10000;
+    private static final int INSTANCE_SPACING = 600; // blocks between pastes (X axis)
 
     private final JavaPlugin plugin;
 
@@ -56,6 +62,10 @@ public class HideSeekManager {
     private World world;
     private Location spawn;
     private int worldId = 0;
+    private Location pasteOrigin;
+    private int pastedWidth;
+    private int pastedHeight;
+    private int pastedLength;
 
     private BukkitRunnable startTask;
 
@@ -177,21 +187,12 @@ public class HideSeekManager {
         running = true;
 
         worldId++;
-        String worldName = "hideseek_" + worldId;
-
-        WorldCreator wc = new WorldCreator(worldName);
-        wc.environment(World.Environment.NORMAL);
-        wc.type(WorldType.NORMAL);
-
-        world = Bukkit.createWorld(wc);
+        world = Craftmen.get().getHubLocation() != null ? Craftmen.get().getHubLocation().getWorld() : Bukkit.getWorld("world");
         if (world == null) {
-            broadcastToQueued(ChatColor.RED + "Failed to create Hide & Seek world.");
+            broadcastToQueued(ChatColor.RED + "Main world not loaded; can't start Hide & Seek.");
             endGame();
             return;
         }
-
-        world.setGameRule(GameRule.DO_DAYLIGHT_CYCLE, false);
-        world.setTime(6000);
 
         File schematic = pickRandomSchematic();
         if (schematic == null) {
@@ -200,7 +201,16 @@ public class HideSeekManager {
             return;
         }
 
-        PasteResult paste = pasteSchematic(world, schematic, new Location(world, 0.5, 100, 0.5));
+        // Clean previous paste (if any) before reusing the area.
+        cleanupPastedArena();
+
+        Location origin = new Location(world,
+                BASE_PASTE_X + (worldId * INSTANCE_SPACING),
+                BASE_PASTE_Y,
+                BASE_PASTE_Z
+        );
+
+        PasteResult paste = pasteSchematic(world, schematic, origin);
         if (paste == null) {
             broadcastToQueued(ChatColor.RED + "Failed to load Hide & Seek map.");
             endGame();
@@ -208,6 +218,10 @@ public class HideSeekManager {
         }
 
         spawn = paste.spawn != null ? paste.spawn : paste.origin.clone().add(0, 1, 0);
+        pasteOrigin = paste.origin;
+        pastedWidth = paste.width;
+        pastedHeight = paste.height;
+        pastedLength = paste.length;
 
         setupNameTagHiding();
 
@@ -443,33 +457,24 @@ public class HideSeekManager {
         hideScoreboard = null;
         hiddenNameTeam = null;
 
-        if (world != null) {
-            String name = world.getName();
-            Bukkit.unloadWorld(world, false);
-            world = null;
-            spawn = null;
-
-            // Delete world folder later (avoid file locks).
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    File folder = new File(Bukkit.getWorldContainer(), name);
-                    if (name.startsWith("hideseek_")) deleteWorld(folder);
-                }
-            }.runTaskLater(plugin, 100L);
-        }
+        cleanupPastedArena();
+        world = null;
+        spawn = null;
     }
 
-    private void deleteWorld(File file) {
-        if (file == null || !file.exists()) return;
-        if (file.isDirectory()) {
-            File[] contents = file.listFiles();
-            if (contents != null) {
-                for (File f : contents) deleteWorld(f);
-            }
+    private void cleanupPastedArena() {
+        if (pasteOrigin == null || world == null) return;
+        if (pastedWidth <= 0 || pastedHeight <= 0 || pastedLength <= 0) return;
+
+        Location min = pasteOrigin.clone();
+        Location max = pasteOrigin.clone().add(pastedWidth, pastedHeight, pastedLength);
+        ArenaManager arenaManager = Craftmen.get().getArenaManager();
+        if (arenaManager != null) {
+            arenaManager.removeArenaAtLocation("HideSeek", min, max);
         }
-        //noinspection ResultOfMethodCallIgnored
-        file.delete();
+
+        pasteOrigin = null;
+        pastedWidth = pastedHeight = pastedLength = 0;
     }
 
     private void broadcastToAll(String msg) {
