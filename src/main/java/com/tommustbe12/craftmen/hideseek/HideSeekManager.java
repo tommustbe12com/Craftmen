@@ -41,6 +41,10 @@ public class HideSeekManager {
     private static final int BASE_PASTE_Y = 80;
     private static final int BASE_PASTE_Z = 10000;
     private static final int INSTANCE_SPACING = 600; // blocks between pastes (X axis)
+    // Hardcoded spawn for the Hide & Seek spaceship map (absolute world coords).
+    private static final double SPAWN_X = 10067.5;
+    private static final double SPAWN_Y = 58.0;
+    private static final double SPAWN_Z = 9908.5;
 
     private final JavaPlugin plugin;
 
@@ -493,7 +497,8 @@ public class HideSeekManager {
         PasteResult paste = pasteSchematic(world, schematic, origin);
         if (paste == null) return;
 
-        spawn = paste.spawn != null ? paste.spawn : paste.origin.clone().add(0, 1, 0);
+        // Spawn is a fixed point relative to this map; don't rely on marker blocks.
+        spawn = new Location(world, SPAWN_X, SPAWN_Y, SPAWN_Z);
         pasteOrigin = paste.origin;
         // Use the true bounding box for cleanup.
         if (paste.min != null && paste.max != null) {
@@ -635,9 +640,8 @@ public class HideSeekManager {
                     regMax.getZ() - regMin.getZ()
             );
 
-            // Find an iron block spawn inside pasted bounds.
-            Location iron = findFirstBlockInBox(world, min, max, Material.IRON_BLOCK);
-            Location spawn = iron == null ? null : iron.clone().add(0.5, 1.0, 0.5);
+            // Spawn is hardcoded elsewhere; we still compute bounds for cleanup.
+            Location spawn = null;
 
             return new PasteResult(origin, width, height, length, spawn, min, max);
         } catch (Exception e) {
