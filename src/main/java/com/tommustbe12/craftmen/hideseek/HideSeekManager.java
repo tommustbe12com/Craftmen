@@ -44,7 +44,7 @@ public class HideSeekManager {
     // Hardcoded spawn for the Hide & Seek spaceship map (absolute world coords).
     private static final double SPAWN_X = 10067.5;
     private static final double SPAWN_Y = 58.0;
-    private static final double SPAWN_Z = 9908.5;
+    private static final double SPAWN_Z = 9909.5;
 
     private final JavaPlugin plugin;
 
