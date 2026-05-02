@@ -50,6 +50,16 @@ public class PlayerListener implements Listener {
             Craftmen.get().getHubManager().giveHubItems(player);
             Craftmen.get().getScoreboardManager().update(player);
         }, 3L);
+
+        // Force a no-op health metadata refresh so below-name health objectives don't stick at 0 until first damage.
+        Bukkit.getScheduler().runTaskLater(Craftmen.get(), () -> {
+            if (!player.isOnline()) return;
+            double hp = player.getHealth();
+            double max = player.getMaxHealth();
+            // Re-apply same health value (no damage) to trigger client-side health update packets.
+            player.setHealth(Math.min(hp, max));
+            player.setAbsorptionAmount(player.getAbsorptionAmount());
+        }, 5L);
     }
 
     private void validateSelectedBadge(Profile profile) {
