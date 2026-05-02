@@ -66,6 +66,7 @@ public class HideSeekManager {
     private int pastedWidth;
     private int pastedHeight;
     private int pastedLength;
+    private boolean arenaLoaded = false;
 
     private BukkitRunnable startTask;
 
@@ -109,6 +110,12 @@ public class HideSeekManager {
             return;
         }
 
+        ensureArenaLoaded();
+        if (spawn != null) {
+            prepareForQueue(player);
+            player.teleport(spawn);
+        }
+
         UUID id = player.getUniqueId();
         if (queuedPlayers.contains(id)) {
             player.sendMessage(ChatColor.RED + "You are already queued for Hide & Seek.");
@@ -124,6 +131,18 @@ public class HideSeekManager {
         } else if (queuedPlayers.size() < 2) {
             player.sendMessage(ChatColor.GRAY + "Need at least 2 players to start.");
         }
+    }
+
+    private void prepareForQueue(Player player) {
+        if (player == null) return;
+        player.getInventory().clear();
+        player.setHealth(20.0);
+        player.setFoodLevel(20);
+        player.setSaturation(20.0f);
+        player.setGameMode(GameMode.ADVENTURE);
+        player.setAllowFlight(false);
+        player.setFlying(false);
+        player.getActivePotionEffects().forEach(pe -> player.removePotionEffect(pe.getType()));
     }
 
     public void remove(Player player, boolean forfeit) {
@@ -150,13 +169,17 @@ public class HideSeekManager {
 
         if (!running && starting && queuedPlayers.size() < 2) {
             cancelPreStartCountdown();
+            // If no one is queued anymore, clear the waiting arena paste.
+            if (queuedPlayers.isEmpty()) {
+                cleanupPastedArena();
+            }
         }
     }
 
     private void beginPreStartCountdown() {
         starting = true;
-        broadcastToAll(ChatColor.LIGHT_PURPLE + "" + ChatColor.BOLD + "Hide & Seek match starting soon!");
-        broadcastToAll(ChatColor.GRAY + "Join now from the queue menu to participate.");
+        broadcastToAll(ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "Hide & Seek match starting soon!");
+        broadcastToAll(ChatColor.GRAY + "Join now from the Mini Games menu to participate.");
 
         startTask = new BukkitRunnable() {
             @Override
@@ -187,41 +210,12 @@ public class HideSeekManager {
         running = true;
 
         worldId++;
-        world = Craftmen.get().getHubLocation() != null ? Craftmen.get().getHubLocation().getWorld() : Bukkit.getWorld("world");
-        if (world == null) {
-            broadcastToQueued(ChatColor.RED + "Main world not loaded; can't start Hide & Seek.");
+        ensureArenaLoaded();
+        if (world == null || spawn == null) {
+            broadcastToQueued(ChatColor.RED + "Hide & Seek map failed to load.");
             endGame();
             return;
         }
-
-        File schematic = pickRandomSchematic();
-        if (schematic == null) {
-            broadcastToQueued(ChatColor.RED + "No Hide & Seek map found in arenas/hideSeek/.");
-            endGame();
-            return;
-        }
-
-        // Clean previous paste (if any) before reusing the area.
-        cleanupPastedArena();
-
-        Location origin = new Location(world,
-                BASE_PASTE_X + (worldId * INSTANCE_SPACING),
-                BASE_PASTE_Y,
-                BASE_PASTE_Z
-        );
-
-        PasteResult paste = pasteSchematic(world, schematic, origin);
-        if (paste == null) {
-            broadcastToQueued(ChatColor.RED + "Failed to load Hide & Seek map.");
-            endGame();
-            return;
-        }
-
-        spawn = paste.spawn != null ? paste.spawn : paste.origin.clone().add(0, 1, 0);
-        pasteOrigin = paste.origin;
-        pastedWidth = paste.width;
-        pastedHeight = paste.height;
-        pastedLength = paste.length;
 
         setupNameTagHiding();
 
@@ -283,10 +277,12 @@ public class HideSeekManager {
         // Hide nametags for hiders from everyone (including seeker/spectators).
         applyHiddenNametags();
 
+        final UUID seekerIdSnapshot = seeker;
         new BukkitRunnable() {
             @Override
             public void run() {
-                Player seekerP = Bukkit.getPlayer(seeker);
+                if (seekerIdSnapshot == null) return;
+                Player seekerP = Bukkit.getPlayer(seekerIdSnapshot);
                 if (seekerP != null) {
                     seekerP.removePotionEffect(PotionEffectType.BLINDNESS);
                     seekerP.sendTitle(ChatColor.RED + "READY OR NOT", ChatColor.YELLOW + "HERE I COME!", 0, 60, 10);
@@ -408,18 +404,17 @@ public class HideSeekManager {
         }
         lastTauntMillis.put(id, now);
 
+        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 40, 0, false, false, true));
+
         Player seekerP = seeker == null ? null : Bukkit.getPlayer(seeker);
         if (seekerP != null) {
-            Location l = player.getLocation();
-            int x = l.getBlockX();
-            int z = l.getBlockZ();
-            seekerP.sendMessage(ChatColor.LIGHT_PURPLE + "Taunt: " + ChatColor.YELLOW + player.getName()
-                    + ChatColor.GRAY + " is near " + ChatColor.AQUA + x + ChatColor.GRAY + ", " + ChatColor.AQUA + z);
+            seekerP.sendMessage(ChatColor.LIGHT_PURPLE + "Taunt! " + ChatColor.YELLOW + player.getName()
+                    + ChatColor.GRAY + " revealed themselves.");
             seekerP.playSound(seekerP.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.5f);
         }
 
-        player.sendMessage(ChatColor.LIGHT_PURPLE + "You taunted the seeker.");
-        player.playSound(player.getLocation(), Sound.ENTITY_ALLAY_AMBIENT_WITH_ITEM, 1.0f, 1.2f);
+        player.sendMessage(ChatColor.LIGHT_PURPLE + "Taunted!");
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 1.0f, 1.3f);
     }
 
     public void endGame() {
@@ -475,6 +470,44 @@ public class HideSeekManager {
 
         pasteOrigin = null;
         pastedWidth = pastedHeight = pastedLength = 0;
+        arenaLoaded = false;
+    }
+
+    private void ensureArenaLoaded() {
+        if (arenaLoaded && world != null && spawn != null) return;
+
+        world = Craftmen.get().getHubLocation() != null ? Craftmen.get().getHubLocation().getWorld() : Bukkit.getWorld("world");
+        if (world == null) return;
+
+        File schematic = pickRandomSchematic();
+        if (schematic == null) return;
+
+        cleanupPastedArena();
+
+        Location origin = new Location(world,
+                BASE_PASTE_X + (worldId * INSTANCE_SPACING),
+                BASE_PASTE_Y,
+                BASE_PASTE_Z
+        );
+
+        PasteResult paste = pasteSchematic(world, schematic, origin);
+        if (paste == null) return;
+
+        spawn = paste.spawn != null ? paste.spawn : paste.origin.clone().add(0, 1, 0);
+        pasteOrigin = paste.origin;
+        // Use the true bounding box for cleanup.
+        if (paste.min != null && paste.max != null) {
+            // Store as origin + dimensions to reuse existing cleanup method.
+            pasteOrigin = paste.min;
+            pastedWidth = Math.abs(paste.max.getBlockX() - paste.min.getBlockX()) + 1;
+            pastedHeight = Math.abs(paste.max.getBlockY() - paste.min.getBlockY()) + 1;
+            pastedLength = Math.abs(paste.max.getBlockZ() - paste.min.getBlockZ()) + 1;
+        } else {
+            pastedWidth = paste.width;
+            pastedHeight = paste.height;
+            pastedLength = paste.length;
+        }
+        arenaLoaded = true;
     }
 
     private void broadcastToAll(String msg) {
@@ -553,13 +586,17 @@ public class HideSeekManager {
         final int height;
         final int length;
         final Location spawn;
+        final Location min;
+        final Location max;
 
-        PasteResult(Location origin, int width, int height, int length, Location spawn) {
+        PasteResult(Location origin, int width, int height, int length, Location spawn, Location min, Location max) {
             this.origin = origin;
             this.width = width;
             this.height = height;
             this.length = length;
             this.spawn = spawn;
+            this.min = min;
+            this.max = max;
         }
     }
 
@@ -584,26 +621,43 @@ public class HideSeekManager {
             int height = clipboard.getDimensions().getY();
             int length = clipboard.getDimensions().getZ();
 
+            // Compute actual pasted bounding box using clipboard min/max points (handles negative offsets).
+            BlockVector3 minP = clipboard.getMinimumPoint();
+            BlockVector3 maxP = clipboard.getMaximumPoint();
+            int minX = origin.getBlockX() + minP.getX();
+            int minY = origin.getBlockY() + minP.getY();
+            int minZ = origin.getBlockZ() + minP.getZ();
+            int maxX = origin.getBlockX() + maxP.getX();
+            int maxY = origin.getBlockY() + maxP.getY();
+            int maxZ = origin.getBlockZ() + maxP.getZ();
+
+            Location min = new Location(world, Math.min(minX, maxX), Math.min(minY, maxY), Math.min(minZ, maxZ));
+            Location max = new Location(world, Math.max(minX, maxX), Math.max(minY, maxY), Math.max(minZ, maxZ));
+
             // Find an iron block spawn inside pasted bounds.
-            Location iron = findFirstBlock(world, origin, width, height, length, Material.IRON_BLOCK);
+            Location iron = findFirstBlockInBox(world, min, max, Material.IRON_BLOCK);
             Location spawn = iron == null ? null : iron.clone().add(0.5, 1.0, 0.5);
 
-            return new PasteResult(origin, width, height, length, spawn);
+            return new PasteResult(origin, width, height, length, spawn, min, max);
         } catch (Exception e) {
             plugin.getLogger().warning("HideSeek paste failed: " + e.getMessage());
             return null;
         }
     }
 
-    private Location findFirstBlock(World world, Location origin, int width, int height, int length, Material type) {
-        int ox = origin.getBlockX();
-        int oy = origin.getBlockY();
-        int oz = origin.getBlockZ();
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                for (int z = 0; z < length; z++) {
-                    if (world.getBlockAt(ox + x, oy + y, oz + z).getType() == type) {
-                        return new Location(world, ox + x, oy + y, oz + z);
+    private Location findFirstBlockInBox(World world, Location min, Location max, Material type) {
+        int minX = min.getBlockX();
+        int minY = min.getBlockY();
+        int minZ = min.getBlockZ();
+        int maxX = max.getBlockX();
+        int maxY = max.getBlockY();
+        int maxZ = max.getBlockZ();
+
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    if (world.getBlockAt(x, y, z).getType() == type) {
+                        return new Location(world, x, y, z);
                     }
                 }
             }

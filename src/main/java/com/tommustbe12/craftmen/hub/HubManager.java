@@ -34,6 +34,7 @@ public class HubManager implements Listener {
     private static final String GUI_PLAYER_KITS_NAME = ChatColor.AQUA + "Player Kits";
     private static final String GUI_FFA_NAME = ChatColor.RED + "FFA";
     private static final String GUI_MINI_GAMES_NAME = ChatColor.LIGHT_PURPLE + "Mini Games";
+    private static final String GUI_MINI_GAMES_TITLE = ChatColor.DARK_GRAY + "Mini Games";
 
     private static final String HUB_ITEM_GAME_SELECTOR = ChatColor.GOLD + "Game Selector";
     private static final String HUB_ITEM_PARTY_SELECTOR = ChatColor.GOLD + "Party Activities";
@@ -345,7 +346,7 @@ public class HubManager implements Listener {
         boolean isNormal = e.getView().getTitle().startsWith(GUI_TITLE_PREFIX);
         boolean isFfa = e.getView().getTitle().startsWith(GUI_FFA_TITLE_PREFIX);
         boolean isPartyActivities = PARTY_ACTIVITIES_TITLE.equals(e.getView().getTitle());
-        boolean isMiniGames = (ChatColor.DARK_GRAY + "Mini Games").equals(e.getView().getTitle());
+        boolean isMiniGames = GUI_MINI_GAMES_TITLE.equals(e.getView().getTitle());
         if (!isNormal && !isFfa && !isPartyActivities && !isMiniGames) return;
         e.setCancelled(true);
 
@@ -405,12 +406,12 @@ public class HubManager implements Listener {
         }
 
         if (isMiniGames) {
-            if (slot == 15) {
+            if (slot == SLOT_CLOSE) {
                 player.closeInventory();
                 openPage(player, playerPage.getOrDefault(player.getUniqueId(), 0));
                 return;
             }
-            if (slot == 11) {
+            if (slot == CRYSTAL_SLOT) {
                 player.closeInventory();
                 Craftmen.get().getHideSeekManager().join(player);
                 return;
@@ -582,14 +583,14 @@ public class HubManager implements Listener {
         page = Math.max(0, Math.min(page, 0));
         miniGamesPage.put(player.getUniqueId(), page);
 
-        String title = ChatColor.DARK_GRAY + "Mini Games";
-        Inventory inv = Bukkit.createInventory(null, 27, title);
+        Inventory inv = Bukkit.createInventory(null, INV_SIZE, GUI_MINI_GAMES_TITLE);
+        fillBorder(inv);
 
-        ItemStack pane = makeBorderPane();
-        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, pane);
+        // Centered content
+        inv.setItem(CRYSTAL_SLOT, makeMiniGameHideAndSeekItem());
 
-        inv.setItem(11, makeMiniGameHideAndSeekItem());
-        inv.setItem(15, makeMiniGamesBackItem());
+        // Navigation row (match style of other menus)
+        inv.setItem(SLOT_CLOSE, makeMiniGamesBackItem());
 
         player.openInventory(inv);
     }
@@ -762,8 +763,8 @@ public class HubManager implements Listener {
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(GUI_MINI_GAMES_NAME);
         meta.setLore(Arrays.asList(
-                "Â§7Custom, non-kit mini games.",
-                "Â§7Hide & Seek and more."
+                ChatColor.GRAY + "Custom, non-kit mini games.",
+                ChatColor.GRAY + "Hide & Seek and more."
         ));
         item.setItemMeta(meta);
         return item;
@@ -774,9 +775,9 @@ public class HubManager implements Listener {
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(ChatColor.GREEN + "Hide & Seek");
         meta.setLore(Arrays.asList(
-                "Â§7One seeker hunts the hiders.",
-                "Â§7Tagged = out. Last hider wins.",
-                "Â§7Click to join (spectates if already running)."
+                ChatColor.GRAY + "One seeker hunts the hiders.",
+                ChatColor.GRAY + "Tagged = out. Last hider wins.",
+                ChatColor.GRAY + "Click to join (spectates if already running)."
         ));
         item.setItemMeta(meta);
         return item;
@@ -785,7 +786,7 @@ public class HubManager implements Listener {
     private ItemStack makeMiniGamesBackItem() {
         ItemStack item = new ItemStack(Material.ARROW);
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(ChatColor.YELLOW + "Back");
+        meta.setDisplayName(ChatColor.YELLOW + "Back to Kits");
         item.setItemMeta(meta);
         return item;
     }
