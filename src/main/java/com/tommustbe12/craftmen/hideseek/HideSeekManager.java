@@ -53,10 +53,8 @@ public class HideSeekManager {
     private final Set<UUID> outPlayers = new HashSet<>();
     private final Set<UUID> spectators = new HashSet<>();
     private final Map<UUID, Long> lastTauntMillis = new HashMap<>();
-    private final Map<UUID, Scoreboard> previousScoreboards = new HashMap<>();
+    private boolean loadingArena = false;
 
-    private Scoreboard hideScoreboard;
-    private Team hiddenNameTeam;
 
     private UUID seeker;
 
@@ -221,8 +219,6 @@ public class HideSeekManager {
             return;
         }
 
-        setupNameTagHiding();
-
         // Promote queued -> active
         activePlayers.clear();
         outPlayers.clear();
@@ -344,7 +340,7 @@ public class HideSeekManager {
             player.teleport(spawn.clone().add(0, 8, 0));
         }
         // Spectators should still not see hider nametags.
-        applyScoreboard(player);
+        applyHiddenNametagsForViewer(player);
         player.sendMessage(message);
     }
 
@@ -446,15 +442,12 @@ public class HideSeekManager {
         for (UUID id : toReturn) {
             Player p = Bukkit.getPlayer(id);
             if (p == null || !p.isOnline()) continue;
-            restoreScoreboard(p);
             Profile profile = Craftmen.get().getProfileManager().getProfile(p);
             if (profile != null) profile.setState(PlayerState.LOBBY);
             PlayerReset.resetToHub(p);
         }
 
-        previousScoreboards.clear();
-        hideScoreboard = null;
-        hiddenNameTeam = null;
+        clearHiddenNametags(toReturn);
 
         cleanupPastedArena();
         world = null;
@@ -479,40 +472,46 @@ public class HideSeekManager {
 
     private void ensureArenaLoaded() {
         if (arenaLoaded && world != null && spawn != null) return;
+        if (loadingArena) return;
+        loadingArena = true;
 
-        world = Craftmen.get().getHubLocation() != null ? Craftmen.get().getHubLocation().getWorld() : Bukkit.getWorld("world");
-        if (world == null) return;
+        try {
+            world = Craftmen.get().getHubLocation() != null ? Craftmen.get().getHubLocation().getWorld() : Bukkit.getWorld("world");
+            if (world == null) return;
 
-        File schematic = pickRandomSchematic();
-        if (schematic == null) return;
+            File schematic = pickRandomSchematic();
+            if (schematic == null) return;
 
-        cleanupPastedArena();
+            cleanupPastedArena();
 
-        Location origin = new Location(world,
-                BASE_PASTE_X + (worldId * INSTANCE_SPACING),
-                BASE_PASTE_Y,
-                BASE_PASTE_Z
-        );
+            Location origin = new Location(world,
+                    BASE_PASTE_X + (worldId * INSTANCE_SPACING),
+                    BASE_PASTE_Y,
+                    BASE_PASTE_Z
+            );
 
-        PasteResult paste = pasteSchematic(world, schematic, origin);
-        if (paste == null) return;
+            PasteResult paste = pasteSchematic(world, schematic, origin);
+            if (paste == null) return;
 
-        // Spawn is a fixed point relative to this map; don't rely on marker blocks.
-        spawn = new Location(world, SPAWN_X, SPAWN_Y, SPAWN_Z);
-        pasteOrigin = paste.origin;
-        // Use the true bounding box for cleanup.
-        if (paste.min != null && paste.max != null) {
-            // Store as origin + dimensions to reuse existing cleanup method.
-            pasteOrigin = paste.min;
-            pastedWidth = Math.abs(paste.max.getBlockX() - paste.min.getBlockX()) + 1;
-            pastedHeight = Math.abs(paste.max.getBlockY() - paste.min.getBlockY()) + 1;
-            pastedLength = Math.abs(paste.max.getBlockZ() - paste.min.getBlockZ()) + 1;
-        } else {
-            pastedWidth = paste.width;
-            pastedHeight = paste.height;
-            pastedLength = paste.length;
+            // Spawn is a fixed point relative to this map; don't rely on marker blocks.
+            spawn = new Location(world, SPAWN_X, SPAWN_Y, SPAWN_Z);
+            pasteOrigin = paste.origin;
+            // Use the true bounding box for cleanup.
+            if (paste.min != null && paste.max != null) {
+                // Store as origin + dimensions to reuse existing cleanup method.
+                pasteOrigin = paste.min;
+                pastedWidth = Math.abs(paste.max.getBlockX() - paste.min.getBlockX()) + 1;
+                pastedHeight = Math.abs(paste.max.getBlockY() - paste.min.getBlockY()) + 1;
+                pastedLength = Math.abs(paste.max.getBlockZ() - paste.min.getBlockZ()) + 1;
+            } else {
+                pastedWidth = paste.width;
+                pastedHeight = paste.height;
+                pastedLength = paste.length;
+            }
+            arenaLoaded = true;
+        } finally {
+            loadingArena = false;
         }
-        arenaLoaded = true;
     }
 
     private void broadcastToAll(String msg) {
@@ -526,53 +525,67 @@ public class HideSeekManager {
         }
     }
 
-    private void setupNameTagHiding() {
-        var mgr = Bukkit.getScoreboardManager();
-        if (mgr == null) return;
-        hideScoreboard = mgr.getNewScoreboard();
-        hiddenNameTeam = hideScoreboard.registerNewTeam("hs_hidden");
-        hiddenNameTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
-        // Keep collision normal; only hide nametags.
-    }
-
     private void applyHiddenNametags() {
-        if (hideScoreboard == null || hiddenNameTeam == null) return;
-
-        // Add all current hiders (not seeker) to the hidden team.
+        // Add all current hiders (not seeker) to a hidden-name team on every viewer's scoreboard.
+        List<String> hiderNames = new ArrayList<>();
         for (UUID id : activePlayers) {
             if (id.equals(seeker)) continue;
             Player p = Bukkit.getPlayer(id);
+            if (p != null) hiderNames.add(p.getName());
+        }
+
+        for (UUID viewerId : activePlayers) {
+            Player viewer = Bukkit.getPlayer(viewerId);
+            if (viewer != null) applyHiddenNametagsForViewer(viewer, hiderNames);
+        }
+        for (UUID viewerId : spectators) {
+            Player viewer = Bukkit.getPlayer(viewerId);
+            if (viewer != null) applyHiddenNametagsForViewer(viewer, hiderNames);
+        }
+        for (UUID viewerId : outPlayers) {
+            Player viewer = Bukkit.getPlayer(viewerId);
+            if (viewer != null) applyHiddenNametagsForViewer(viewer, hiderNames);
+        }
+    }
+
+    private void applyHiddenNametagsForViewer(Player viewer) {
+        applyHiddenNametagsForViewer(viewer, null);
+    }
+
+    private void applyHiddenNametagsForViewer(Player viewer, List<String> hiderNames) {
+        if (viewer == null) return;
+        Scoreboard board = viewer.getScoreboard();
+        if (board == null) return;
+
+        Team team = board.getTeam("hs_hidden");
+        if (team == null) team = board.registerNewTeam("hs_hidden");
+        team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+
+        if (hiderNames == null) {
+            hiderNames = new ArrayList<>();
+            for (UUID id : activePlayers) {
+                if (id.equals(seeker)) continue;
+                Player p = Bukkit.getPlayer(id);
+                if (p != null) hiderNames.add(p.getName());
+            }
+        }
+
+        for (String name : hiderNames) team.addEntry(name);
+    }
+
+    private void clearHiddenNametags(Collection<UUID> players) {
+        for (UUID id : players) {
+            Player p = Bukkit.getPlayer(id);
             if (p == null) continue;
-            hiddenNameTeam.addEntry(p.getName());
-        }
-
-        // Everyone involved should use this scoreboard so the nametag rule applies.
-        for (UUID id : activePlayers) {
-            Player p = Bukkit.getPlayer(id);
-            if (p != null) applyScoreboard(p);
-        }
-        for (UUID id : spectators) {
-            Player p = Bukkit.getPlayer(id);
-            if (p != null) applyScoreboard(p);
-        }
-        for (UUID id : outPlayers) {
-            Player p = Bukkit.getPlayer(id);
-            if (p != null) applyScoreboard(p);
-        }
-    }
-
-    private void applyScoreboard(Player player) {
-        if (player == null) return;
-        if (hideScoreboard == null) return;
-        previousScoreboards.putIfAbsent(player.getUniqueId(), player.getScoreboard());
-        player.setScoreboard(hideScoreboard);
-    }
-
-    private void restoreScoreboard(Player player) {
-        if (player == null) return;
-        Scoreboard prev = previousScoreboards.remove(player.getUniqueId());
-        if (prev != null) {
-            player.setScoreboard(prev);
+            Scoreboard board = p.getScoreboard();
+            if (board == null) continue;
+            Team team = board.getTeam("hs_hidden");
+            if (team != null) {
+                try {
+                    team.unregister();
+                } catch (IllegalStateException ignored) {
+                }
+            }
         }
     }
 
