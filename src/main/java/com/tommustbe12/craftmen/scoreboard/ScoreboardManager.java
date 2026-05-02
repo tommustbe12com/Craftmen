@@ -9,8 +9,8 @@ import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
+import org.bukkit.scheduler.BukkitRunnable;
 
-import java.util.Locale;
 
 public class ScoreboardManager {
 
@@ -38,7 +38,6 @@ public class ScoreboardManager {
 
         ensureSidebarObjective(board);
         ensureHealthObjective(board);
-        forceHealthLine(board, player);
         update(player);
     }
 
@@ -70,7 +69,6 @@ public class ScoreboardManager {
         if (sidebar == null) return;
 
         ensureHealthObjective(board);
-        forceHealthLine(board, player);
 
         // Hide & Seek: keep nametags hidden by ensuring the hs_hidden team exists on this player's board.
         if (Craftmen.get().getHideSeekManager() != null && Craftmen.get().getHideSeekManager().isInGame(player)) {
@@ -120,24 +118,24 @@ public class ScoreboardManager {
         if (currentBelow == null || HEALTH_OBJECTIVE.equals(currentBelow.getName())) {
             ours.setDisplaySlot(DisplaySlot.BELOW_NAME);
         }
+
+        // Some clients/plugins don't render below-name health until a later tick.
+        // Re-assert the display slot shortly after creation/update (scores are read-only for health criteria).
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                Objective o = board.getObjective(HEALTH_OBJECTIVE);
+                if (o != null) {
+                    Objective current = board.getObjective(DisplaySlot.BELOW_NAME);
+                    if (current == null || HEALTH_OBJECTIVE.equals(current.getName())) {
+                        o.setDisplaySlot(DisplaySlot.BELOW_NAME);
+                    }
+                }
+            }
+        }.runTaskLater(Craftmen.get(), 2L);
     }
 
-    private void forceHealthLine(Scoreboard board, Player player) {
-        if (board == null || player == null) return;
-        Objective health = board.getObjective(HEALTH_OBJECTIVE);
-        if (health == null) return;
 
-        // Some setups show 0 until the first damage/regen event. Force an initial score write.
-        int hp = (int) Math.ceil(player.getHealth());
-        String entry = player.getName();
-        if (entry == null) return;
-        entry = entry.length() > 40 ? entry.substring(0, 40) : entry;
-        try {
-            health.getScore(entry).setScore(hp);
-        } catch (IllegalArgumentException ignored) {
-            // If another plugin uses a different entry scheme, just skip rather than error spam.
-        }
-    }
 
     private void clearFromBoard(Scoreboard board) {
         if (board == null) return;
