@@ -8,5 +8,8 @@ public enum PlayerState {
     COUNTDOWN, // player frozen, PvP disabled
     IN_MATCH, // player can move and PvP works
     CUSTOM_KIT_PLAYING, // hub-only player kit duel
-    FFA_FIGHTING // currently in an FFA arena instance
+    FFA_FIGHTING, // currently in an FFA arena instance
+    HIDESEEK_QUEUED,
+    HIDESEEK_PLAYING,
+    HIDESEEK_SPECTATING
 }

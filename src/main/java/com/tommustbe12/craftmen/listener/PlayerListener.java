@@ -103,6 +103,11 @@ public class PlayerListener implements Listener {
         // remove from q if they are in it
         Craftmen.get().getQueueManager().removePlayer(player);
 
+        // Remove from Hide & Seek if queued/playing/spectating
+        if (Craftmen.get().getHideSeekManager().isInGame(player)) {
+            Craftmen.get().getHideSeekManager().remove(player, true);
+        }
+
         // save cleanup
         Craftmen.get().saveProfile(Craftmen.get().getProfileManager().getProfile(player));
         Craftmen.get().getScoreboardManager().remove(player);

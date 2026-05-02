@@ -22,6 +22,8 @@ import com.tommustbe12.craftmen.cosmetics.listener.KillDeathCosmeticsListener;
 import com.tommustbe12.craftmen.cosmetics.CosmeticsDamageListener;
 import com.tommustbe12.craftmen.help.HelpMenu;
 import com.tommustbe12.craftmen.help.command.HelpCommand;
+import com.tommustbe12.craftmen.hideseek.HideSeekListener;
+import com.tommustbe12.craftmen.hideseek.HideSeekManager;
 import com.tommustbe12.craftmen.hub.HubManager;
 import com.tommustbe12.craftmen.hub.SpawnProtectionListener;
 import com.tommustbe12.craftmen.hub.HubInventoryLockListener;
@@ -82,6 +84,7 @@ public final class Craftmen extends JavaPlugin {
     private ScoreboardManager scoreboardManager;
     private HubManager hubManager;
     private EndFightManager endFightManager;
+    private HideSeekManager hideSeekManager;
     private KitManager kitManager;
     private KitEditorMenu kitEditorMenu;
     private ArmorTrimManager armorTrimManager;
@@ -135,6 +138,7 @@ public final class Craftmen extends JavaPlugin {
         scoreboardManager = new ScoreboardManager();
         hubManager = new HubManager();
         endFightManager = new EndFightManager(this);
+        hideSeekManager = new HideSeekManager(this);
         kitManager = new KitManager(new KitStorage(this));
         kitEditorMenu = new KitEditorMenu(kitManager);
         armorTrimManager = new ArmorTrimManager(new ArmorTrimStorage(this));
@@ -185,6 +189,7 @@ public final class Craftmen extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new HungerListener(), this);
         getServer().getPluginManager().registerEvents(new BlockListener(), this);
         getServer().getPluginManager().registerEvents(new EndFightListener(endFightManager), this);
+        getServer().getPluginManager().registerEvents(new HideSeekListener(hideSeekManager), this);
         getServer().getPluginManager().registerEvents(new PlayerDropListener(), this);
         getServer().getPluginManager().registerEvents(new EndermiteSpawnListener(), this);
         getServer().getPluginManager().registerEvents(new CountdownBlockListener(), this);
@@ -286,6 +291,7 @@ public final class Craftmen extends JavaPlugin {
     public ScoreboardManager getScoreboardManager() { return scoreboardManager; }
     public HubManager getHubManager() { return hubManager; }
     public EndFightManager getEndFightManager() { return endFightManager; }
+    public HideSeekManager getHideSeekManager() { return hideSeekManager; }
     public KitManager getKitManager() { return kitManager; }
     public KitEditorMenu getKitEditorMenu() { return kitEditorMenu; }
     public ArmorTrimManager getArmorTrimManager() { return armorTrimManager; }

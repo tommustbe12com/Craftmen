@@ -29,6 +29,11 @@ public class CombatListener implements Listener {
             return;
         }
 
+        // Allow hit events in Hide & Seek (damage is cancelled in HideSeekListener; hits are used as tags).
+        if (Craftmen.get().getHideSeekManager().allowCombat(damager, damaged)) {
+            return;
+        }
+
         PlayerState damagedState = Craftmen.get().getProfileManager().getProfile(damaged).getState();
         PlayerState damagerState = Craftmen.get().getProfileManager().getProfile(damager).getState();
 

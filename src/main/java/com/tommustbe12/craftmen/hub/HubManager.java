@@ -33,6 +33,7 @@ public class HubManager implements Listener {
     private static final String GUI_FFA_TITLE_PREFIX = ChatColor.DARK_GRAY + "FFA: Select a Kit";
     private static final String GUI_PLAYER_KITS_NAME = ChatColor.AQUA + "Player Kits";
     private static final String GUI_FFA_NAME = ChatColor.RED + "FFA";
+    private static final String GUI_MINI_GAMES_NAME = ChatColor.LIGHT_PURPLE + "Mini Games";
 
     private static final String HUB_ITEM_GAME_SELECTOR = ChatColor.GOLD + "Game Selector";
     private static final String HUB_ITEM_PARTY_SELECTOR = ChatColor.GOLD + "Party Activities";
@@ -63,6 +64,7 @@ public class HubManager implements Listener {
     private static final int SLOT_NEXT = 52;
     private static final int SLOT_PLAYER_KITS = 50;
     private static final int SLOT_FFA = 48;
+    private static final int SLOT_MINI_GAMES = 47;
 
     private static final int CRYSTAL_SLOT = 22;
 
@@ -70,6 +72,7 @@ public class HubManager implements Listener {
     private final Map<UUID, Consumer<Game>> gameCallbacks = new HashMap<>();
     private final Map<UUID, Integer> ffaPage = new HashMap<>();
     private final Map<String, Long> gadgetCooldowns = new HashMap<>(); // playerUuid:gadgetKey -> lastUseMillis
+    private final Map<UUID, Integer> miniGamesPage = new HashMap<>();
 
     // ── Hub item helpers ─────────────────────────────────────────────────────
 
@@ -342,7 +345,8 @@ public class HubManager implements Listener {
         boolean isNormal = e.getView().getTitle().startsWith(GUI_TITLE_PREFIX);
         boolean isFfa = e.getView().getTitle().startsWith(GUI_FFA_TITLE_PREFIX);
         boolean isPartyActivities = PARTY_ACTIVITIES_TITLE.equals(e.getView().getTitle());
-        if (!isNormal && !isFfa && !isPartyActivities) return;
+        boolean isMiniGames = (ChatColor.DARK_GRAY + "Mini Games").equals(e.getView().getTitle());
+        if (!isNormal && !isFfa && !isPartyActivities && !isMiniGames) return;
         e.setCancelled(true);
 
         if (!(e.getWhoClicked() instanceof Player)) return;
@@ -391,6 +395,26 @@ public class HubManager implements Listener {
         if (isNormal && slot == SLOT_FFA) {
             player.closeInventory();
             openFfaSelector(player, 0);
+            return;
+        }
+
+        if (isNormal && slot == SLOT_MINI_GAMES) {
+            player.closeInventory();
+            openMiniGamesMenu(player, 0);
+            return;
+        }
+
+        if (isMiniGames) {
+            if (slot == 15) {
+                player.closeInventory();
+                openPage(player, playerPage.getOrDefault(player.getUniqueId(), 0));
+                return;
+            }
+            if (slot == 11) {
+                player.closeInventory();
+                Craftmen.get().getHideSeekManager().join(player);
+                return;
+            }
             return;
         }
 
@@ -528,6 +552,7 @@ public class HubManager implements Listener {
         inv.setItem(SLOT_CLOSE, makeBarrier());
         inv.setItem(SLOT_PLAYER_KITS, makePlayerKitsButton());
         inv.setItem(SLOT_FFA, makeFfaButton());
+        inv.setItem(SLOT_MINI_GAMES, makeMiniGamesButton());
 
         if (page == 0) {
             // Page 1: ordered kits in row 1 (slots 10-16), Crystal centered in row 2 (slot 22)
@@ -549,6 +574,22 @@ public class HubManager implements Listener {
                 inv.setItem(CONTENT_SLOTS[i], makeGameItem(extraGames.get(gameIndex)));
             }
         }
+
+        player.openInventory(inv);
+    }
+
+    private void openMiniGamesMenu(Player player, int page) {
+        page = Math.max(0, Math.min(page, 0));
+        miniGamesPage.put(player.getUniqueId(), page);
+
+        String title = ChatColor.DARK_GRAY + "Mini Games";
+        Inventory inv = Bukkit.createInventory(null, 27, title);
+
+        ItemStack pane = makeBorderPane();
+        for (int i = 0; i < inv.getSize(); i++) inv.setItem(i, pane);
+
+        inv.setItem(11, makeMiniGameHideAndSeekItem());
+        inv.setItem(15, makeMiniGamesBackItem());
 
         player.openInventory(inv);
     }
@@ -714,6 +755,39 @@ public class HubManager implements Listener {
         meta.setDisplayName(ChatColor.RED + "Close");
         barrier.setItemMeta(meta);
         return barrier;
+    }
+
+    private ItemStack makeMiniGamesButton() {
+        ItemStack item = new ItemStack(Material.ENDER_EYE);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(GUI_MINI_GAMES_NAME);
+        meta.setLore(Arrays.asList(
+                "Â§7Custom, non-kit mini games.",
+                "Â§7Hide & Seek and more."
+        ));
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack makeMiniGameHideAndSeekItem() {
+        ItemStack item = new ItemStack(Material.SPYGLASS);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.GREEN + "Hide & Seek");
+        meta.setLore(Arrays.asList(
+                "Â§7One seeker hunts the hiders.",
+                "Â§7Tagged = out. Last hider wins.",
+                "Â§7Click to join (spectates if already running)."
+        ));
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack makeMiniGamesBackItem() {
+        ItemStack item = new ItemStack(Material.ARROW);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(ChatColor.YELLOW + "Back");
+        item.setItemMeta(meta);
+        return item;
     }
 
     private ItemStack makeGameItem(Game game) {

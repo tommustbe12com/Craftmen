@@ -35,6 +35,10 @@ public class HubCommand implements CommandExecutor {
             Craftmen.get().getEndFightManager().removePlayer(player);
         }
 
+        if (Craftmen.get().getHideSeekManager().isInGame(player)) {
+            Craftmen.get().getHideSeekManager().remove(player, true);
+        }
+
         // Leaving FFA should always clear inventory/state first.
         if (Craftmen.get().getFfaManager().isInFfa(player)) {
             Craftmen.get().getFfaManager().leave(player, true);
