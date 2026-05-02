@@ -621,18 +621,19 @@ public class HideSeekManager {
             int height = clipboard.getDimensions().getY();
             int length = clipboard.getDimensions().getZ();
 
-            // Compute actual pasted bounding box using clipboard min/max points (handles negative offsets).
-            BlockVector3 minP = clipboard.getMinimumPoint();
-            BlockVector3 maxP = clipboard.getMaximumPoint();
-            int minX = origin.getBlockX() + minP.getX();
-            int minY = origin.getBlockY() + minP.getY();
-            int minZ = origin.getBlockZ() + minP.getZ();
-            int maxX = origin.getBlockX() + maxP.getX();
-            int maxY = origin.getBlockY() + maxP.getY();
-            int maxZ = origin.getBlockZ() + maxP.getZ();
+            // Compute actual pasted bounding box using the same math as ArenaManager:
+            // minCorner = pasteLocation + (regionMin - clipboardOrigin)
+            BlockVector3 clipOrigin = clipboard.getOrigin();
+            BlockVector3 regMin = clipboard.getRegion().getMinimumPoint();
+            BlockVector3 regMax = clipboard.getRegion().getMaximumPoint();
+            BlockVector3 offset = regMin.subtract(clipOrigin);
 
-            Location min = new Location(world, Math.min(minX, maxX), Math.min(minY, maxY), Math.min(minZ, maxZ));
-            Location max = new Location(world, Math.max(minX, maxX), Math.max(minY, maxY), Math.max(minZ, maxZ));
+            Location min = origin.clone().add(offset.getX(), offset.getY(), offset.getZ());
+            Location max = min.clone().add(
+                    regMax.getX() - regMin.getX(),
+                    regMax.getY() - regMin.getY(),
+                    regMax.getZ() - regMin.getZ()
+            );
 
             // Find an iron block spawn inside pasted bounds.
             Location iron = findFirstBlockInBox(world, min, max, Material.IRON_BLOCK);
