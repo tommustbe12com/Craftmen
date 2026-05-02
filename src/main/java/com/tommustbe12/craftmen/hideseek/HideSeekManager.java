@@ -36,6 +36,7 @@ public class HideSeekManager {
     private static final long PRE_START_WAIT_TICKS = 30L * 20L;
     private static final long HIDERS_HIDE_TICKS = 20L * 20L;
     private static final long TAUNT_COOLDOWN_MILLIS = 10_000L;
+    private static final long GAME_TIME_LIMIT_TICKS = 10L * 60L * 20L;
     // Reserved paste region in the main world (kept far from other arenas).
     private static final int BASE_PASTE_X = 10000;
     private static final int BASE_PASTE_Y = 80;
@@ -57,6 +58,7 @@ public class HideSeekManager {
 
 
     private UUID seeker;
+    private boolean seekerReleased = false;
 
     private boolean starting = false;
     private boolean running = false;
@@ -71,6 +73,8 @@ public class HideSeekManager {
     private boolean arenaLoaded = false;
 
     private BukkitRunnable startTask;
+    private BukkitRunnable nametagTask;
+    private BukkitRunnable timeLimitTask;
 
     public HideSeekManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -86,7 +90,7 @@ public class HideSeekManager {
         if (damager == null || damaged == null) return false;
         UUID a = damager.getUniqueId();
         UUID b = damaged.getUniqueId();
-        return running && activePlayers.contains(a) && activePlayers.contains(b);
+        return running && seekerReleased && activePlayers.contains(a) && activePlayers.contains(b);
     }
 
     public boolean isSeeker(Player player) {
@@ -107,12 +111,13 @@ public class HideSeekManager {
         PlayerReset.clearTransientState(player);
         player.getInventory().clear();
 
+        ensureWorldAndSpawn();
+
         if (running) {
             addSpectator(player, ChatColor.GREEN + "Joined Hide & Seek as a spectator.");
             return;
         }
 
-        ensureArenaLoaded();
         if (spawn != null) {
             prepareForQueue(player);
             player.teleport(spawn);
@@ -128,7 +133,7 @@ public class HideSeekManager {
         profile.setState(PlayerState.HIDESEEK_QUEUED);
         player.sendMessage(ChatColor.LIGHT_PURPLE + "Queued for Hide & Seek.");
 
-        if (queuedPlayers.size() >= 2 && !starting) {
+        if (queuedPlayers.size() >= 2 && !starting && !running) {
             beginPreStartCountdown();
         } else if (queuedPlayers.size() < 2) {
             player.sendMessage(ChatColor.GRAY + "Need at least 2 players to start.");
@@ -159,6 +164,7 @@ public class HideSeekManager {
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         if (profile != null) profile.setState(PlayerState.LOBBY);
+        PlayerReset.resetToHub(player);
 
         if (forfeit && running) {
             if (seeker != null && seeker.equals(id)) {
@@ -171,17 +177,14 @@ public class HideSeekManager {
 
         if (!running && starting && queuedPlayers.size() < 2) {
             cancelPreStartCountdown();
-            // If no one is queued anymore, clear the waiting arena paste.
-            if (queuedPlayers.isEmpty()) {
-                cleanupPastedArena();
-            }
         }
     }
 
     private void beginPreStartCountdown() {
         starting = true;
-        broadcastToAll(ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "Hide & Seek match starting soon!");
-        broadcastToAll(ChatColor.GRAY + "Join now from the Mini Games menu to participate.");
+        Bukkit.broadcastMessage(ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "Hide & Seek starting in 30 seconds!");
+        Bukkit.broadcastMessage(ChatColor.GRAY + "Join from Queue -> Mini Games to play (spectates if already running).");
+        broadcastToQueued(ChatColor.GRAY + "Starting in " + ChatColor.AQUA + "30" + ChatColor.GRAY + " seconds...");
 
         startTask = new BukkitRunnable() {
             @Override
@@ -196,6 +199,24 @@ public class HideSeekManager {
             }
         };
         startTask.runTaskLater(plugin, PRE_START_WAIT_TICKS);
+
+        scheduleCountdownMessage(20L * 20L, 10);
+        scheduleCountdownMessage(25L * 20L, 5);
+        scheduleCountdownMessage(26L * 20L, 4);
+        scheduleCountdownMessage(27L * 20L, 3);
+        scheduleCountdownMessage(28L * 20L, 2);
+        scheduleCountdownMessage(29L * 20L, 1);
+    }
+
+    private void scheduleCountdownMessage(long delayTicks, int secondsLeft) {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!starting) return;
+                if (queuedPlayers.size() < 2) return;
+                broadcastToQueued(ChatColor.GRAY + "Starting in " + ChatColor.AQUA + secondsLeft + ChatColor.GRAY + "...");
+            }
+        }.runTaskLater(plugin, delayTicks);
     }
 
     private void cancelPreStartCountdown() {
@@ -210,14 +231,10 @@ public class HideSeekManager {
     private void startMatchNow() {
         starting = false;
         running = true;
+        seekerReleased = false;
 
         worldId++;
-        ensureArenaLoaded();
-        if (world == null || spawn == null) {
-            broadcastToQueued(ChatColor.RED + "Hide & Seek map failed to load.");
-            endGame();
-            return;
-        }
+        ensureWorldAndSpawn();
 
         // Promote queued -> active
         activePlayers.clear();
@@ -274,8 +291,8 @@ public class HideSeekManager {
             if (p != null) giveHiderItems(p);
         }
 
-        // Hide nametags for hiders from everyone (including seeker/spectators).
-        applyHiddenNametags();
+        // Remove nametags (enforced periodically so nothing can override it).
+        startNametagEnforcer();
 
         final UUID seekerIdSnapshot = seeker;
         new BukkitRunnable() {
@@ -288,9 +305,21 @@ public class HideSeekManager {
                     seekerP.sendTitle(ChatColor.RED + "READY OR NOT", ChatColor.YELLOW + "HERE I COME!", 0, 60, 10);
                     seekerP.playSound(seekerP.getLocation(), Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 1.2f);
                 }
+                seekerReleased = true;
                 broadcastToAll(ChatColor.GRAY + "Seeker released!");
             }
         }.runTaskLater(plugin, HIDERS_HIDE_TICKS);
+
+        if (timeLimitTask != null) timeLimitTask.cancel();
+        timeLimitTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!running) return;
+                broadcastToAll(ChatColor.GOLD + "Time's up! Hiders win!");
+                endGame();
+            }
+        };
+        timeLimitTask.runTaskLater(plugin, GAME_TIME_LIMIT_TICKS);
     }
 
     private void prepareForGame(Player player) {
@@ -420,10 +449,19 @@ public class HideSeekManager {
     public void endGame() {
         running = false;
         starting = false;
+        seekerReleased = false;
 
         if (startTask != null) {
             startTask.cancel();
             startTask = null;
+        }
+        if (timeLimitTask != null) {
+            timeLimitTask.cancel();
+            timeLimitTask = null;
+        }
+        if (nametagTask != null) {
+            nametagTask.cancel();
+            nametagTask = null;
         }
 
         List<UUID> toReturn = new ArrayList<>();
@@ -449,9 +487,7 @@ public class HideSeekManager {
 
         clearHiddenNametags(toReturn);
 
-        cleanupPastedArena();
-        world = null;
-        spawn = null;
+        // Arena stays placed; only clear runtime state.
     }
 
     private void cleanupPastedArena() {
@@ -471,34 +507,66 @@ public class HideSeekManager {
     }
 
     private void ensureArenaLoaded() {
-        if (arenaLoaded && world != null && spawn != null) return;
-        if (loadingArena) return;
-        loadingArena = true;
+        // Deprecated: arena is placed once via /placehs.
+    }
 
+    private void ensureWorldAndSpawn() {
+        if (world == null) {
+            world = Craftmen.get().getHubLocation() != null ? Craftmen.get().getHubLocation().getWorld() : Bukkit.getWorld("world");
+        }
+        if (world != null && spawn == null) {
+            spawn = new Location(world, SPAWN_X, SPAWN_Y, SPAWN_Z);
+        }
+    }
+
+    private final Map<Scoreboard, Map<String, Team.OptionStatus>> rememberedVisibility = new WeakHashMap<>();
+
+    private void rememberTeamVisibility(Scoreboard board, Team team) {
+        if (board == null || team == null) return;
+        Map<String, Team.OptionStatus> map = rememberedVisibility.computeIfAbsent(board, b -> new HashMap<>());
+        map.putIfAbsent(team.getName(), team.getOption(Team.Option.NAME_TAG_VISIBILITY));
+    }
+
+    private void restoreRememberedTeamVisibility() {
+        for (Map.Entry<Scoreboard, Map<String, Team.OptionStatus>> e : new ArrayList<>(rememberedVisibility.entrySet())) {
+            Scoreboard board = e.getKey();
+            Map<String, Team.OptionStatus> teams = e.getValue();
+            if (board == null || teams == null) continue;
+            for (Map.Entry<String, Team.OptionStatus> t : teams.entrySet()) {
+                Team team = board.getTeam(t.getKey());
+                if (team == null) continue;
+                try {
+                    team.setOption(Team.Option.NAME_TAG_VISIBILITY, t.getValue());
+                } catch (IllegalStateException ignored) {
+                }
+            }
+        }
+        rememberedVisibility.clear();
+    }
+
+    public boolean placeArena(Player admin) {
+        if (loadingArena) return false;
+        if (running || starting) return false;
+
+        loadingArena = true;
         try {
             world = Craftmen.get().getHubLocation() != null ? Craftmen.get().getHubLocation().getWorld() : Bukkit.getWorld("world");
-            if (world == null) return;
+            if (world == null) return false;
 
             File schematic = pickRandomSchematic();
-            if (schematic == null) return;
+            if (schematic == null) return false;
 
             cleanupPastedArena();
 
-            Location origin = new Location(world,
-                    BASE_PASTE_X + (worldId * INSTANCE_SPACING),
-                    BASE_PASTE_Y,
-                    BASE_PASTE_Z
-            );
-
+            Location origin = new Location(world, BASE_PASTE_X, BASE_PASTE_Y, BASE_PASTE_Z);
             PasteResult paste = pasteSchematic(world, schematic, origin);
-            if (paste == null) return;
+            if (paste == null) return false;
 
-            // Spawn is a fixed point relative to this map; don't rely on marker blocks.
             spawn = new Location(world, SPAWN_X, SPAWN_Y, SPAWN_Z);
+
+            // Save cleanup bounds (even though we don't expect to remove, it lets /placehs re-place cleanly).
             pasteOrigin = paste.origin;
-            // Use the true bounding box for cleanup.
             if (paste.min != null && paste.max != null) {
-                // Store as origin + dimensions to reuse existing cleanup method.
                 pasteOrigin = paste.min;
                 pastedWidth = Math.abs(paste.max.getBlockX() - paste.min.getBlockX()) + 1;
                 pastedHeight = Math.abs(paste.max.getBlockY() - paste.min.getBlockY()) + 1;
@@ -508,7 +576,13 @@ public class HideSeekManager {
                 pastedHeight = paste.height;
                 pastedLength = paste.length;
             }
+
             arenaLoaded = true;
+
+            if (admin != null) {
+                admin.sendMessage(ChatColor.LIGHT_PURPLE + "Placed Hide & Seek arena.");
+            }
+            return true;
         } finally {
             loadingArena = false;
         }
@@ -526,26 +600,46 @@ public class HideSeekManager {
     }
 
     private void applyHiddenNametags() {
-        // Add all current hiders (not seeker) to a hidden-name team on every viewer's scoreboard.
-        List<String> hiderNames = new ArrayList<>();
+        // Hide ALL participants' nametags from everyone (including spectators).
+        List<String> hiddenNames = new ArrayList<>();
         for (UUID id : activePlayers) {
-            if (id.equals(seeker)) continue;
             Player p = Bukkit.getPlayer(id);
-            if (p != null) hiderNames.add(p.getName());
+            if (p != null) hiddenNames.add(p.getName());
         }
 
         for (UUID viewerId : activePlayers) {
             Player viewer = Bukkit.getPlayer(viewerId);
-            if (viewer != null) applyHiddenNametagsForViewer(viewer, hiderNames);
+            if (viewer != null) applyHiddenNametagsForViewer(viewer, hiddenNames);
         }
         for (UUID viewerId : spectators) {
             Player viewer = Bukkit.getPlayer(viewerId);
-            if (viewer != null) applyHiddenNametagsForViewer(viewer, hiderNames);
+            if (viewer != null) applyHiddenNametagsForViewer(viewer, hiddenNames);
         }
         for (UUID viewerId : outPlayers) {
             Player viewer = Bukkit.getPlayer(viewerId);
-            if (viewer != null) applyHiddenNametagsForViewer(viewer, hiderNames);
+            if (viewer != null) applyHiddenNametagsForViewer(viewer, hiddenNames);
         }
+    }
+
+    private void startNametagEnforcer() {
+        if (nametagTask != null) nametagTask.cancel();
+        nametagTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!running) return;
+                applyHiddenNametags();
+            }
+        };
+        nametagTask.runTaskTimer(plugin, 1L, 40L);
+    }
+
+    public boolean shouldFreeze(Player player) {
+        return running && isSeeker(player) && !seekerReleased;
+    }
+
+    public void applyNametagHidingFor(Player viewer) {
+        if (!running) return;
+        applyHiddenNametagsForViewer(viewer);
     }
 
     private void applyHiddenNametagsForViewer(Player viewer) {
@@ -557,9 +651,9 @@ public class HideSeekManager {
         Scoreboard board = viewer.getScoreboard();
         if (board == null) return;
 
-        Team team = board.getTeam("hs_hidden");
-        if (team == null) team = board.registerNewTeam("hs_hidden");
-        team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+        // An entry can only be in ONE team per scoreboard. Players are often already in a rank/nametag team,
+        // and other systems will keep re-asserting that. If we try to move entries to our own team, nametags
+        // will flicker. Instead, force the EXISTING entry team (if any) to hide nametags.
 
         if (hiderNames == null) {
             hiderNames = new ArrayList<>();
@@ -570,10 +664,22 @@ public class HideSeekManager {
             }
         }
 
-        for (String name : hiderNames) team.addEntry(name);
+        for (String name : hiderNames) {
+            Team existing = board.getEntryTeam(name);
+            if (existing != null) {
+                rememberTeamVisibility(board, existing);
+                existing.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+            } else {
+                Team team = board.getTeam("hs_hidden");
+                if (team == null) team = board.registerNewTeam("hs_hidden");
+                team.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+                team.addEntry(name);
+            }
+        }
     }
 
     private void clearHiddenNametags(Collection<UUID> players) {
+        restoreRememberedTeamVisibility();
         for (UUID id : players) {
             Player p = Bukkit.getPlayer(id);
             if (p == null) continue;

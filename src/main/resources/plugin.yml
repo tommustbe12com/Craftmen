@@ -103,6 +103,9 @@ commands:
     description: Temporarily allow someone to build in spawn (until rejoin)
     usage: /buildallow <player>
     permission: craftmen.admin
+  placehs:
+    description: Place the Hide & Seek arena schematic once
+    usage: /placehs
   builder:
     description: Permanently allow someone to build in spawn
     usage: /builder add|remove <player>

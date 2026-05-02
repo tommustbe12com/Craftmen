@@ -18,6 +18,16 @@ public class MovementLockListener implements Listener {
         Player player = e.getPlayer();
         PlayerState state = Craftmen.get().getProfileManager().getProfile(player).getState();
 
+        // Hide & Seek: freeze seeker until released
+        if (Craftmen.get().getHideSeekManager().shouldFreeze(player)) {
+            Location from = e.getFrom();
+            Location to = e.getTo();
+            if (to != null && (from.getX() != to.getX() || from.getZ() != to.getZ())) {
+                e.setTo(new Location(from.getWorld(), from.getX(), to.getY(), from.getZ(), to.getYaw(), to.getPitch()));
+            }
+            return;
+        }
+
         // Countdown movement lock
         if (state == PlayerState.COUNTDOWN) {
             Location from = e.getFrom();

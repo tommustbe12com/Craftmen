@@ -10,6 +10,8 @@ import org.bukkit.scoreboard.Objective;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
+import java.util.Locale;
+
 public class ScoreboardManager {
 
     private static final String SIDEBAR_OBJECTIVE = "cm_sb";
@@ -36,6 +38,7 @@ public class ScoreboardManager {
 
         ensureSidebarObjective(board);
         ensureHealthObjective(board);
+        forceHealthLine(board, player);
         update(player);
     }
 
@@ -67,6 +70,12 @@ public class ScoreboardManager {
         if (sidebar == null) return;
 
         ensureHealthObjective(board);
+        forceHealthLine(board, player);
+
+        // Hide & Seek: keep nametags hidden by ensuring the hs_hidden team exists on this player's board.
+        if (Craftmen.get().getHideSeekManager() != null && Craftmen.get().getHideSeekManager().isInGame(player)) {
+            Craftmen.get().getHideSeekManager().applyNametagHidingFor(player);
+        }
 
         Profile profile = Craftmen.get().getProfileManager().getProfile(player);
         if (profile == null) return;
@@ -110,6 +119,23 @@ public class ScoreboardManager {
         Objective currentBelow = board.getObjective(DisplaySlot.BELOW_NAME);
         if (currentBelow == null || HEALTH_OBJECTIVE.equals(currentBelow.getName())) {
             ours.setDisplaySlot(DisplaySlot.BELOW_NAME);
+        }
+    }
+
+    private void forceHealthLine(Scoreboard board, Player player) {
+        if (board == null || player == null) return;
+        Objective health = board.getObjective(HEALTH_OBJECTIVE);
+        if (health == null) return;
+
+        // Some setups show 0 until the first damage/regen event. Force an initial score write.
+        int hp = (int) Math.ceil(player.getHealth());
+        String entry = player.getName();
+        if (entry == null) return;
+        entry = entry.length() > 40 ? entry.substring(0, 40) : entry;
+        try {
+            health.getScore(entry).setScore(hp);
+        } catch (IllegalArgumentException ignored) {
+            // If another plugin uses a different entry scheme, just skip rather than error spam.
         }
     }
 

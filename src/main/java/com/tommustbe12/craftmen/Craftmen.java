@@ -251,6 +251,7 @@ public final class Craftmen extends JavaPlugin {
 
         getCommand("buildallow").setExecutor(new BuildAllowCommand());
         getCommand("builder").setExecutor(new BuilderCommand());
+        getCommand("placehs").setExecutor(new PlaceHideSeekCommand());
 
         saveDefaultConfig();
         loadProfiles();
