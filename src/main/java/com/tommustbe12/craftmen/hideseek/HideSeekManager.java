@@ -25,6 +25,8 @@ import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.TextComponent;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -75,6 +77,8 @@ public class HideSeekManager {
     private BukkitRunnable startTask;
     private BukkitRunnable nametagTask;
     private BukkitRunnable timeLimitTask;
+    private BukkitRunnable actionbarTask;
+    private long matchEndAtMillis = 0L;
 
     public HideSeekManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -320,6 +324,9 @@ public class HideSeekManager {
             }
         };
         timeLimitTask.runTaskLater(plugin, GAME_TIME_LIMIT_TICKS);
+
+        matchEndAtMillis = System.currentTimeMillis() + (GAME_TIME_LIMIT_TICKS * 50L);
+        startActionbarTimer();
     }
 
     private void prepareForGame(Player player) {
@@ -463,6 +470,11 @@ public class HideSeekManager {
             nametagTask.cancel();
             nametagTask = null;
         }
+        if (actionbarTask != null) {
+            actionbarTask.cancel();
+            actionbarTask = null;
+        }
+        matchEndAtMillis = 0L;
 
         List<UUID> toReturn = new ArrayList<>();
         toReturn.addAll(activePlayers);
@@ -631,6 +643,45 @@ public class HideSeekManager {
             }
         };
         nametagTask.runTaskTimer(plugin, 1L, 40L);
+    }
+
+    private void startActionbarTimer() {
+        if (actionbarTask != null) actionbarTask.cancel();
+        actionbarTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!running) return;
+                long remainingMillis = Math.max(0L, matchEndAtMillis - System.currentTimeMillis());
+                int totalSeconds = (int) Math.ceil(remainingMillis / 1000.0);
+                int minutes = totalSeconds / 60;
+                int seconds = totalSeconds % 60;
+                String time = String.format("%d:%02d", minutes, seconds);
+
+                String msg = ChatColor.LIGHT_PURPLE.toString() + ChatColor.BOLD + "Hide & Seek"
+                        + ChatColor.DARK_GRAY + " | "
+                        + ChatColor.GRAY + "Time Left: "
+                        + ChatColor.AQUA + time;
+
+                sendActionbarToAll(msg);
+            }
+        };
+        actionbarTask.runTaskTimer(plugin, 0L, 20L);
+    }
+
+    private void sendActionbarToAll(String msg) {
+        TextComponent comp = new TextComponent(msg);
+        for (UUID id : activePlayers) {
+            Player p = Bukkit.getPlayer(id);
+            if (p != null) p.spigot().sendMessage(ChatMessageType.ACTION_BAR, comp);
+        }
+        for (UUID id : spectators) {
+            Player p = Bukkit.getPlayer(id);
+            if (p != null) p.spigot().sendMessage(ChatMessageType.ACTION_BAR, comp);
+        }
+        for (UUID id : outPlayers) {
+            Player p = Bukkit.getPlayer(id);
+            if (p != null) p.spigot().sendMessage(ChatMessageType.ACTION_BAR, comp);
+        }
     }
 
     public boolean shouldFreeze(Player player) {

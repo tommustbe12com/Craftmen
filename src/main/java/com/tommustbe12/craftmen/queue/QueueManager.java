@@ -82,8 +82,8 @@ public class QueueManager {
         // Disallow normal 1v1 queuing when the player is in a party.
         var party = Craftmen.get().getPartyManager().getParty(player);
         if (party != null) {
-            player.sendMessage("Â§cYou cannot queue normally while in a party.");
-            player.sendMessage("Â§7Have the party leader start Party FFA / Public FFA / End Fight.");
+            player.sendMessage("§cYou cannot queue normally while in a party.");
+            player.sendMessage("§7Have the party leader start Party FFA / Public FFA / End Fight.");
             return;
         }
 
@@ -93,7 +93,7 @@ public class QueueManager {
         Queue queue = queues.computeIfAbsent(game.getName(), k -> new Queue(game));
         queue.addPlayer(player);
         profile.setState(PlayerState.QUEUED);
-        player.sendMessage("Â§aYou joined the " + game.getName() + " queue!");
+        player.sendMessage("§aYou joined the " + game.getName() + " queue!");
 
         checkQueue(queue);
     }
@@ -119,7 +119,7 @@ public class QueueManager {
         if (arenas.isEmpty()) {
             for (Player p : players) {
                 if (p == null || !p.isOnline()) continue;
-                p.sendMessage("Â§cNo arena available for this game!");
+                p.sendMessage("§cNo arena available for this game!");
                 Profile profile = Craftmen.get().getProfileManager().getProfile(p);
                 if (profile != null) profile.setState(PlayerState.LOBBY);
                 PlayerReset.resetToHub(p);
